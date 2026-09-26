@@ -7,3 +7,8 @@ backend/dist/
 .DS_Store
 .neon
 .env.local
+.agents/
+.claude/
+skills-lock.json
+backend/seedMockReports.ts
+frontend/index.html.test
