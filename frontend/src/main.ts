@@ -77,6 +77,19 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
   return fetch(input, { ...init, headers });
 }
 
+export function isPlatformPath(): boolean {
+  try { return location.pathname === "/platform" || location.pathname.startsWith("/platform/"); }
+  catch { return false; }
+}
+
+/** Platform fetch: superadmin token, never a club slug. */
+export async function platformFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { ...((init.headers as any) || {}) };
+  const tok = localStorage.getItem("platform_token");
+  if (tok && !headers["Authorization"]) headers["Authorization"] = `Bearer ${tok}`;
+  return fetch(input, { ...init, headers });
+}
+
 function app() {
   return {
     view: "home" as string,
@@ -99,12 +112,12 @@ function app() {
     regForm: { username: "", email: "", mobile_code: defaultDialCode(), mobile_number: "", first_name: "", last_name: "", password: "" },
     countryCodes: DIAL_CODES,
     authError: "" as string,
-    bookings: [] as Array<{ id: string; courtId: string; court_id?: string; date: string; startTime: string; start_time?: string; endTime: string; end_time?: string; status: string; notes?: string; rentRacquets?: number; players?: number; courtNumber?: number; courtType?: string; courtName?: string }>,
+    bookings: [] as Array<{ id: string; courtId: string; court_id?: string; date: string; startTime: string; start_time?: string; endTime: string; end_time?: string; status: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number; courtNumber?: number; courtType?: string; courtName?: string }>,
     bookingsTab: "upcoming" as "upcoming" | "past" | "all",
     bookingsPastRange: "month" as "month" | "3months" | "6months",
     bookingsLoading: false as boolean,
     bookingsError: "" as string,
-    adminBookings: [] as Array<{ id: string; courtId: string; date: string; startTime: string; endTime: string; status: string; userId?: string; username?: string; notes?: string; rentRacquets?: number; players?: number }>,
+    adminBookings: [] as Array<{ id: string; courtId: string; date: string; startTime: string; endTime: string; status: string; userId?: string; username?: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number }>,
     adminUsers: [] as any[],
     adminUsersLoading: false as boolean,
     adminUsersError: "" as string,
@@ -138,6 +151,21 @@ function app() {
     clubDefaultLocale: "it" as string,
     clubsList: [] as Array<{ slug: string; name: string }>,
     clubsLoading: false as boolean,
+    clubCurrency: "EUR" as string,
+    // Platform (superadmin) area — separate auth, no club scope.
+    isPlatform: false as boolean,
+    platformUser: null as null | { id: string; username: string; role: string },
+    platformForm: { username: "", password: "" } as { username: string; password: string },
+    platformClubs: [] as any[],
+    platformLoading: false as boolean,
+    platformError: "" as string,
+    platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
+    platformAudit: [] as any[],
+    // Demo wizard (prospect self-service).
+    demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
+    demoResult: null as null | { slug: string; name: string; url: string; admin_username: string; admin_password: string; expires_at: string },
+    demoLoading: false as boolean,
+    demoError: "" as string,
     clubInfoLoading: false as boolean,
     clubInfoError: "" as string,
     clubInfoSuccess: "" as string,
@@ -146,7 +174,7 @@ function app() {
     adminCourtsLoading: false as boolean,
     adminCourtError: "" as string,
     adminCourtSuccess: "" as string,
-    adminCourtForm: { number: null as number | null, type: "tennis" as "tennis" | "padel", name: "", surface: "" } as { number: number | null; type: "tennis" | "padel"; name: string; surface: string },
+    adminCourtForm: { number: null as number | null, type: "tennis" as "tennis" | "padel", name: "", surface: "", price_eur: null as number | null } as { number: number | null; type: "tennis" | "padel"; name: string; surface: string; price_eur: number | null },
     editingCourtId: null as string | null,
     adminTimetableCourtId: "" as string,
     adminTimetableRows: [] as Array<{ dayOfWeek: number; openTime: string; closeTime: string; slotDurationMinutes: number; isClosed: boolean }>,
@@ -217,6 +245,22 @@ function app() {
     },
 
     async init() {
+      // Platform area has no club context.
+      if (isPlatformPath()) {
+        this.isPlatform = true;
+        this.lang = detectLang();
+        setLang(this.lang);
+        document.title = `${this.t("app.name")} — Platform`;
+        const ptok = localStorage.getItem("platform_token");
+        if (ptok) {
+          try {
+            const me = await (await platformFetch("/api/users/me", { headers: { Authorization: `Bearer ${ptok}` } })).json().catch(() => null);
+            if (me?.role === "superadmin") { this.platformUser = me; this.view = "platform-clubs"; this.loadPlatformClubs(); }
+            else { localStorage.removeItem("platform_token"); this.view = "platform-login"; }
+          } catch { this.view = "platform-login"; }
+        } else this.view = "platform-login";
+        return;
+      }
       // Club context: /c/:slug/ is canonical. Bare paths fall back to the
       // club directory (single club → auto-redirect).
       let slug = clubSlugFromPath();
@@ -601,6 +645,7 @@ function app() {
           status: r.status,
           notes: r.notes,
           rentRacquets: r.rentRacquets ?? r.rent_racquets ?? 0,
+          priceCents: r.priceCents ?? r.price_cents ?? 0,
           players: r.players ?? 2,
           courtNumber: r.courtNumber,
           courtType: r.courtType,
@@ -620,9 +665,9 @@ function app() {
       await this.loadAvailability();
     },
 
-    // Booking-date range for the admin queue (Europe/Rome, Monday-start weeks).
+    // Booking-date range for the admin queue (club timezone, Monday-start weeks).
     adminDateRange(): { from?: string; to?: string } {
-      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: this.clubTimezone || "Europe/Rome" });
       if (this.adminDateFilter === "today") return { from: today, to: today };
       if (this.adminDateFilter === "week") {
         const d = new Date(today + "T12:00:00Z");
@@ -671,6 +716,7 @@ function app() {
           username: r.username,
           notes: r.notes,
           rentRacquets: r.rentRacquets ?? r.rent_racquets ?? 0,
+          priceCents: r.priceCents ?? r.price_cents ?? 0,
           players: r.players ?? 2,
         }));
         // Jump to the highlighted booking's page (deep link), else clamp page.
@@ -807,6 +853,7 @@ function app() {
           this.clubSlug = info.slug || slug || "";
           setClubSlug(this.clubSlug || null);
           this.clubTimezone = info.timezone || "Europe/Rome";
+          this.clubCurrency = info.currency || "EUR";
           this.clubLocales = Array.isArray(info.locales) && info.locales.length ? info.locales : ["it", "en", "fr", "de", "es"];
           this.clubDefaultLocale = info.default_locale || this.clubLocales[0];
           // Per-club brand: header + title follow the club name.
@@ -974,16 +1021,16 @@ function app() {
       this.adminCourtError = ""; this.adminCourtSuccess = "";
       if (!this.adminCourtForm.number || !this.adminCourtForm.type) { this.adminCourtError = "Number and type required"; return; }
       const token = storedToken();
-      const res = await apiFetch("/api/courts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
+      const res = await apiFetch("/api/courts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null, base_price_cents: Math.max(0, Math.round(Number(this.adminCourtForm.price_eur || 0) * 100)) }) });
       if (!res.ok) { this.adminCourtError = await res.text(); return; }
       this.adminCourtSuccess = this.t("admin.courts.created");
-      this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "" };
+      this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "", price_eur: null };
       await this.loadAdminCourts(); await this.loadCourts();
     },
 
     startEditCourt(c: Court) {
       this.editingCourtId = c.id;
-      this.adminCourtForm = { number: c.number, type: c.type as any, name: c.name || "", surface: c.surface || "" };
+      this.adminCourtForm = { number: c.number, type: c.type as any, name: c.name || "", surface: c.surface || "", price_eur: c.base_price_cents ? Number(c.base_price_cents) / 100 : null };
     },
 
     cancelEditCourt() { this.editingCourtId = null; this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "" }; this.adminCourtError = ""; },
@@ -991,11 +1038,11 @@ function app() {
     async updateCourt() {
       if (!this.editingCourtId) return;
       const token = storedToken();
-      const res = await apiFetch(`/api/courts/${this.editingCourtId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
+      const res = await apiFetch(`/api/courts/${this.editingCourtId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null, base_price_cents: Math.max(0, Math.round(Number(this.adminCourtForm.price_eur || 0) * 100)) }) });
       if (!res.ok) { this.adminCourtError = await res.text(); return; }
       this.adminCourtSuccess = this.t("admin.courts.updated");
       this.editingCourtId = null;
-      this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "" };
+      this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "", price_eur: null };
       await this.loadAdminCourts(); await this.loadCourts();
     },
 
@@ -1513,6 +1560,117 @@ function app() {
       const token = storedToken();
       const res = await apiFetch("/api/telegram/unlink", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { this.telegramLinked = false; this.telegramLinkUrl = ""; }
+    },
+
+    fmtPrice(cents: any): string {
+      const v = Number(cents) || 0;
+      if (v <= 0) return "";
+      try {
+        return new Intl.NumberFormat(this.lang, { style: "currency", currency: this.clubCurrency || "EUR" }).format(v / 100);
+      } catch { return `${(v / 100).toFixed(2)} €`; }
+    },
+    priceForCourt(courtId: string): number {
+      const c = (this.courts || []).find((x: any) => String(x.id) === String(courtId)) || (this.adminCourts || []).find((x: any) => String(x.id) === String(courtId));
+      return Number((c as any)?.base_price_cents ?? 0) || 0;
+    },
+
+    // ---- Platform (superadmin) ----
+    async platformLogin() {
+      this.platformError = "";
+      try {
+        const body: any = { password: this.platformForm.password };
+        if (this.platformForm.username.includes("@")) body.email = this.platformForm.username; else body.username = this.platformForm.username;
+        const res = await platformFetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.user?.role !== "superadmin") { this.platformError = data.error || "login failed"; return; }
+        localStorage.setItem("platform_token", data.token);
+        this.platformUser = data.user;
+        this.view = "platform-clubs";
+        this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    platformLogout() {
+      localStorage.removeItem("platform_token");
+      this.platformUser = null;
+      this.view = "platform-login";
+    },
+    async loadPlatformClubs() {
+      this.platformLoading = true; this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/clubs");
+        if (!res.ok) throw new Error(await res.text());
+        this.platformClubs = await res.json();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+      finally { this.platformLoading = false; }
+    },
+    async createPlatformClub() {
+      this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/clubs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(this.platformNew) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || JSON.stringify(data); return; }
+        this.platformNew = { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" };
+        await this.loadPlatformClubs();
+        this.view = "platform-clubs";
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async savePlatformClub(c: any) {
+      this.platformError = "";
+      try {
+        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: c.plan, is_active: c.is_active, is_listed: c.is_listed }) });
+        if (!res.ok) this.platformError = await res.text();
+        else await this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async loadPlatformAudit() {
+      try {
+        const res = await platformFetch("/api/platform/audit");
+        if (res.ok) this.platformAudit = await res.json();
+      } catch {}
+    },
+    async ensureDemo() {
+      this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/demo/ensure", { method: "POST" });
+        if (!res.ok) this.platformError = await res.text();
+        else await this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async resetDemo() {
+      this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/clubs/demo/reset", { method: "POST" });
+        if (!res.ok) this.platformError = await res.text();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async cleanupDemos() {
+      this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/demo/cleanup", { method: "POST" });
+        if (!res.ok) this.platformError = await res.text();
+        else await this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+
+    // ---- Demo wizard (prospect self-service) ----
+    async surpriseDemoName() {
+      try {
+        const res = await apiFetch("/api/demo/names");
+        if (res.ok) {
+          const j = await res.json();
+          if (j.names?.length) this.demoForm.name = j.names[Math.floor(Math.random() * j.names.length)];
+        }
+      } catch {}
+    },
+    async startDemo() {
+      this.demoLoading = true; this.demoError = ""; this.demoResult = null;
+      try {
+        const res = await apiFetch("/api/demo/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ display_name: this.demoForm.name || null, courts: [{ type: "tennis", count: Number(this.demoForm.tennis) || 0 }, { type: "padel", count: Number(this.demoForm.padel) || 0 }] }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.demoError = data.error || "demo failed"; return; }
+        this.demoResult = data;
+      } catch (e: any) { this.demoError = e.message || String(e); }
+      finally { this.demoLoading = false; }
     },
 
     startEditBooking(b: any) {

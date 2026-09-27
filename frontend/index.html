@@ -75,8 +75,27 @@
   </nav>
 
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 md:pb-6">
-  <section x-show="view==='clubs'" class="space-y-4">
-  <h2 class="text-xl font-bold">BagelClub</h2>
+  <section x-show="view==='clubs'" class="space-y-6">
+  <div class="hero-gradient rounded-2xl p-8">
+  <h1 class="text-3xl font-bold md:text-4xl" x-text="t('landing.title')"></h1>
+  <p class="mt-2 max-w-xl/90" x-text="t('landing.sub')"></p>
+  <div class="mt-4 flex flex-wrap gap-2">
+  <a href="#demo" @click.prevent="view='demo'" class="inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('landing.tryDemo')"></a>
+  <a href="#clubs-dir" @click.prevent="document.getElementById('clubs-dir')?.scrollIntoView()" class="inline-block rounded-lg border border-white px-6 py-2 text-sm font-semibold text-white" x-text="t('landing.viewClubs')"></a>
+  </div>
+  </div>
+  <div class="grid gap-3 md:grid-cols-3">
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.f1')"></div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.f2')"></div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.f3')"></div></div>
+  </div>
+  <h2 class="text-xl font-bold" x-text="t('landing.pricing')"></h2>
+  <div class="grid gap-3 md:grid-cols-3">
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.pFree')"></div><div class="text-sm text-zinc-600" x-text="t('landing.pFreeD')"></div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.pStarter')"></div><div class="text-sm text-zinc-600" x-text="t('landing.pStarterD')"></div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.pPro')"></div><div class="text-sm text-zinc-600" x-text="t('landing.pProD')"></div></div>
+  </div>
+  <h2 class="text-xl font-bold" id="clubs-dir" x-text="t('landing.dir')"></h2>
   <div x-show="clubsLoading" class="text-sm text-zinc-500">…</div>
   <div class="space-y-3">
   <template x-for="c in clubsList" :key="c.slug">
@@ -87,6 +106,85 @@
   </template>
   </div>
   <div x-show="!clubsLoading && !clubsList.length" class="text-sm text-zinc-500">No clubs yet.</div>
+  </section>
+  <section x-show="view==='demo'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
+  <h2 class="text-lg font-bold" x-text="t('demo.title')"></h2>
+  <div x-show="!demoResult" class="space-y-3">
+  <label class="block text-sm font-medium" x-text="t('demo.name')"></label>
+  <div class="flex gap-2">
+  <input x-model="demoForm.name" class="flex-1 rounded-lg border px-3 py-2 text-sm" />
+  <button @click="surpriseDemoName()" class="rounded-lg border px-3 py-2 text-xs" x-text="t('demo.surprise')"></button>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+  <label class="block text-sm"><span x-text="t('demo.tennis')"></span><input x-model.number="demoForm.tennis" type="number" min="0" max="6" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('demo.padel')"></span><input x-model.number="demoForm.padel" type="number" min="0" max="6" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  </div>
+  <button @click="startDemo()" :disabled="demoLoading" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('demo.start')"></button>
+  <div x-show="demoError" class="text-sm text-red-600" x-text="demoError"></div>
+  </div>
+  <div x-show="demoResult" class="space-y-2 text-sm">
+  <div class="font-semibold" x-text="demoResult?.name"></div>
+  <div><span class="text-zinc-500" x-text="t('demo.user') + ': '"></span><span class="font-mono" x-text="demoResult?.admin_username"></span></div>
+  <div><span class="text-zinc-500" x-text="t('demo.pass') + ': '"></span><span class="font-mono" x-text="demoResult?.admin_password"></span></div>
+  <div class="text-xs text-zinc-500" x-text="t('demo.expires') + ': ' + demoResult?.expires_at"></div>
+  <a :href="demoResult?.url" class="inline-block rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-6 py-2 font-medium" x-text="t('demo.open')"></a>
+  </div>
+  </section>
+  <section x-show="view==='platform-login'" class="mx-auto max-w-sm space-y-4 rounded-xl border bg-white p-6">
+  <h2 class="text-lg font-bold" x-text="t('platform.title')"></h2>
+  <input x-model="platformForm.username" autocomplete="username" class="w-full rounded-lg border px-3 py-2 text-sm" />
+  <input x-model="platformForm.password" type="password" autocomplete="current-password" class="w-full rounded-lg border px-3 py-2 text-sm" />
+  <button @click="platformLogin()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 font-medium" x-text="t('platform.login')"></button>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line" x-text="platformError"></div>
+  </section>
+  <section x-show="view==='platform-clubs'" class="space-y-4">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+  <h2 class="text-xl font-bold" x-text="t('platform.clubs')"></h2>
+  <div class="flex gap-2">
+  <button @click="view='platform-new'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.new')"></button>
+  <button @click="view='platform-audit'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.audit')"></button>
+  <button @click="ensureDemo()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
+  <button @click="resetDemo()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
+  <button @click="cleanupDemos()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.cleanup')"></button>
+  <button @click="platformLogout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
+  </div>
+  </div>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
+  <div class="space-y-3">
+  <template x-for="c in platformClubs" :key="c.id">
+  <div class="rounded-xl border bg-white p-4">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+  <div><a :href="`/c/${c.slug}/`" class="font-semibold underline" x-text="`${c.name} · /c/${c.slug}/`"></a>
+  <div class="text-xs text-zinc-500" x-text="`${c.timezone} · ${c.plan} · courts ${c.counts?.courts ?? '?'} · users ${c.counts?.users ?? '?'} · bookings ${c.counts?.bookings ?? '?'}`"></div></div>
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+  <select x-model="c.plan" @change="savePlatformClub(c)" class="rounded-lg border px-2 py-1"><option value="free">free</option><option value="starter">starter</option><option value="pro">pro</option></select>
+  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_active" @change="savePlatformClub(c)" /><span x-text="t('platform.active')"></span></label>
+  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_listed" @change="savePlatformClub(c)" /><span x-text="t('platform.listed')"></span></label>
+  <button @click="savePlatformClub(c)" class="rounded-lg border px-2 py-1" x-text="t('platform.save')"></button>
+  </div>
+  </div>
+  </div>
+  </template>
+  </div>
+  </section>
+  <section x-show="view==='platform-new'" class="mx-auto max-w-md space-y-3 rounded-xl border bg-white p-6">
+  <h2 class="text-lg font-bold" x-text="t('platform.new')"></h2>
+  <label class="block text-sm"><span x-text="t('platform.name')"></span><input x-model="platformNew.name" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('platform.slug')"></span><input x-model="platformNew.slug" placeholder="auto" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('platform.timezone')"></span><input x-model="platformNew.timezone" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('platform.plan')"></span><select x-model="platformNew.plan" class="mt-1 w-full rounded-lg border px-3 py-2"><option value="free">free</option><option value="starter">starter</option><option value="pro">pro</option></select></label>
+  <label class="block text-sm"><span x-text="t('platform.adminUser')"></span><input x-model="platformNew.admin_username" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('platform.adminEmail')"></span><input x-model="platformNew.admin_email" type="email" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('platform.adminPass')"></span><input x-model="platformNew.admin_password" type="password" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <button @click="createPlatformClub()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 font-medium" x-text="t('platform.create')"></button>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line" x-text="platformError"></div>
+  <button @click="view='platform-clubs'" class="w-full text-sm text-zinc-600" x-text="t('platform.back')"></button>
+  </section>
+  <section x-show="view==='platform-audit'" class="space-y-3">
+  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.audit')"></h2><button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.back')"></button></div>
+  <template x-for="a in platformAudit" :key="a.id">
+  <div class="rounded-xl border bg-white p-3 text-xs"><span class="font-mono" x-text="a.created_at"></span><span class="font-semibold" x-text="' ' + a.action"></span><span x-text="' ' + (a.club_slug || a.target || '')"></span></div>
+  </template>
   </section>
   <section x-show="view==='home'" class="space-y-6">
    <div class="hero-gradient rounded-2xl p-8">
@@ -130,7 +228,7 @@
  <template x-for="court in filteredCourts()" :key="court.id">
  <div class="rounded-xl border bg-white p-4">
  <div class="flex items-center justify-between">
- <div><div class="font-semibold" x-text="`${court.name || `Court ${court.number}`} · ${court.type}`"></div><div class="text-xs text-zinc-500" x-text="court.name ? `#${court.number} · ${court.surface || court.type}` : (court.surface || '')"></div></div>
+  <div><div class="font-semibold" x-text="`${court.name || `Court ${court.number}`} · ${court.type}`"></div><div class="text-xs text-zinc-500" x-text="court.name ? `#${court.number} · ${court.surface || court.type}` : (court.surface || '')"></div><div class="text-xs font-medium text-emerald-700" x-show="fmtPrice(court.base_price_cents)" x-text="fmtPrice(court.base_price_cents) + ' / ' + t('price.slot')"></div></div>
  <span class="rounded-lg px-2 py-1 text-xs" :class="court.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100'"> <span x-text="court.is_active ? t('court.active') : t('court.inactive')"></span></span>
  </div>
  <div class="mt-3 grid grid-cols-4 gap-2">
@@ -161,8 +259,9 @@
  <div class="rounded-lg bg-zinc-50 p-4 border text-sm">
  <div class="font-semibold" x-text="pendingIntent?.courtLabel"></div>
  <div x-text="`${pendingIntent?.date} · ${pendingIntent?.startTime}`"></div>
- <div class="text-xs text-zinc-500" x-text="pendingIntent?.courtType ? (pendingIntent.courtType === 'padel' ? 'Padel' : 'Tennis') : ''"></div>
- </div>
+  <div class="text-xs text-zinc-500" x-text="pendingIntent?.courtType ? (pendingIntent.courtType === 'padel' ? 'Padel' : 'Tennis') : ''"></div>
+  <div class="text-sm font-semibold text-emerald-700" x-show="fmtPrice(priceForCourt(pendingIntent?.courtId))" x-text="t('price.total') + ': ' + fmtPrice(priceForCourt(pendingIntent?.courtId))"></div>
+  </div>
  <div class="space-y-1">
  <label class="text-sm font-medium" x-text="t('confirm.notes')"></label>
  <textarea x-model="confirmNotes" rows="3" maxlength="1000" :placeholder="t('confirm.notes')" class="w-full rounded-lg border px-3 py-2 text-sm"></textarea>
@@ -258,7 +357,7 @@
  <div>
  <div class="font-semibold" x-text="courtLabel(b)"></div>
  <div class="text-sm text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-  <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}`"></div>
+  <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${(b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''}`"></div>
   <div x-show="b.notes" class="mt-1 text-xs italic text-zinc-600" x-text="`&quot;${b.notes}&quot;`"></div>
   </div>
   <span class="rounded-lg px-2 py-1 text-xs font-medium" :class="statusClass(b.status)" x-text="t('status.'+b.status)"></span>
@@ -348,12 +447,13 @@
  </div>
  <div x-show="adminCourtError" class="text-xs text-red-600 mb-2" x-text="adminCourtError"></div>
  <div x-show="adminCourtSuccess" class="text-xs text-emerald-600 mb-2" x-text="adminCourtSuccess"></div>
- <div class="grid gap-2 md:grid-cols-4 mb-3">
- <input type="number" x-model.number="adminCourtForm.number" :placeholder="t('admin.courts.number')" class="rounded border px-2 py-1 text-sm" />
- <select x-model="adminCourtForm.type" class="rounded border px-2 py-1 text-sm"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
- <input x-model="adminCourtForm.name" :placeholder="t('admin.courts.namePlaceholder')" class="rounded border px-2 py-1 text-sm" />
- <input x-model="adminCourtForm.surface" :placeholder="t('admin.courts.surfacePlaceholder')" class="rounded border px-2 py-1 text-sm" />
- </div>
+  <div class="grid gap-2 md:grid-cols-5 mb-3">
+  <input type="number" x-model.number="adminCourtForm.number" :placeholder="t('admin.courts.number')" class="rounded border px-2 py-1 text-sm" />
+  <select x-model="adminCourtForm.type" class="rounded border px-2 py-1 text-sm"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
+  <input x-model="adminCourtForm.name" :placeholder="t('admin.courts.namePlaceholder')" class="rounded border px-2 py-1 text-sm" />
+  <input x-model="adminCourtForm.surface" :placeholder="t('admin.courts.surfacePlaceholder')" class="rounded border px-2 py-1 text-sm" />
+  <input type="number" min="0" step="0.5" x-model.number="adminCourtForm.price_eur" :placeholder="t('price.perSlot')" class="rounded border px-2 py-1 text-sm" />
+  </div>
  <div class="flex gap-2 mb-4">
  <button x-show="!editingCourtId" @click="createCourt()" class="rounded-lg bg-emerald-200 border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-300" x-text="t('btn.create')"></button>
  <template x-if="editingCourtId">
@@ -538,7 +638,7 @@
   <div class="grid gap-0.5 text-sm">
   <div class="font-semibold leading-tight" x-text="courtLabel(b)"></div>
   <div class="text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
+   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${(b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
   <div x-show="b.notes" class="text-xs italic text-zinc-600 bg-amber-50 px-2 py-1 rounded" x-text="b.notes"></div>
   </div>
   <div class="flex flex-col items-end gap-1.5">
