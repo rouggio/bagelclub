@@ -68,7 +68,7 @@
  </div>
  </header>
 
-  <nav class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
+  <nav x-show="clubSlug" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
   <a href="#courts" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.courts')"></a>
   <a href="#me" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.myBookings')"></a>
   <a href="#profile" x-show="user" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.profile')"></a>
