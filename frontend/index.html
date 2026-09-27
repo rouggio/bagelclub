@@ -35,6 +35,13 @@
    <a href="#admin-announcements" class="hover:text-black" x-text="t('admin.ann.title')"></a>
    </div>
   </template>
+  <template x-if="isPlatform && platformUser">
+  <div class="flex gap-6">
+  <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="hover:text-black" x-text="t('platform.clubs')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformAudit()" class="hover:text-black" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="hover:text-black" x-text="t('platform.reports')"></a>
+  </div>
+  </template>
    </nav>
    <!-- Mobile admin dropdown (top, mobile only) -->
     <div x-show="user?.role==='admin' && clubSlug" class="md:hidden relative">
@@ -80,6 +87,11 @@
   <a href="#courts" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.courts')"></a>
   <a href="#me" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.myBookings')"></a>
   <a href="#profile" x-show="user" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.profile')"></a>
+  </nav>
+  <nav x-show="isPlatform && platformUser" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
+  <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.clubs')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformAudit()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.reports')"></a>
   </nav>
 
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 md:pb-6">
@@ -141,8 +153,6 @@
   <h2 class="text-xl font-bold" x-text="t('platform.clubs')"></h2>
   <div class="flex gap-2">
   <button @click="view='platform-new'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.new')"></button>
-  <button @click="view='platform-settings'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.settings')"></button>
-  <button @click="view='platform-reports'; loadPlatformReports()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.reports')"></button>
   <button @click="platformLogout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
   </div>
   </div>
@@ -178,12 +188,7 @@
   <button @click="view='platform-clubs'" class="w-full text-sm text-zinc-600" x-text="t('platform.back')"></button>
   </section>
   <section x-show="view==='platform-settings'" class="space-y-4">
-  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2>
-  <div class="flex gap-2">
-  <button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.clubs')"></button>
-  <button @click="view='platform-reports'; loadPlatformReports()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.reports')"></button>
-  </div>
-  </div>
+  <h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2>
   <div class="flex flex-wrap gap-2">
   <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
   <button @click="resetDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
@@ -196,12 +201,7 @@
   </template>
   </section>
   <section x-show="view==='platform-reports'" class="space-y-4">
-  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.reports')"></h2>
-  <div class="flex gap-2">
-  <button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.clubs')"></button>
-  <button @click="view='platform-settings'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.settings')"></button>
-  </div>
-  </div>
+  <h2 class="text-xl font-bold" x-text="t('platform.reports')"></h2>
   <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
   <div x-show="platformReports" class="grid gap-3 md:grid-cols-4">
   <div class="rounded-xl border bg-white p-4"><div class="text-2xl font-bold" x-text="platformReports?.totals.clubs"></div><div class="text-xs text-zinc-500" x-text="t('platform.clubs')"></div></div>
