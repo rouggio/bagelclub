@@ -256,6 +256,10 @@ private club data.
    `pg_dump -Fc` + plain `.sql`, timestamped under `backups/<env>_YYYYMMDD_HHMM/`,
    verify (`pg_restore --list` / row counts), keep until Phase 1 migration is
    proven on a restore. No destructive migration without a green restore test.
+   Done 2026-09-27 → `Temp\opencode\backups_20260927_0233\`
+   (`local.dump/.sql` valid, 72 TOC entries; `neon.dump/.sql` valid, 75 TOC).
+   Baselines — local: users=3 courts=4 bookings=107 blocks=0 rules=2 settings=1;
+   Neon: users=3 courts=4 bookings=15 blocks=0 rules=6 settings=1.
 1. Schema + backfill migration, `clubs` table (incl. `slug` unique + reserved
    validation), per-club settings/timezone.
 2. Auth: club-scoped login/JWT/roles + superadmin.

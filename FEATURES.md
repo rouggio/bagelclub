@@ -11,7 +11,7 @@
 | 3 | i18n 5 langs + theme centralisation | ✅ | done | `MEMORY.md` §§3–4 |
 | 4 | Notifications (Telegram/WhatsApp, admin queue) | ✅ | done-ish | `SPEC.md` §4.4, `feat/notifications` |
 | 5 | Multitenancy core (clubs table, `club_id` scoping, per-club settings/timezone) | ✅ | planned | `MULTITENANT.md` §§1–5, Phases 0–4 |
-| 6 | Test coverage (vitest suites, endpoint + cross-club tests — added incrementally with each feature) | ✅ | ongoing policy | `MULTITENANT.md` Phase 4 |
+| 6 | Test coverage — catch up missing suites for shipped features (#1–4), then incremental with each new feature (vitest, endpoint + cross-club) | ✅ | ongoing, catch-up first | `MULTITENANT.md` Phase 4 |
 | 7 | Club slug — URI-compatible name + deep link (`/c/:slug/`) | ✅ | planned | `MULTITENANT.md` §6 |
 | 8 | Platform frontend (`/` landing + `/clubs` directory) | ✅ | planned | `MULTITENANT.md` §7, Phase 6 |
 | 9 | Platform admin (`superadmin`, `/api/platform/*`, `/platform` UI) | ✅ | planned | `MULTITENANT.md` §9, Phase 7 |
