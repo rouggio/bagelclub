@@ -39,6 +39,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         club_phone: s?.clubPhone || "",
         club_address: s?.clubAddress || "",
         slug: club.slug,
+        timezone: club.timezone,
         locales: enabled,
         default_locale: def,
       });

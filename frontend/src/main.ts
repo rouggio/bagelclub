@@ -24,6 +24,59 @@ declare global {
 
 type Court = { id: string; number: number; type: "tennis" | "padel"; name?: string; surface?: string; is_active: boolean };
 
+// ---- Multitenancy context (module-level so every fetch site shares it) ----
+export function clubSlugFromPath(): string | null {
+  try {
+    const m = location.pathname.match(/^\/c\/([a-z0-9-]{3,50})\/?/);
+    return m ? m[1].toLowerCase() : null;
+  } catch { return null; }
+}
+let currentClubSlug: string | null = clubSlugFromPath();
+export function getClubSlug(): string | null { return currentClubSlug; }
+export function setClubSlug(s: string | null) { currentClubSlug = s ? s.toLowerCase() : null; }
+
+function tokenKey(slug: string | null): string { return slug ? `token_${slug}` : "token"; }
+function intentKey(slug: string | null): string { return slug ? `pending_booking_intent_${slug}` : "pending_booking_intent"; }
+
+export function storedToken(): string | null {
+  const slug = getClubSlug();
+  return localStorage.getItem(tokenKey(slug)) || (slug ? storedToken() : null);
+}
+export function storeToken(t: string) {
+  localStorage.setItem(tokenKey(getClubSlug()), t);
+  clearToken(); // never keep a club-less copy
+}
+export function clearToken() {
+  const slug = getClubSlug();
+  localStorage.removeItem(tokenKey(slug));
+  clearToken();
+}
+export function storedIntent(): string | null {
+  const slug = getClubSlug();
+  return localStorage.getItem(intentKey(slug)) || (slug ? storedIntent() : null);
+}
+export function storeIntent(v: string) { localStorage.setItem(intentKey(getClubSlug()), v); }
+export function clearIntent() {
+  const slug = getClubSlug();
+  localStorage.removeItem(intentKey(slug));
+  clearIntent();
+}
+
+/** Central fetch: attaches X-Club-Slug + Authorization (namespaced token).
+ *  Call-site "Bearer null" placeholders (legacy global reads) are replaced. */
+export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { ...((init.headers as any) || {}) };
+  const slug = getClubSlug();
+  if (slug && !headers["X-Club-Slug"]) headers["X-Club-Slug"] = slug;
+  const auth = headers["Authorization"] || headers["authorization"];
+  if (!auth || /Bearer\s+(null|undefined|)$/.test(String(auth))) {
+    const tok = storedToken();
+    if (tok) headers["Authorization"] = `Bearer ${tok}`;
+    else { delete headers["Authorization"]; delete headers["authorization"]; }
+  }
+  return fetch(input, { ...init, headers });
+}
+
 function app() {
   return {
     view: "home" as string,
@@ -78,7 +131,13 @@ function app() {
     reportsData: null as null | { period: string; refDate: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }>; timeline: Array<{ label: string; startDate: string; endDate: string; count: number }> },
     reportsSliceData: null as null | { period: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }> },
     reportsSelectedLabel: "" as string,
-    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string },
+    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string },
+    clubSlug: "" as string,
+    clubTimezone: "Europe/Rome" as string,
+    clubLocales: [] as string[],
+    clubDefaultLocale: "it" as string,
+    clubsList: [] as Array<{ slug: string; name: string }>,
+    clubsLoading: false as boolean,
     clubInfoLoading: false as boolean,
     clubInfoError: "" as string,
     clubInfoSuccess: "" as string,
@@ -139,14 +198,16 @@ function app() {
     },
 
     async setLang(lang: Lang) {
+      // Single-locale clubs have no language UI; ignore anything outside the set.
+      if (this.clubLocales.length && !this.clubLocales.includes(lang)) return;
       this.lang = lang;
       setLang(lang);
       document.title = `${this.t("app.name")} — Tennis & Padel Booking`;
       this.loadAnnouncements();
       if (this.user) {
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         try {
-          await fetch("/api/users/me", {
+          await apiFetch("/api/users/me", {
             method: "PATCH",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ preferred_language: lang }),
@@ -156,25 +217,41 @@ function app() {
     },
 
     async init() {
+      // Club context: /c/:slug/ is canonical. Bare paths fall back to the
+      // club directory (single club → auto-redirect).
+      let slug = clubSlugFromPath();
+      if (!slug) {
+        const clubs = await this.loadClubsList();
+        if (clubs.length === 1) {
+          location.replace(`/c/${clubs[0].slug}/${location.hash || ""}`);
+          return;
+        }
+        this.view = "clubs";
+      } else {
+        setClubSlug(slug);
+        this.clubSlug = slug;
+      }
       this.lang = detectLang();
       setLang(this.lang);
       document.title = `${this.t("app.name")} — Tennis & Padel Booking`;
-      try { this.pendingIntent = JSON.parse(localStorage.getItem("pending_booking_intent") || "null"); } catch { this.pendingIntent = null; }
-      await this.loadClubInfo();
-      await this.loadCourts();
-      this.loadAnnouncements();
-      const token = localStorage.getItem("token");
+      try { this.pendingIntent = JSON.parse(storedIntent() || "null"); } catch { this.pendingIntent = null; }
+      if (this.clubSlug) {
+        await this.loadClubInfo();
+        await this.loadCourts();
+        this.loadAnnouncements();
+      }
+      const token = storedToken();
       if (token) {
         try {
-          let res: Response | null = await fetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
+          let res: Response | null = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
           if (res.status === 401) {
             // Access token expired (15m) — renew silently via the httpOnly
             // refresh cookie (7d sliding) instead of forcing a re-login.
             if (await this.refreshToken()) {
-              const t2 = localStorage.getItem("token");
-              res = await fetch("/api/users/me", { headers: { Authorization: `Bearer ${t2}` } });
+              const t2 = storedToken();
+              res = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${t2}` } });
             } else {
-              localStorage.removeItem("token");
+              clearToken();
             }
           }
           if (res?.ok) {
@@ -237,7 +314,7 @@ function app() {
     },
 
     isPastSlot(slot: { start: string }): boolean {
-      const tz = "Europe/Rome";
+      const tz = this.clubTimezone || "Europe/Rome";
       const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
       if (this.selectedDate < today) return true;
       if (this.selectedDate > today) return false;
@@ -252,7 +329,7 @@ function app() {
 
     async loadCourts() {
       try {
-        const res = await fetch("/api/courts");
+        const res = await apiFetch("/api/courts");
         if (res.ok) this.courts = await res.json();
         else this.courts = demoCourts;
         if (this.courts.length) this.loadAvailability();
@@ -265,7 +342,7 @@ function app() {
     async loadAvailability() {
       for (const c of this.filteredCourts()) {
         try {
-          const res = await fetch(`/api/availability?court_id=${c.id}&date=${this.selectedDate}`);
+          const res = await apiFetch(`/api/availability?court_id=${c.id}&date=${this.selectedDate}`);
           const data = res.ok ? await res.json() : null;
           this.availability[c.id] = data?.slots || demoSlots();
         } catch {
@@ -286,7 +363,7 @@ function app() {
       this.confirmNotes = "";
       this.confirmRent = 0;
       this.confirmPlayers = defaultPlayers;
-      localStorage.setItem("pending_booking_intent", JSON.stringify({ ...this.pendingIntent, notes: "", rentRacquets: 0, players: defaultPlayers === "single" ? 2 : 4 }));
+      storeIntent( JSON.stringify({ ...this.pendingIntent, notes: "", rentRacquets: 0, players: defaultPlayers === "single" ? 2 : 4 }));
       this.view = "confirm";
       location.hash = "confirm";
     },
@@ -317,7 +394,7 @@ function app() {
       this.pendingIntent.notes = this.confirmNotes;
       this.pendingIntent.rentRacquets = this.confirmRent;
       this.pendingIntent.players = payload.players;
-      localStorage.setItem("pending_booking_intent", JSON.stringify(this.pendingIntent));
+      storeIntent( JSON.stringify(this.pendingIntent));
 
       if (!this.user) {
         this.view = "register";
@@ -326,8 +403,8 @@ function app() {
       }
       this.confirmLoading = true;
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/bookings", {
+        const token = storedToken();
+        const res = await apiFetch("/api/bookings", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
@@ -338,7 +415,7 @@ function app() {
         // the post-booking reloads run with pendingIntent === null.
         this.view = "me";
         location.hash = "me";
-        localStorage.removeItem("pending_booking_intent");
+        clearIntent();
         this.pendingIntent = null;
         await this.loadBookings();
         if (this.user?.role === "admin") await this.loadAdminBookings();
@@ -355,11 +432,11 @@ function app() {
 
     async register() {
       this.authError = "";
-      const res = await fetch("/api/auth/register", {
+      const res = await apiFetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // store the httpOnly refresh cookie (dev is cross-origin)
-        body: JSON.stringify({ ...this.regForm, mobile: this.fullMobile(this.regForm.mobile_code, this.regForm.mobile_number), preferred_language: this.lang }),
+        body: JSON.stringify({ ...this.regForm, mobile: this.fullMobile(this.regForm.mobile_code, this.regForm.mobile_number), preferred_language: this.lang, club_slug: getClubSlug() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -392,7 +469,7 @@ function app() {
         this.authError = `• ${this.t("error.registerFailed")}\n${JSON.stringify(data)}`;
         return;
       }
-      if (data.token) localStorage.setItem("token", data.token);
+      if (data.token) storeToken(data.token);
       this.user = data.user || { id: "1", username: this.regForm.username, role: "visitor", preferred_language: this.lang };
       this.startTokenRefresh();
       this.loadAnnouncements();
@@ -421,9 +498,9 @@ function app() {
 
     async login() {
       this.authError = "";
-      const body: any = { password: this.authForm.password };
+      const body: any = { password: this.authForm.password, club_slug: getClubSlug() };
       if (this.authForm.username.includes("@")) body.email = this.authForm.username; else body.username = this.authForm.username;
-      const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
+      const res = await apiFetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.fieldErrors || data.formErrors) {
@@ -449,7 +526,7 @@ function app() {
         }
         return;
       }
-      if (data.token) localStorage.setItem("token", data.token);
+      if (data.token) storeToken(data.token);
       this.user = data.user || null;
       this.startTokenRefresh();
       this.loadAnnouncements();
@@ -510,8 +587,8 @@ function app() {
       if (!this.user) { this.bookings = []; return; }
       this.bookingsLoading = true; this.bookingsError = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/bookings?mine=true", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/bookings?mine=true", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const rows = await res.json();
         // normalize snake/camel + enrich with court info
@@ -536,8 +613,8 @@ function app() {
 
     async cancelBooking(id: string) {
       if (!confirm(this.t("confirm.cancelBooking"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/bookings/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/bookings/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Cancel failed: " + await res.text()); return; }
       await this.loadBookings();
       await this.loadAvailability();
@@ -573,14 +650,14 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminLoading = true; this.adminError = "";
       try {
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         const params = new URLSearchParams();
         if (this.adminFilter) params.set("status", this.adminFilter);
         const range = this.adminDateRange();
         if (range.from) params.set("date_from", range.from);
         if (range.to) params.set("date_to", range.to);
         const qs = params.toString();
-        const res = await fetch(`/api/bookings${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await apiFetch(`/api/bookings${qs ? `?${qs}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const rows = await res.json();
         this.adminBookings = (rows as any[]).map((r) => ({
@@ -607,16 +684,16 @@ function app() {
     },
 
     async approveBooking(id: string) {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/bookings/${id}/approve`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/bookings/${id}/approve`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Approve failed: " + await res.text()); return; }
       await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability();
     },
 
     async rejectBooking(id: string) {
       if (!confirm(this.t("confirm.rejectBooking"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/bookings/${id}/reject`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/bookings/${id}/reject`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Reject failed: " + await res.text()); return; }
       await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability();
     },
@@ -640,8 +717,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.checkTelegramStatus();
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           this.adminSettings = await res.json();
           this.notificationForm = {
@@ -661,7 +738,7 @@ function app() {
       } catch {}
     },
     async saveNotificationSettings() {
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = {
         notifications_enabled: this.notificationForm.notifications_enabled,
         notify_on_auto_approved: this.notificationForm.notify_on_auto_approved,
@@ -675,7 +752,7 @@ function app() {
       };
       if (this.notificationForm.telegram_bot_token) payload.telegram_bot_token = this.notificationForm.telegram_bot_token;
       if (this.notificationForm.whatsapp_token) payload.whatsapp_token = this.notificationForm.whatsapp_token;
-      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.notificationTestResult = "Save failed: " + await res.text(); return; }
       this.adminSettings = await res.json();
       this.notificationForm.telegram_bot_token = "";
@@ -684,8 +761,8 @@ function app() {
     },
     async testNotification(channel: string) {
       this.notificationTestResult = "Sending...";
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/notifications/test", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ channel }) });
+      const token = storedToken();
+      const res = await apiFetch("/api/notifications/test", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ channel }) });
       const data = await res.json().catch(() => ({}));
       this.notificationTestResult = JSON.stringify(data, null, 2);
     },
@@ -704,17 +781,42 @@ function app() {
     async toggleAutoApprove() {
       if (!this.adminSettings) return;
       const next = !this.adminSettings.auto_approve_bookings;
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ auto_approve_bookings: next }) });
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ auto_approve_bookings: next }) });
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       this.adminSettings.auto_approve_bookings = next;
     },
 
+    async loadClubsList() {
+      this.clubsLoading = true;
+      try {
+        const res = await apiFetch("/api/clubs");
+        if (res.ok) this.clubsList = await res.json();
+      } catch {}
+      finally { this.clubsLoading = false; }
+      return this.clubsList;
+    },
+
     async loadClubInfo() {
       try {
-        const res = await fetch("/api/club-info");
+        const slug = getClubSlug() || this.clubSlug;
+        const res = await apiFetch(`/api/club-info${slug ? `?slug=${encodeURIComponent(slug)}` : ""}`);
         if (res.ok) {
-          this.clubInfo = await res.json();
+          const info = await res.json();
+          this.clubInfo = info;
+          this.clubSlug = info.slug || slug || "";
+          setClubSlug(this.clubSlug || null);
+          this.clubTimezone = info.timezone || "Europe/Rome";
+          this.clubLocales = Array.isArray(info.locales) && info.locales.length ? info.locales : ["it", "en", "fr", "de", "es"];
+          this.clubDefaultLocale = info.default_locale || this.clubLocales[0];
+          // Per-club brand: header + title follow the club name.
+          document.title = `${info.club_name || this.t("app.name")} — Tennis & Padel Booking`;
+          // Adopt the club default when the browser language is not enabled.
+          if (!this.clubLocales.includes(this.lang)) {
+            this.lang = (this.clubDefaultLocale as Lang);
+            setLang(this.lang);
+            localStorage.setItem("lang", this.lang);
+          }
           const keepUrl = this.clubForm.public_url;
           this.clubForm = { club_name: this.clubInfo?.club_name || "", club_phone: this.clubInfo?.club_phone || "", club_address: this.clubInfo?.club_address || "", public_url: keepUrl || "https://empanadel.onrender.com" };
         }
@@ -724,8 +826,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.clubInfoLoading = true; this.clubInfoError = ""; this.clubInfoSuccess = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const s = await res.json();
           this.clubForm = { club_name: s.club_name || "", club_phone: s.club_phone || "", club_address: s.club_address || "", public_url: s.public_url || "https://empanadel.onrender.com" };
@@ -736,10 +838,10 @@ function app() {
     },
     async saveClubInfo() {
       this.clubInfoError = ""; this.clubInfoSuccess = "";
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       let url = this.clubForm.public_url?.trim() || null;
       if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-      const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ club_name: this.clubForm.club_name || null, club_phone: this.clubForm.club_phone || null, club_address: this.clubForm.club_address || null, public_url: url }) });
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ club_name: this.clubForm.club_name || null, club_phone: this.clubForm.club_phone || null, club_address: this.clubForm.club_address || null, public_url: url }) });
       if (!res.ok) {
         const data = await res.json().catch(() => null) as any;
         if (data?.fieldErrors?.public_url) {
@@ -770,8 +872,8 @@ function app() {
       this.reportsLoading = true; this.reportsError = "";
       this.reportsSliceData = null; this.reportsSelectedLabel = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`/api/reports/bookings?period=${this.reportsPeriod}&date=${this.reportsDate}`, { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch(`/api/reports/bookings?period=${this.reportsPeriod}&date=${this.reportsDate}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.reportsData = await res.json();
       } catch (e: any) { this.reportsError = e.message || String(e); }
@@ -783,8 +885,8 @@ function app() {
       // Keep timeline fixed, fetch detail for clicked slice without moving the chart
       this.reportsSelectedLabel = row.label;
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`/api/reports/bookings?period=${this.reportsPeriod}&date=${row.startDate}`, { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch(`/api/reports/bookings?period=${this.reportsPeriod}&date=${row.startDate}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         this.reportsSliceData = { period: data.period, startDate: data.startDate, endDate: data.endDate, overall: data.overall, byUser: data.byUser, cancellationsByUser: data.cancellationsByUser };
@@ -795,8 +897,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminCourtsLoading = true; this.adminCourtError = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/courts", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/courts", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.adminCourts = await res.json();
         if (!this.adminTimetableCourtId && this.adminCourts.length) this.adminTimetableCourtId = this.adminCourts[0].id;
@@ -807,8 +909,8 @@ function app() {
       if (!this.adminTimetableCourtId) { this.adminTimetableError = "Select a court"; return; }
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`/api/timetable?court_id=${this.adminTimetableCourtId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch(`/api/timetable?court_id=${this.adminTimetableCourtId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const rows: any[] = await res.json();
         const byDay: Record<number, any> = {};
@@ -830,7 +932,7 @@ function app() {
       if (!this.adminTimetableCourtId) return;
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         const payload = this.adminTimetableRows.map(r => ({
           court_id: this.adminTimetableCourtId,
           day_of_week: r.dayOfWeek,
@@ -840,7 +942,7 @@ function app() {
           is_closed: r.isClosed,
         }));
         const url = force ? "/api/timetable?force=true" : "/api/timetable";
-        const res = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+        const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
         if (!res.ok) {
           const txt = await res.text();
           let msg = txt;
@@ -871,8 +973,8 @@ function app() {
     async createCourt() {
       this.adminCourtError = ""; this.adminCourtSuccess = "";
       if (!this.adminCourtForm.number || !this.adminCourtForm.type) { this.adminCourtError = "Number and type required"; return; }
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/courts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
+      const token = storedToken();
+      const res = await apiFetch("/api/courts", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
       if (!res.ok) { this.adminCourtError = await res.text(); return; }
       this.adminCourtSuccess = this.t("admin.courts.created");
       this.adminCourtForm = { number: null, type: "tennis", name: "", surface: "" };
@@ -888,8 +990,8 @@ function app() {
 
     async updateCourt() {
       if (!this.editingCourtId) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/courts/${this.editingCourtId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
+      const token = storedToken();
+      const res = await apiFetch(`/api/courts/${this.editingCourtId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ number: this.adminCourtForm.number, type: this.adminCourtForm.type, name: this.adminCourtForm.name || null, surface: this.adminCourtForm.surface || null }) });
       if (!res.ok) { this.adminCourtError = await res.text(); return; }
       this.adminCourtSuccess = this.t("admin.courts.updated");
       this.editingCourtId = null;
@@ -899,8 +1001,8 @@ function app() {
 
     async deleteCourt(id: string) {
       if (!confirm(this.t("confirm.disableCourt"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/courts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/courts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       await this.loadAdminCourts(); await this.loadCourts();
     },
@@ -925,8 +1027,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminLessonsLoading = true; this.adminLessonError = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/blocking-rules", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/blocking-rules", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.adminLessons = await res.json();
       } catch (e: any) { this.adminLessonError = e.message || String(e); }
@@ -935,10 +1037,10 @@ function app() {
 
     async createLesson() {
       if (!this.adminLessonForm.reason || !this.adminLessonForm.startTime || !this.adminLessonForm.endTime) { this.adminLessonError = "Reason and times required"; return; }
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { day_of_week: this.adminLessonForm.dayOfWeek, start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
       if (this.adminLessonForm.courtId) payload.court_id = this.adminLessonForm.courtId;
-      const res = await fetch("/api/blocking-rules", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch("/api/blocking-rules", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
       this.adminLessonForm.reason = "";
       await this.loadAdminLessons(); await this.loadAvailability();
@@ -965,9 +1067,9 @@ function app() {
     async updateLesson() {
       if (!this.editingLessonId) return;
       if (!this.adminLessonForm.reason || !this.adminLessonForm.startTime || !this.adminLessonForm.endTime) { this.adminLessonError = "Reason and times required"; return; }
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { court_id: this.adminLessonForm.courtId || null, day_of_week: this.adminLessonForm.dayOfWeek, start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
-      const res = await fetch(`/api/blocking-rules/${this.editingLessonId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`/api/blocking-rules/${this.editingLessonId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
       this.editingLessonId = null;
       this.adminLessonForm = { courtId: "", dayOfWeek: 1, startTime: "15:00", endTime: "17:00", reason: "" };
@@ -979,8 +1081,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminBlocksLoading = true; this.adminBlockError = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/blocks", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/blocks", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.adminBlocks = await res.json();
       } catch (e: any) { this.adminBlockError = e.message || String(e); }
@@ -988,10 +1090,10 @@ function app() {
     },
     async createBlock() {
       if (!this.adminBlockForm.date || !this.adminBlockForm.startTime || !this.adminBlockForm.endTime || !this.adminBlockForm.reason) { this.adminBlockError = "Date, times and reason required"; return; }
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { start_at: `${this.adminBlockForm.date}T${this.adminBlockForm.startTime}:00.000Z`, end_at: `${this.adminBlockForm.date}T${this.adminBlockForm.endTime}:00.000Z`, reason: this.adminBlockForm.reason };
       if (this.adminBlockForm.courtId) payload.court_id = this.adminBlockForm.courtId;
-      const res = await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminBlockError = await res.text(); return; }
       this.adminBlockForm.reason = "";
       await this.loadAdminBlocks(); await this.loadAvailability();
@@ -1016,9 +1118,9 @@ function app() {
     async updateBlock() {
       if (!this.editingBlockId) return;
       if (!this.adminBlockForm.date || !this.adminBlockForm.startTime || !this.adminBlockForm.endTime || !this.adminBlockForm.reason) { this.adminBlockError = "Date, times and reason required"; return; }
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { court_id: this.adminBlockForm.courtId || null, start_at: `${this.adminBlockForm.date}T${this.adminBlockForm.startTime}:00.000Z`, end_at: `${this.adminBlockForm.date}T${this.adminBlockForm.endTime}:00.000Z`, reason: this.adminBlockForm.reason };
-      const res = await fetch(`/api/blocks/${this.editingBlockId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`/api/blocks/${this.editingBlockId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminBlockError = await res.text(); return; }
       this.editingBlockId = null;
       this.adminBlockForm = { courtId: "", date: "", startTime: "10:00", endTime: "12:00", reason: "" };
@@ -1026,23 +1128,23 @@ function app() {
     },
     async deleteBlock(id: string) {
       if (!confirm(this.t("confirm.deleteBlock"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/blocks/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/blocks/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       await this.loadAdminBlocks(); await this.loadAvailability();
     },
 
     async deleteLesson(id: string) {
       if (!confirm(this.t("confirm.deleteRecurring"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/blocking-rules/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/blocking-rules/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       await this.loadAdminLessons(); await this.loadAvailability();
     },
 
     async toggleLesson(id: string, current: boolean) {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/blocking-rules/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ is_active: !current }) });
+      const token = storedToken();
+      const res = await apiFetch(`/api/blocking-rules/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ is_active: !current }) });
       if (!res.ok) { alert("Toggle failed: " + await res.text()); return; }
       await this.loadAdminLessons(); await this.loadAvailability();
     },
@@ -1070,7 +1172,7 @@ function app() {
       };
     },
     annStatus(a: { publish_start: string | null; publish_end: string | null }): "scheduled" | "active" | "expired" {
-      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Rome" });
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: this.clubTimezone || "Europe/Rome" });
       if (a.publish_start && today < a.publish_start) return "scheduled";
       if (a.publish_end && today > a.publish_end) return "expired";
       return "active";
@@ -1079,11 +1181,11 @@ function app() {
       this.annLoading = true; this.annError = "";
       try {
         const headers: any = {};
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         if (token) headers.Authorization = `Bearer ${token}`;
         // Logged-in users read articles in their profile language, not the UI language.
         const lang = this.user?.preferred_language || (this.user as any)?.preferredLanguage || this.lang;
-        const res = await fetch(`/api/announcements?lang=${lang}`, { headers });
+        const res = await apiFetch(`/api/announcements?lang=${lang}`, { headers });
         if (!res.ok) throw new Error(await res.text());
         this.announcements = (await res.json()).map((r: any) => this.normAnn(r));
       } catch (e: any) { this.annError = e.message || String(e); }
@@ -1093,8 +1195,8 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminAnnLoading = true; this.adminAnnError = ""; this.adminAnnSuccess = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/announcements/all", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/announcements/all", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.adminAnns = (await res.json()).map((r: any) => this.normAnn(r));
       } catch (e: any) { this.adminAnnError = e.message || String(e); }
@@ -1128,8 +1230,8 @@ function app() {
     async createAnnouncement() {
       this.adminAnnError = ""; this.adminAnnSuccess = "";
       if (!this.annForm.title.trim() || !this.annForm.body.trim()) { this.adminAnnError = "Title and text required"; return; }
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/announcements", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(this.annPayload()) });
+      const token = storedToken();
+      const res = await apiFetch("/api/announcements", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(this.annPayload()) });
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); return; }
       this.adminAnnSuccess = this.t("admin.ann.saved");
       this.resetAnnForm();
@@ -1159,8 +1261,8 @@ function app() {
       if (!this.editingAnnId) return;
       this.adminAnnError = ""; this.adminAnnSuccess = "";
       if (!this.annForm.title.trim() || !this.annForm.body.trim()) { this.adminAnnError = "Title and text required"; return; }
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/announcements/${this.editingAnnId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(this.annPayload()) });
+      const token = storedToken();
+      const res = await apiFetch(`/api/announcements/${this.editingAnnId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(this.annPayload()) });
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); return; }
       this.adminAnnSuccess = this.t("admin.ann.saved");
       this.resetAnnForm();
@@ -1170,8 +1272,8 @@ function app() {
     },
     async deleteAnnouncement(id: string) {
       if (!confirm(this.t("admin.ann.deleteConfirm"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/announcements/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/announcements/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       if (this.editingAnnId === id) this.resetAnnForm();
       await this.loadAdminAnnouncements(); await this.loadAnnouncements();
@@ -1184,8 +1286,8 @@ function app() {
       [ids[i], ids[j]] = [ids[j], ids[i]];
       // optimistic reorder, confirm from server
       this.adminAnns.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/announcements/reorder", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ordered_ids: ids }) });
+      const token = storedToken();
+      const res = await apiFetch("/api/announcements/reorder", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ordered_ids: ids }) });
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); await this.loadAdminAnnouncements(); return; }
       this.adminAnns = (await res.json()).map((r: any) => this.normAnn(r));
       await this.loadAnnouncements();
@@ -1195,11 +1297,11 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminUsersLoading = true; this.adminUsersError = "";
       try {
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         const params = new URLSearchParams();
         if (this.adminUsersSearch) params.set("q", this.adminUsersSearch);
         if (this.adminUsersRole) params.set("role", this.adminUsersRole);
-        const res = await fetch(`/api/users?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await apiFetch(`/api/users?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         this.adminUsers = await res.json();
       } catch (e: any) { this.adminUsersError = e.message || String(e); }
@@ -1209,8 +1311,8 @@ function app() {
     async createAdminUser() {
       this.adminUsersError = ""; this.adminUserSuccess = "";
       if (!this.adminUserForm.username || !this.adminUserForm.password || !this.adminUserForm.first_name || !this.adminUserForm.last_name) { this.adminUsersError = "Username, password, first/last name required (email optional)"; return; }
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ username: this.adminUserForm.username, email: this.adminUserForm.email, password: this.adminUserForm.password, first_name: this.adminUserForm.first_name, last_name: this.adminUserForm.last_name, role: this.adminUserForm.role, preferred_language: "it" }) });
+      const token = storedToken();
+      const res = await apiFetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ username: this.adminUserForm.username, email: this.adminUserForm.email, password: this.adminUserForm.password, first_name: this.adminUserForm.first_name, last_name: this.adminUserForm.last_name, role: this.adminUserForm.role, preferred_language: this.clubDefaultLocale || "it" }) });
       if (!res.ok) { this.adminUsersError = await res.text(); return; }
       this.adminUserSuccess = this.t("admin.users.created");
       this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "visitor", mobile: "" };
@@ -1226,10 +1328,10 @@ function app() {
 
     async updateAdminUser() {
       if (!this.editingUserId) return;
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { username: this.adminUserForm.username, email: this.adminUserForm.email, first_name: this.adminUserForm.first_name, last_name: this.adminUserForm.last_name, role: this.adminUserForm.role, mobile: this.adminUserForm.mobile || null };
       if (this.adminUserForm.password) (payload as any).password = this.adminUserForm.password;
-      const res = await fetch(`/api/users/${this.editingUserId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`/api/users/${this.editingUserId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminUsersError = await res.text(); return; }
       this.adminUserSuccess = this.t("admin.users.updated");
       this.editingUserId = null;
@@ -1239,8 +1341,8 @@ function app() {
 
     async deleteAdminUser(id: string) {
       if (!confirm(this.t("confirm.deleteUser"))) return;
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch(`/api/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       await this.loadAdminUsers();
     },
@@ -1258,8 +1360,8 @@ function app() {
       let u = this.adminUsers.find((x: any) => String(x.id) === String(userId));
       if (!u) {
         try {
-          const token = localStorage.getItem("token");
-          const res = await fetch(`/api/users`, { headers: { Authorization: `Bearer ${token}` } });
+          const token = storedToken();
+          const res = await apiFetch(`/api/users`, { headers: { Authorization: `Bearer ${token}` } });
           if (res.ok) {
             const rows = await res.json();
             u = rows.find((x: any) => String(x.id) === String(userId));
@@ -1289,8 +1391,8 @@ function app() {
       if (!this.user) return;
       this.profileLoading = true; this.profileError = ""; this.profileSuccess = "";
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const me = await res.json();
         this.profileForm = {
@@ -1312,7 +1414,7 @@ function app() {
 
     async saveProfile() {
       this.profileError = ""; this.profileSuccess = "";
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = {};
       if (this.profileForm.username) payload.username = this.profileForm.username;
       payload.email = this.profileForm.email ? this.profileForm.email : null;
@@ -1321,7 +1423,7 @@ function app() {
       payload.mobile = this.fullMobile(this.profileForm.mobile_code, this.profileForm.mobile_number) || null;
       if (this.profileForm.preferred_language) payload.preferred_language = this.profileForm.preferred_language;
       if (this.profileForm.preferred_sport !== undefined) payload.preferred_sport = this.profileForm.preferred_sport || null;
-      const res = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.profileError = await res.text(); return; }
       const updated = await res.json();
       this.profileSuccess = this.t("profile.updated");
@@ -1337,22 +1439,22 @@ function app() {
     // Silent session renewal via the httpOnly refresh cookie (7d sliding).
     // Returns true if a fresh access token was stored.
     async refreshToken(): Promise<boolean> {
-      if (this._refreshing) return !!localStorage.getItem("token");
+      if (this._refreshing) return !!storedToken();
       this._refreshing = true;
       try {
-        const res = await fetch("/api/auth/refresh", { method: "POST", credentials: "include" });
+        const res = await apiFetch("/api/auth/refresh", { method: "POST", credentials: "include" });
         if (!res.ok) {
           if (res.status === 401) {
             // Refresh session dead — drop everything, user must login again.
             this.stopTokenRefresh();
-            localStorage.removeItem("token");
+            clearToken();
             this.user = null;
           }
           return false;
         }
         const data = await res.json();
         if (data.token) {
-          localStorage.setItem("token", data.token);
+          storeToken(data.token);
           if (data.user) this.user = { ...this.user, ...data.user };
           return true;
         }
@@ -1374,9 +1476,9 @@ function app() {
     },
     async checkTelegramStatus() {
       try {
-        const token = localStorage.getItem("token");
+        const token = storedToken();
         if (!token) { this.telegramLinked = false; return; }
-        const res = await fetch("/api/telegram/status", { headers: { Authorization: `Bearer ${token}` } });
+        const res = await apiFetch("/api/telegram/status", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const j = await res.json();
           this.telegramLinked = !!j.linked;
@@ -1386,8 +1488,8 @@ function app() {
     async createTelegramLink() {
       this.telegramLinkLoading = true;
       try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("/api/telegram/link", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        const token = storedToken();
+        const res = await apiFetch("/api/telegram/link", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const j = await res.json();
         this.telegramLinkUrl = j.url;
@@ -1408,8 +1510,8 @@ function app() {
       finally { this.telegramLinkLoading = false; }
     },
     async unlinkTelegram() {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/telegram/unlink", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const token = storedToken();
+      const res = await apiFetch("/api/telegram/unlink", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) { this.telegramLinked = false; this.telegramLinkUrl = ""; }
     },
 
@@ -1423,9 +1525,9 @@ function app() {
     cancelEditBooking() { this.editingBooking = null; },
 
     async saveEditBooking(id: string) {
-      const token = localStorage.getItem("token");
+      const token = storedToken();
       const payload: any = { notes: this.editNotes || null, rent_racquets: this.editRent, players: this.editPlayers === "single" ? 2 : 4 };
-      const res = await fetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      const res = await apiFetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { alert("Edit failed: " + await res.text()); return; }
       this.editingBooking = null;
       await this.loadBookings();
@@ -1435,12 +1537,12 @@ function app() {
     async logout() {
       this.stopTokenRefresh();
       try {
-        await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        await apiFetch("/api/auth/logout", { method: "POST", credentials: "include" });
       } catch {}
-      localStorage.removeItem("token");
+      clearToken();
       // Drop any in-progress booking: it must not survive the logout and get
       // auto-submitted by the next login()'s deferred-intent handler.
-      localStorage.removeItem("pending_booking_intent");
+      clearIntent();
       this.pendingIntent = null;
       this.confirmNotes = "";
       this.confirmRent = 0;

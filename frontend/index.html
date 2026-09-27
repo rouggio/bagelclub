@@ -45,14 +45,14 @@
    </div>
    </div>
   <div class="flex items-center gap-2">
-  <template x-if="!user">
- <div class="flex items-center gap-2 relative">
- <button @click="headerLangOpen=!headerLangOpen" class="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium">
- <img :src="flagUrl(lang)" class="h-3 w-4 object-cover rounded-sm" :alt="lang" />
- <span x-text="t('lang.'+lang)"></span>
- </button>
- <div x-show="headerLangOpen" @click.outside="headerLangOpen=false" class="absolute right-0 top-10 mt-1 w-44 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
- <template x-for="l in ['it','en','fr','de','es']" :key="l">
+  <template x-if="!user && clubLocales.length !== 1">
+  <div class="flex items-center gap-2 relative">
+  <button @click="headerLangOpen=!headerLangOpen" class="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium">
+  <img :src="flagUrl(lang)" class="h-3 w-4 object-cover rounded-sm" :alt="lang" />
+  <span x-text="t('lang.'+lang)"></span>
+  </button>
+  <div x-show="headerLangOpen" @click.outside="headerLangOpen=false" class="absolute right-0 top-10 mt-1 w-44 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
+  <template x-for="l in (clubLocales.length ? clubLocales : ['it','en','fr','de','es'])" :key="l">
  <button @click="setLang(l); headerLangOpen=false" class="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-zinc-50 text-left">
  <img :src="flagUrl(l)" class="h-3 w-4 object-cover rounded-sm" :alt="l" />
  <span x-text="t('lang.'+l)"></span>
@@ -74,7 +74,20 @@
   <a href="#profile" x-show="user" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.profile')"></a>
   </nav>
 
- <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 md:pb-6">
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 md:pb-6">
+  <section x-show="view==='clubs'" class="space-y-4">
+  <h2 class="text-xl font-bold">BagelClub</h2>
+  <div x-show="clubsLoading" class="text-sm text-zinc-500">…</div>
+  <div class="space-y-3">
+  <template x-for="c in clubsList" :key="c.slug">
+  <a :href="`/c/${c.slug}/`" class="block rounded-xl border bg-white p-4 hover:border-emerald-300">
+  <div class="font-semibold" x-text="c.name"></div>
+  <div class="text-xs text-zinc-500" x-text="`/c/${c.slug}/`"></div>
+  </a>
+  </template>
+  </div>
+  <div x-show="!clubsLoading && !clubsList.length" class="text-sm text-zinc-500">No clubs yet.</div>
+  </section>
   <section x-show="view==='home'" class="space-y-6">
    <div class="hero-gradient rounded-2xl p-8">
    <h1 class="text-3xl font-bold md:text-4xl" x-text="t('hero.title')"></h1>
@@ -204,13 +217,13 @@
   <input x-model="regForm.mobile_number" type="tel" inputmode="tel" :placeholder="t('profile.mobile')" class="flex-1 rounded-lg border px-3 py-2" />
   </div>
   <input x-model="regForm.password" type="password" :placeholder="t('auth.passwordHint')" class="w-full rounded-lg border px-3 py-2" />
- <div class="flex items-center gap-2 relative">
- <button @click="registerLangOpen=!registerLangOpen" class="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs">
- <img :src="flagUrl(lang)" class="h-3 w-4 object-cover rounded-sm" :alt="lang" />
- <span x-text="t('lang.'+lang)"></span>
- </button>
- <div x-show="registerLangOpen" @click.outside="registerLangOpen=false" class="absolute left-0 top-10 mt-1 w-44 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
- <template x-for="l in ['it','en','fr','de','es']" :key="l">
+  <div class="flex items-center gap-2 relative" x-show="clubLocales.length !== 1">
+  <button @click="registerLangOpen=!registerLangOpen" class="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs">
+  <img :src="flagUrl(lang)" class="h-3 w-4 object-cover rounded-sm" :alt="lang" />
+  <span x-text="t('lang.'+lang)"></span>
+  </button>
+  <div x-show="registerLangOpen" @click.outside="registerLangOpen=false" class="absolute left-0 top-10 mt-1 w-44 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
+  <template x-for="l in (clubLocales.length ? clubLocales : ['it','en','fr','de','es'])" :key="l">
  <button @click="lang=l; setLang(l); registerLangOpen=false" class="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-zinc-50 text-left">
  <img :src="flagUrl(l)" class="h-3 w-4 object-cover rounded-sm" :alt="l" />
  <span x-text="t('lang.'+l)"></span>
@@ -305,13 +318,13 @@
  <option value="tennis">Tennis</option>
  <option value="padel">Padel</option>
  </select>
- <div class="relative">
- <button @click="profileLangOpen=!profileLangOpen" type="button" class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm bg-white">
- <img :src="flagUrl(profileForm.preferred_language)" class="h-3 w-4 object-cover rounded-sm" :alt="profileForm.preferred_language" />
- <span x-text="t('lang.'+profileForm.preferred_language)"></span>
- </button>
- <div x-show="profileLangOpen" @click.outside="profileLangOpen=false" class="absolute left-0 mt-1 w-full rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
- <template x-for="l in ['it','en','fr','de','es']" :key="l">
+  <div class="relative" x-show="clubLocales.length !== 1">
+  <button @click="profileLangOpen=!profileLangOpen" type="button" class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm bg-white">
+  <img :src="flagUrl(profileForm.preferred_language)" class="h-3 w-4 object-cover rounded-sm" :alt="profileForm.preferred_language" />
+  <span x-text="t('lang.'+profileForm.preferred_language)"></span>
+  </button>
+  <div x-show="profileLangOpen" @click.outside="profileLangOpen=false" class="absolute left-0 mt-1 w-full rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
+  <template x-for="l in (clubLocales.length ? clubLocales : ['it','en','fr','de','es'])" :key="l">
  <button type="button" @click="profileForm.preferred_language=l; profileLangOpen=false" class="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-zinc-50 text-left">
  <img :src="flagUrl(l)" class="h-3 w-4 object-cover rounded-sm" :alt="l" />
  <span x-text="t('lang.'+l)"></span>
