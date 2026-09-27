@@ -4,6 +4,38 @@ import { eq } from "drizzle-orm";
 
 export const ALL_LOCALES = ["it", "en", "fr", "de", "es"] as const;
 
+export const RESERVED_SLUGS = new Set([
+  "api", "health", "assets", "c", "clubs", "admin", "login", "register",
+  "me", "profile", "platform", "demo", "clubs-list", "static",
+]);
+
+export function slugify(name: string): string {
+  const base = String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "club";
+  return base;
+}
+
+export function validateSlug(slug: string): string | null {
+  if (!/^[a-z0-9-]{3,50}$/.test(slug)) return "slug must match ^[a-z0-9-]{3,50}$";
+  if (slug.startsWith("demo-")) return "slug prefix demo- is reserved for demo runs";
+  if (RESERVED_SLUGS.has(slug)) return "slug is reserved";
+  return null;
+}
+
+export function validTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Club slug from X-Club-Slug header → ?slug= query → body.club_slug. */
 export function resolveClubSlug(req: FastifyRequest): string | null {
   const h = (req.headers as any)["x-club-slug"];

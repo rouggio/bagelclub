@@ -23,6 +23,8 @@ import notificationRoutes from "./routes/notifications.js";
 import telegramRoutes from "./routes/telegram.js";
 import announcementRoutes from "./routes/announcements.js";
 import clubRoutes from "./routes/clubs.js";
+import platformRoutes from "./routes/platform.js";
+import demoRoutes from "./routes/demo.js";
 import { createDb } from "./db/connection.js";
 import { BRAND_NAME } from "./config/brand.js";
 
@@ -75,6 +77,8 @@ export async function buildApp() {
   await app.register(telegramRoutes);
   await app.register(announcementRoutes);
   await app.register(clubRoutes);
+  await app.register(platformRoutes);
+  await app.register(demoRoutes);
 
   // Static — serve pre-built frontend (Vite dist) if present
   // In dev, frontend runs on Vite dev server; in production (Render single service) backend serves it.
@@ -111,6 +115,17 @@ export async function buildApp() {
           await expireHolds();
         } catch (e) {
           app.log.error(e, "expireHolds cron failed");
+        }
+      });
+      // Demo hygiene, daily 03:00: delete expired personal demo runs.
+      cron.default.schedule("0 3 * * *", async () => {
+        if (!process.env.DATABASE_URL) return;
+        try {
+          const { deleteExpiredDemoRuns } = await import("./services/demo.js");
+          const gone = await deleteExpiredDemoRuns((app as any).db);
+          if (gone.length) app.log.info({ gone }, "expired demo runs cleaned");
+        } catch (e) {
+          app.log.error(e, "demo cleanup cron failed");
         }
       });
     } catch {

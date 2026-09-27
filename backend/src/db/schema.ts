@@ -37,9 +37,9 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    clubId: uuid("club_id")
-      .notNull()
-      .references(() => clubs.id),
+    // Nullable only for the platform superadmin (outside all clubs).
+    // Every club role (visitor/associate/admin) always carries a club_id.
+    clubId: uuid("club_id").references(() => clubs.id),
     username: varchar("username", { length: 30 }).notNull(),
     email: varchar("email", { length: 255 }),
     passwordHash: text("password_hash").notNull(),
