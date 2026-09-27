@@ -156,9 +156,9 @@
   <div><a :href="`/club/${c.slug}/`" class="font-semibold underline" x-text="c.name"></a>
   <div class="text-xs text-zinc-500" x-text="`${c.timezone} · ${c.plan} · courts ${c.counts?.courts ?? '?'} · users ${c.counts?.users ?? '?'} · bookings ${c.counts?.bookings ?? '?'}`"></div></div>
   <div class="flex flex-wrap items-center gap-2 text-xs">
-  <select x-model="c.plan" @change="savePlatformClub(c)" class="rounded-lg border px-2 py-1"><option value="free">free</option><option value="starter">starter</option><option value="pro">pro</option></select>
-  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_active" @change="savePlatformClub(c)" /><span x-text="t('platform.active')"></span></label>
-  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_listed" @change="savePlatformClub(c)" /><span x-text="t('platform.listed')"></span></label>
+  <select x-model="c.plan" class="rounded-lg border px-2 py-1"><option value="free">free</option><option value="starter">starter</option><option value="pro">pro</option></select>
+  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_active" /><span x-text="t('platform.active')"></span></label>
+  <label class="flex items-center gap-1"><input type="checkbox" x-model="c.is_listed" /><span x-text="t('platform.listed')"></span></label>
   <button @click="savePlatformClub(c)" class="rounded-lg border px-2 py-1" x-text="t('platform.save')"></button>
   </div>
   </div>
