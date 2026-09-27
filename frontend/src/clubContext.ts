@@ -4,8 +4,8 @@
 export function clubSlugFromPath(pathname: string): string | null {
   try {
     // Accept mixed case in the URL, canonicalise to lowercase (slugs are created lowercase-only).
-    // Anchored to a full path segment so "/c/UPPER CASE" does not prefix-match.
-    const m = pathname.match(/^\/c\/([a-zA-Z0-9-]{3,50})(?:\/|$)/);
+    // Anchored to a full path segment so "/club/UPPER CASE" does not prefix-match.
+    const m = pathname.match(/^\/club\/([a-zA-Z0-9-]{3,50})(?:\/|$)/);
     return m ? m[1].toLowerCase() : null;
   } catch { return null; }
 }

@@ -91,7 +91,7 @@ function bookingAdminUrl(bookingId: string, settings: any, slug?: string | null)
   // Without a public_url there is no absolute link, so callers omit the CTA.
   const base = (settings?.publicUrl || "").replace(/\/$/, "");
   if (!base || !slug) return "";
-  return `${base}/c/${slug}/#admin-bookings?highlight=${bookingId}`;
+  return `${base}/club/${slug}/#admin-bookings?highlight=${bookingId}`;
 }
 
 type Lang = "it" | "en" | "fr" | "de" | "es";

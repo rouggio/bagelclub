@@ -35,15 +35,15 @@ afterEach(() => {
 });
 
 describe("clubSlugFromPath", () => {
-  it("parses /c/:slug", () => {
-    expect(clubSlugFromPath("/c/green-village/")).toBe("green-village");
-    expect(clubSlugFromPath("/c/Demo-AB12")).toBe("demo-ab12");
+  it("parses /club/:slug", () => {
+    expect(clubSlugFromPath("/club/green-village/")).toBe("green-village");
+    expect(clubSlugFromPath("/club/Demo-AB12")).toBe("demo-ab12");
   });
   it("rejects bare, platform and bad slugs", () => {
     expect(clubSlugFromPath("/")).toBeNull();
     expect(clubSlugFromPath("/platform")).toBeNull();
-    expect(clubSlugFromPath("/c/ab")).toBeNull();
-    expect(clubSlugFromPath("/c/UPPER CASE")).toBeNull();
+    expect(clubSlugFromPath("/club/ab")).toBeNull();
+    expect(clubSlugFromPath("/club/UPPER CASE")).toBeNull();
   });
 });
 
@@ -73,7 +73,7 @@ describe("namespaced storage (no self-recursion)", () => {
     expect(storedToken()).toBe("fresh");
   });
   it("initClubSlug wires the module state", () => {
-    initClubSlug("/c/demo/");
+    initClubSlug("/club/demo/");
     expect(getClubSlug()).toBe("demo");
   });
 });
@@ -109,7 +109,7 @@ describe("platform", () => {
   it("detects /platform paths", () => {
     expect(isPlatformPath("/platform")).toBe(true);
     expect(isPlatformPath("/platform/clubs")).toBe(true);
-    expect(isPlatformPath("/c/demo/")).toBe(false);
+    expect(isPlatformPath("/club/demo/")).toBe(false);
   });
   it("platformFetch never sends a club slug", async () => {
     setClubSlug("green-village");

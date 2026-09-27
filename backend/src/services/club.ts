@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 export const ALL_LOCALES = ["it", "en", "fr", "de", "es"] as const;
 
 export const RESERVED_SLUGS = new Set([
-  "api", "health", "assets", "c", "clubs", "admin", "login", "register",
+  "api", "health", "assets", "club", "clubs", "admin", "login", "register",
   "me", "profile", "platform", "demo", "clubs-list", "static",
 ]);
 

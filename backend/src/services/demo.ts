@@ -49,7 +49,7 @@ async function assertDemo(db: any, slug: string) {
   return club;
 }
 
-/** Nightly showcase reset: wipe + reseed the public /c/demo/ club. */
+/** Nightly showcase reset: wipe + reseed the public /club/demo/ club. */
 export async function resetDemoShowcase(db: any) {
   const club = await assertDemo(db, "demo");
   await wipeClubData(db, club.id);

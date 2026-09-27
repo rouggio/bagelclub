@@ -202,13 +202,13 @@ function app() {
         } else this.view = "platform-login";
         return;
       }
-      // Club context: /c/:slug/ is canonical. Bare paths fall back to the
+      // Club context: /club/:slug/ is canonical. Bare paths fall back to the
       // club directory (single club → auto-redirect).
       let slug = getClubSlug() || clubSlugFromPath(location.pathname);
       if (!slug) {
         const clubs = await this.loadClubsList();
         if (clubs.length === 1) {
-          location.replace(`/c/${clubs[0].slug}/${location.hash || ""}`);
+          location.replace(`/club/${clubs[0].slug}/${location.hash || ""}`);
           return;
         }
         this.view = "clubs";

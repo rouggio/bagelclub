@@ -118,7 +118,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  // Provision the public showcase (/c/demo/) if missing, then reset its content.
+  // Provision the public showcase (/club/demo/) if missing, then reset its content.
   fastify.post("/api/platform/demo/ensure", { preHandler: pre }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });

@@ -24,7 +24,7 @@ export default async function demoRoutes(fastify: FastifyInstance) {
       return reply.status(201).send({
         slug: club.slug,
         name: club.name,
-        url: `/c/${club.slug}/`,
+        url: `/club/${club.slug}/`,
         admin_username: adminUsername,
         admin_password: adminPassword,
         expires_at: club.demoExpiresAt,

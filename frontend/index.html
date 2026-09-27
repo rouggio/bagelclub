@@ -99,9 +99,9 @@
   <div x-show="clubsLoading" class="text-sm text-zinc-500">…</div>
   <div class="space-y-3">
   <template x-for="c in clubsList" :key="c.slug">
-  <a :href="`/c/${c.slug}/`" class="block rounded-xl border bg-white p-4 hover:border-emerald-300">
+  <a :href="`/club/${c.slug}/`" class="block rounded-xl border bg-white p-4 hover:border-emerald-300">
   <div class="font-semibold" x-text="c.name"></div>
-  <div class="text-xs text-zinc-500" x-text="`/c/${c.slug}/`"></div>
+  <div class="text-xs text-zinc-500" x-text="`/club/${c.slug}/`"></div>
   </a>
   </template>
   </div>
@@ -154,7 +154,7 @@
   <template x-for="c in platformClubs" :key="c.id">
   <div class="rounded-xl border bg-white p-4">
   <div class="flex flex-wrap items-center justify-between gap-2">
-  <div><a :href="`/c/${c.slug}/`" class="font-semibold underline" x-text="`${c.name} · /c/${c.slug}/`"></a>
+  <div><a :href="`/club/${c.slug}/`" class="font-semibold underline" x-text="`${c.name} · /c/${c.slug}/`"></a>
   <div class="text-xs text-zinc-500" x-text="`${c.timezone} · ${c.plan} · courts ${c.counts?.courts ?? '?'} · users ${c.counts?.users ?? '?'} · bookings ${c.counts?.bookings ?? '?'}`"></div></div>
   <div class="flex flex-wrap items-center gap-2 text-xs">
   <select x-model="c.plan" @change="savePlatformClub(c)" class="rounded-lg border px-2 py-1"><option value="free">free</option><option value="starter">starter</option><option value="pro">pro</option></select>

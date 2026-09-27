@@ -12,7 +12,7 @@
 | 4 | Notifications (Telegram/WhatsApp, admin queue) | ✅ | done-ish | `SPEC.md` §4.4, `feat/notifications` |
 | 5 | Multitenancy core (clubs table, `club_id` scoping, per-club settings/timezone) | ✅ | planned | `MULTITENANT.md` §§1–5, Phases 0–4 |
 | 6 | Test coverage — after multitenancy core: catch up missing suites (#1–4), then incremental per feature (vitest, endpoint + cross-club) | ✅ | deferred until #5 done | `MULTITENANT.md` Phase 4 |
-| 7 | Club slug — URI-compatible name + deep link (`/c/:slug/`) | ✅ | planned | `MULTITENANT.md` §6 |
+| 7 | Club slug — URI-compatible name + deep link (`/club/:slug/`) | ✅ | planned | `MULTITENANT.md` §6 |
 | 8 | Platform frontend (`/` landing + `/clubs` directory) | ✅ | planned | `MULTITENANT.md` §7, Phase 6 |
 | 9 | Platform admin (`superadmin`, `/api/platform/*`, `/platform` UI) | ✅ | planned | `MULTITENANT.md` §9, Phase 7 |
 | 10 | Platform pricing display (tiers on `/`, plan per club; billing manual) | ✅ | planned | `MULTITENANT.md` §8A |

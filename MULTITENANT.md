@@ -102,7 +102,7 @@ club-info, telegram link/status.
 - `notifyAdminPendingBooking`'s linked-admin union must also filter `club_id`.
 
 ### 4. Frontend (medium)
-- Club context via path (`/c/:slug/…`) or subdomain; `X-Club-Slug` header is the
+- Club context via path (`/club/:slug/…`) or subdomain; `X-Club-Slug` header is the
   least invasive way to attach it to the existing `fetch("/api/…")` calls.
 - Per-club footer/branding (`BRAND_NAME`/`clubInfo` stop being global),
   per-club availability pages and notification deep links.
@@ -113,11 +113,11 @@ club-info, telegram link/status.
   Generated from club name (`Green Village` → `green-village`, dedupe with
   `-2` suffix). Reserved list: `api, health, assets, c, clubs, admin, login,
   register, me, profile`.
-- Canonical deep link: `/c/:slug/` serving the same `index.html` (current SPA
+- Canonical deep link: `/club/:slug/` serving the same `index.html` (current SPA
   fallback in `backend/src/app.ts:90-98` already returns `index.html` for any
   non-`/api|/health|/assets` path, so no backend change needed for serving).
-  Hash views preserved underneath: `/c/:slug/#courts`,
-  `/c/:slug/#admin-bookings?highlight=<id>`.
+  Hash views preserved underneath: `/club/:slug/#courts`,
+  `/club/:slug/#admin-bookings?highlight=<id>`.
 - Resolution order per request: `X-Club-Slug` header (set by frontend from
   path) → `?slug=` query (public GETs: `club-info`, `availability`,
   `announcements`) → JWT `clubId` (authed writes, must match header).
@@ -125,7 +125,7 @@ club-info, telegram link/status.
 - Public reads take slug, never JWT: `GET /api/club-info?slug=`,
   `GET /api/availability?slug=&court_id=&date=`, `GET /api/announcements?slug=`.
 - Notification deep links become per-club:
-  `{club.publicUrl}/c/:slug/#admin-bookings?highlight=<id>`
+  `{club.publicUrl}/club/:slug/#admin-bookings?highlight=<id>`
   (`services/notifications.ts:75-78` today builds a global URL).
 - Telegram link token encodes club: `t.me/<bot>?start=<token>` resolves to
   `(club_id, user_id)`; each club brings its own bot (`botToken → club` map
@@ -138,13 +138,13 @@ club-info, telegram link/status.
   hero (what BagelClub is), features, pricing/CTA (`Add your club`), club
   directory (`/clubs` → cards from `GET /api/clubs` public: `slug, name,
   publicUrl?, courts count?`), footer platform-wide.
-- Club app lives exclusively under `/c/:slug/` (courts, confirm, login,
+- Club app lives exclusively under `/club/:slug/` (courts, confirm, login,
   register, me, profile, admin-*). Bare `/courts`, `/#me` etc. redirect to
   directory or to default club only during migration (then removed).
 - New/changed views: `platform-home` (`/`), `club-directory` (`/clubs`,
   search by name), existing club views reused under prefix. `document.title`,
   header logo, footer switch: platform brand on `/`, per-club `clubInfo`
-  (name/phone/address/logo) under `/c/:slug/`.
+  (name/phone/address/logo) under `/club/:slug/`.
 - New public endpoint: `GET /api/clubs` → `[{slug, name}]` (+ optional
   `public_url`, `courts` count) for directory; `superadmin` CRUD
   `POST/PATCH /api/clubs` (create club + seed settings + slug validation).
@@ -206,7 +206,7 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   `platform-login`, `platform-clubs` (table + suspend/activate + plan select),
   `platform-club-new` (wizard: name → slug preview + reserved check, timezone,
   admin email), `platform-audit` (read-only log). Never mounted under
-  `/c/:slug/`; platform brand, no club context, no `X-Club-Slug`.
+  `/club/:slug/`; platform brand, no club context, no `X-Club-Slug`.
 - Security: rate-limit login 5/min/IP (existing), strong seed password required
   (`≥16` chars or generated), 2FA deferred; `GET /api/clubs` public directory
   only exposes `is_listed + is_active` clubs (suspended/hidden never leak).
@@ -218,7 +218,7 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   (`demo-admin / <rotated on reset>` or open sandbox login — decided at build).
 - Content: seeded courts (tennis + padel), weekly timetable, sample bookings,
   blocks and announcements so prospects see every state (available/pending/
-  blocked). Lives at `/c/demo/`.
+  blocked). Lives at `/club/demo/`.
 - Demo run onboarding (locked 2026-09-27): "Start demo" provisions a **personal
   ephemeral run** from the pre-loaded template — the only two inputs are club
   name (free text, or "Surprise me" random generator, e.g. `Sunset Smash Club`)
@@ -232,7 +232,7 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
     `{slug, admin_credentials, url: /c/<slug>/}`.
   - Run TTL 24h; cleanup job deletes expired demo runs (same `is_demo`-asserted
     transaction pattern as below). Concurrent prospects never share state —
-    the shared `/c/demo/` stays read-mostly showcase.
+    the shared `/club/demo/` stays read-mostly showcase.
 - Reset job (nightly + on-demand `POST /api/platform/clubs/demo/reset`
   superadmin-only): single transaction scoped to `WHERE club_id = demo_id` —
   wipe bookings/users-beyond-seed/blocks/settings deltas, re-run club seed.
@@ -264,7 +264,7 @@ live in `app_settings`. Seed becomes "seed club".
 ## Crosstalk hotspots (test explicitly)
 Public availability/timetable reads, Telegram webhook routing, the admin-union
 notify query, reports aggregation, username/email login scoping.
-Slug collisions/reserved words, `/` vs `/c/:slug/` routing, directory leaking
+Slug collisions/reserved words, `/` vs `/club/:slug/` routing, directory leaking
 private club data.
 
 ## Phases
@@ -282,8 +282,8 @@ private club data.
 3. Route-by-route scoping + Telegram routing.
 4. Hardening: Postgres RLS (`current_setting('app.club_id')`) + per-endpoint
    cross-club tests.
-5. Frontend club context (`/c/:slug/` + `X-Club-Slug`) + per-club branding/links.
+5. Frontend club context (`/club/:slug/` + `X-Club-Slug`) + per-club branding/links.
 6. Platform frontend: `/` landing + `/clubs` directory + `GET /api/clubs` +
-   `/c/:slug/` enforcement + slug deep links.
+   `/club/:slug/` enforcement + slug deep links.
 7. Platform admin: `superadmin` role + `/api/platform/*` + `/platform` UI +
    bootstrap seed + audit.
