@@ -38,8 +38,9 @@
   <template x-if="isPlatform && platformUser">
   <div class="flex gap-6">
   <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="hover:text-black" x-text="t('platform.clubs')"></a>
-  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformAudit()" class="hover:text-black" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'" class="hover:text-black" x-text="t('platform.settings')"></a>
   <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="hover:text-black" x-text="t('platform.reports')"></a>
+  <a href="#platform" @click.prevent="view='platform-audit'; loadPlatformAudit()" class="hover:text-black" x-text="t('platform.audit')"></a>
   </div>
   </template>
    </nav>
@@ -90,8 +91,9 @@
   </nav>
   <nav x-show="isPlatform && platformUser" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
   <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.clubs')"></a>
-  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformAudit()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.settings')"></a>
   <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.reports')"></a>
+  <a href="#platform" @click.prevent="view='platform-audit'; loadPlatformAudit()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.audit')"></a>
   </nav>
 
   <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-20 md:pb-6">
@@ -194,7 +196,9 @@
   <button @click="cleanupDemos()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.cleanup')"></button>
   </div>
   <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
-  <h3 class="font-semibold" x-text="t('platform.audit')"></h3>
+  </section>
+  <section x-show="view==='platform-audit'" class="space-y-3">
+  <h2 class="text-xl font-bold" x-text="t('platform.audit')"></h2>
   <template x-for="a in platformAudit" :key="a.id">
   <div class="rounded-xl border bg-white p-3 text-xs"><span class="font-mono" x-text="a.created_at"></span><span class="font-semibold" x-text="' ' + a.action"></span><span x-text="' ' + (a.club_slug || a.target || '')"></span></div>
   </template>
