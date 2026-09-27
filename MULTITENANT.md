@@ -2,7 +2,7 @@
 
 > Analysis only (2026-09-26, extended 2026-09-27 on `feat/multitenancy`). No code changed.
 > Locked for v1: one user = one club (`club_id` on users, no memberships join table).
-> Feature list lives in `FEATURES.md` — this file is the design doc for features 5–12.
+> Feature list lives in `FEATURES.md` — this file is the design doc for features 5–14.
 
 ## Recommendation
 Shared DB + `club_id` discriminator on every tenant table. Schema-per-tenant or
@@ -241,6 +241,22 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   explicitly that they touch only demo rows (row-count assertions per table
   before/after on non-demo clubs).
 
+### 11. Per-club locales (locked 2026-09-27)
+- Today i18n is global: 5 langs `it|en|fr|de|es`, `users.preferred_language`
+  enum, `frontend/src/i18n/*.json`, header language switcher, per-lang
+  announcement translations. Becomes club config: `app_settings.enabled_locales
+  TEXT[] NOT NULL DEFAULT '{it,en,fr,de,es}'` + `default_locale VARCHAR(5) NOT
+  NULL DEFAULT 'it'` (must be a member of `enabled_locales`, enforced on write).
+- Single-locale club (e.g. `{it}`): frontend hides **all** language UI — no
+  header switcher, no `preferred_language` sync (`PATCH /api/users/me` ignores
+  it), no per-lang tabs on the announcement form (single body). Multi-locale
+  clubs keep today's behaviour scoped to their enabled set.
+- Backend: register/profile reject `preferred_language` outside the club set
+  (`400`); `GET /api/club-info?slug=` includes `locales` + `default_locale` so
+  the frontend boots without an extra round-trip; announcements serve only
+  translations in enabled locales (others never created).
+- Seed/backfill: existing club keeps all 5 (today's behaviour unchanged).
+
 ### 5. Ops (small)
 Same Render service + Neon DB. Env keeps platform secrets only; per-club creds
 live in `app_settings`. Seed becomes "seed club".
@@ -261,7 +277,7 @@ private club data.
    Baselines — local: users=3 courts=4 bookings=107 blocks=0 rules=2 settings=1;
    Neon: users=3 courts=4 bookings=15 blocks=0 rules=6 settings=1.
 1. Schema + backfill migration, `clubs` table (incl. `slug` unique + reserved
-   validation), per-club settings/timezone.
+   validation), per-club settings/timezone/locales.
 2. Auth: club-scoped login/JWT/roles + superadmin.
 3. Route-by-route scoping + Telegram routing.
 4. Hardening: Postgres RLS (`current_setting('app.club_id')`) + per-endpoint

@@ -99,6 +99,13 @@
       "when": 1790400006000,
       "tag": "0013_announcements",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790469782813,
+      "tag": "0014_multitenant",
+      "breakpoints": true
     }
   ]
 }

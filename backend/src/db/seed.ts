@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createDb } from "./connection.js";
-import { courts, timetables, users, appSettings } from "./schema.js";
+import { clubs, courts, timetables, users, appSettings } from "./schema.js";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const url = process.env.DATABASE_URL;
@@ -11,8 +12,13 @@ if (!url) {
 
 const { db, pool } = createDb(url);
 
-// Ensure app_settings row
-await db.insert(appSettings).values({ id: 1 }).onConflictDoNothing();
+// Seed club (single-club default)
+await db.insert(clubs).values({ slug: "green-village", name: "Green Village", timezone: "Europe/Rome" }).onConflictDoNothing();
+const clubRows = await db.select().from(clubs).where(eq(clubs.slug, "green-village")).limit(1);
+const clubId = clubRows[0].id;
+
+// Ensure per-club app_settings row
+await db.insert(appSettings).values({ clubId }).onConflictDoNothing();
 
 // Seed courts 1-4
 const seedCourts = [
@@ -23,11 +29,11 @@ const seedCourts = [
 ];
 
 for (const c of seedCourts) {
-  await db.insert(courts).values(c).onConflictDoNothing();
+  await db.insert(courts).values({ ...c, clubId }).onConflictDoNothing();
 }
 
 // Default timetable: 08:00-22:00, padel 90 min, tennis 60 min
-const allCourts = await db.select().from(courts);
+const allCourts = await db.select().from(courts).where(eq(courts.clubId, clubId));
 for (const court of allCourts) {
   const slot = court.type === "padel" ? 90 : 60;
   for (let dow = 0; dow <= 6; dow++) {
@@ -50,6 +56,7 @@ const adminHash = await bcrypt.hash("admin123!", 10);
 await db
   .insert(users)
   .values({
+    clubId,
     username: "admin",
     email: "admin@bagelclub.local",
     passwordHash: adminHash,

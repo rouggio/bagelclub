@@ -1,6 +1,7 @@
-import { pgTable, uuid, text, varchar, integer, smallint, boolean, timestamp, date, time, pgEnum, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, smallint, boolean, timestamp, date, time, pgEnum, index, unique, char } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
-export const userRoleEnum = pgEnum("user_role", ["visitor", "associate", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["visitor", "associate", "admin", "superadmin"]);
 export const courtTypeEnum = pgEnum("court_type", ["tennis", "padel"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending_registration",
@@ -13,36 +14,74 @@ export const bookingStatusEnum = pgEnum("booking_status", [
 export const preferredLanguageEnum = pgEnum("preferred_language", ["it", "en", "fr", "de", "es"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "other", "prefer_not_to_say"]);
 export const announcementVisibilityEnum = pgEnum("announcement_visibility", ["public", "members"]);
+export const clubPlanEnum = pgEnum("club_plan", ["free", "starter", "pro"]);
 
-export const users = pgTable("users", {
+export const clubs = pgTable("clubs", {
   id: uuid("id").primaryKey().defaultRandom(),
-  username: varchar("username", { length: 30 }).notNull().unique(),
-  email: varchar("email", { length: 255 }).unique(),
-  passwordHash: text("password_hash").notNull(),
-  firstName: varchar("first_name", { length: 100 }).notNull(),
-  lastName: varchar("last_name", { length: 100 }).notNull(),
-  role: userRoleEnum("role").notNull().default("visitor"),
-  preferredLanguage: preferredLanguageEnum("preferred_language").notNull().default("it"),
-  preferredSport: courtTypeEnum("preferred_sport"),
-  mobile: varchar("mobile", { length: 20 }),
-  telegramChatId: varchar("telegram_chat_id", { length: 100 }),
-  gender: genderEnum("gender"),
-  birthdate: date("birthdate"),
-  isVerified: boolean("is_verified").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const courts = pgTable("courts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  number: integer("number").notNull().unique(),
-  type: courtTypeEnum("type").notNull(),
-  name: varchar("name", { length: 100 }),
-  surface: varchar("surface", { length: 50 }),
+  slug: varchar("slug", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  timezone: varchar("timezone", { length: 50 }).notNull(),
+  plan: clubPlanEnum("plan").notNull().default("starter"),
+  currency: char("currency", { length: 3 }).notNull().default("EUR"),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
   isActive: boolean("is_active").notNull().default(true),
+  maxCourts: integer("max_courts"),
+  isDemo: boolean("is_demo").notNull().default(false),
+  demoExpiresAt: timestamp("demo_expires_at", { withTimezone: true }),
+  isListed: boolean("is_listed").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id),
+    username: varchar("username", { length: 30 }).notNull(),
+    email: varchar("email", { length: 255 }),
+    passwordHash: text("password_hash").notNull(),
+    firstName: varchar("first_name", { length: 100 }).notNull(),
+    lastName: varchar("last_name", { length: 100 }).notNull(),
+    role: userRoleEnum("role").notNull().default("visitor"),
+    preferredLanguage: preferredLanguageEnum("preferred_language").notNull().default("it"),
+    preferredSport: courtTypeEnum("preferred_sport"),
+    mobile: varchar("mobile", { length: 20 }),
+    telegramChatId: varchar("telegram_chat_id", { length: 100 }),
+    gender: genderEnum("gender"),
+    birthdate: date("birthdate"),
+    isVerified: boolean("is_verified").notNull().default(false),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references((): any => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("users_club_username_idx").on(t.clubId, t.username),
+    index("users_club_email_idx").on(t.clubId, t.email),
+  ]
+);
+
+export const courts = pgTable(
+  "courts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id),
+    number: integer("number").notNull(),
+    type: courtTypeEnum("type").notNull(),
+    name: varchar("name", { length: 100 }),
+    surface: varchar("surface", { length: 50 }),
+    basePriceCents: integer("base_price_cents").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("courts_club_number_unique").on(t.clubId, t.number)]
+);
 
 export const timetables = pgTable(
   "timetables",
@@ -62,6 +101,9 @@ export const bookings = pgTable(
   "bookings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id),
     courtId: uuid("court_id")
       .notNull()
       .references(() => courts.id),
@@ -73,6 +115,7 @@ export const bookings = pgTable(
     notes: text("notes"),
     rentRacquets: integer("rent_racquets").notNull().default(0),
     players: integer("players").notNull().default(2),
+    priceCents: integer("price_cents").notNull().default(0),
     guestToken: varchar("guest_token", { length: 64 }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     reviewedBy: uuid("reviewed_by").references(() => users.id),
@@ -90,6 +133,9 @@ export const blocks = pgTable(
   "blocks",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id")
+      .notNull()
+      .references(() => clubs.id),
     courtId: uuid("court_id").references(() => courts.id, { onDelete: "cascade" }),
     startAt: timestamp("start_at", { withTimezone: true }).notNull(),
     endAt: timestamp("end_at", { withTimezone: true }).notNull(),
@@ -102,6 +148,9 @@ export const blocks = pgTable(
 
 export const blockingRules = pgTable("blocking_rules", {
   id: uuid("id").primaryKey().defaultRandom(),
+  clubId: uuid("club_id")
+    .notNull()
+    .references(() => clubs.id),
   courtId: uuid("court_id").references(() => courts.id, { onDelete: "cascade" }),
   dayOfWeek: smallint("day_of_week").notNull(),
   startTime: time("start_time").notNull(),
@@ -113,7 +162,9 @@ export const blockingRules = pgTable("blocking_rules", {
 });
 
 export const appSettings = pgTable("app_settings", {
-  id: smallint("id").primaryKey().default(1),
+  clubId: uuid("club_id")
+    .primaryKey()
+    .references(() => clubs.id, { onDelete: "cascade" }),
   defaultSlotDurationMinutes: integer("default_slot_duration_minutes").notNull().default(60),
   bookingHoldMinutes: integer("booking_hold_minutes").notNull().default(30),
   maxAdvanceDays: integer("max_advance_days").notNull().default(14),
@@ -134,11 +185,14 @@ export const appSettings = pgTable("app_settings", {
   whatsappToken: text("whatsapp_token"),
   whatsappPhoneNumberId: varchar("whatsapp_phone_number_id", { length: 50 }),
   whatsappAdminPhone: varchar("whatsapp_admin_phone", { length: 30 }),
+  enabledLocales: text("enabled_locales").array().notNull().default(sql`ARRAY['it','en','fr','de','es']`),
+  defaultLocale: varchar("default_locale", { length: 5 }).notNull().default("it"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
+  clubId: uuid("club_id").references(() => clubs.id),
   actorId: uuid("actor_id").references(() => users.id),
   action: varchar("action", { length: 50 }).notNull(),
   target: varchar("target", { length: 100 }).notNull(),
@@ -148,6 +202,9 @@ export const auditLog = pgTable("audit_log", {
 
 export const announcements = pgTable("announcements", {
   id: uuid("id").primaryKey().defaultRandom(),
+  clubId: uuid("club_id")
+    .notNull()
+    .references(() => clubs.id),
   title: varchar("title", { length: 200 }).notNull(),
   body: text("body").notNull(),
   visibility: announcementVisibilityEnum("visibility").notNull().default("public"),
@@ -168,6 +225,9 @@ export const announcementTranslations = pgTable("announcement_translations", {
 
 export const telegramLinkTokens = pgTable("telegram_link_tokens", {
   token: varchar("token", { length: 64 }).primaryKey(),
+  clubId: uuid("club_id")
+    .notNull()
+    .references(() => clubs.id),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
