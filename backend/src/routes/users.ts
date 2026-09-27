@@ -23,14 +23,14 @@ async function liveSelf(db: any, authUser: any) {
 }
 
 export default async function userRoutes(fastify: FastifyInstance) {
-  fastify.get("/api/users/me", { preHandler: [fastify.authenticate] }, async (req, _reply) => {
+  fastify.get("/api/users/me", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const db: any = (req as any).server.db ?? (req as any).server;
     const maybeDb = (req as any).server.db ?? (req as any).server["db"];
     const authUser = (req as any).user;
     if (maybeDb) {
       const me = await liveSelf(maybeDb, authUser);
       if (me) return safeUser(me);
-      return { error: "User not found" };
+      return reply.status(401).send({ error: "User not found" });
     }
     return authUser;
   });
