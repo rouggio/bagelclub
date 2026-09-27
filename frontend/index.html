@@ -19,20 +19,15 @@
   <a href="#me" x-show="user && clubSlug" class="hover:text-black" x-text="t('nav.myBookings')"></a>
   <template x-if="user?.role==='admin' && clubSlug">
   <div class="flex gap-6">
-   <div class="relative">
-   <button @click="courtsMenuOpen=!courtsMenuOpen" class="flex items-center gap-1 hover:text-black"><span x-text="t('admin.menu.courts')"></span><span class="text-xs" x-text="courtsMenuOpen ? '▲' : '▼'"></span></button>
-   <div x-show="courtsMenuOpen" @click.outside="courtsMenuOpen=false" class="absolute left-0 top-6 mt-1 w-48 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
-   <a href="#admin-courts" @click="courtsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
-   <a href="#admin-timetable" @click="courtsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
-   <a href="#admin-blocks" @click="courtsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
-   </div>
-   </div>
    <a href="#admin-users" class="hover:text-black" x-text="t('admin.users')"></a>
    <a href="#admin-bookings" class="hover:text-black" x-text="t('admin.bookings')"></a>
    <div class="relative">
    <button @click="settingsMenuOpen=!settingsMenuOpen" class="flex items-center gap-1 hover:text-black"><span x-text="t('admin.menu.settings')"></span><span class="text-xs" x-text="settingsMenuOpen ? '▲' : '▼'"></span></button>
    <div x-show="settingsMenuOpen" @click.outside="settingsMenuOpen=false" class="absolute left-0 top-6 mt-1 w-48 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
    <a href="#admin-club" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.club.title')"></a>
+   <a href="#admin-courts" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
+   <a href="#admin-timetable" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
+   <a href="#admin-blocks" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
    <a href="#admin-notifications" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.notifications.nav')"></a>
    </div>
    </div>
@@ -45,14 +40,13 @@
     <div x-show="user?.role==='admin' && clubSlug" class="md:hidden relative">
    <button @click="adminMobileOpen=!adminMobileOpen" class="flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-xs font-medium">Admin <span x-text="adminMobileOpen ? '▲' : '▼'"></span></button>
     <div x-show="adminMobileOpen" @click.outside="adminMobileOpen=false" class="absolute left-0 top-10 mt-1 w-56 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
-    <div class="px-3 pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.menu.courts')"></div>
-     <a href="#admin-courts" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
-     <a href="#admin-timetable" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
-     <a href="#admin-blocks" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
      <a href="#admin-users" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.users')"></a>
      <a href="#admin-bookings" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.bookings')"></a>
     <div class="px-3 pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.menu.settings')"></div>
      <a href="#admin-club" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.club.title')"></a>
+     <a href="#admin-courts" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
+     <a href="#admin-timetable" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
+     <a href="#admin-blocks" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
      <a href="#admin-notifications" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.notifications.nav')"></a>
      <a href="#admin-reports" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
      <a href="#admin-announcements" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.ann.title')"></a>
