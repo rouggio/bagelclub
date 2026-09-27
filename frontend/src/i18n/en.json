@@ -298,8 +298,8 @@
   "landing.tryDemo": "Try the demo",
   "landing.viewClubs": "Browse clubs",
   "landing.f1": "Live availability",
-  "landing.f2": "Multi-club",
-  "landing.f3": "Automatic notifications",
+  "landing.f2": "Online booking",
+  "landing.f3": "Multi-club",
   "landing.pricing": "Plans",
   "landing.pFree": "Free",
   "landing.pFreeD": "To get started",
@@ -308,5 +308,14 @@
   "landing.pPro": "Pro",
   "landing.pProD": "For club networks",
   "landing.dir": "Clubs",
-  "price.perSlot": "€ per slot"
+  "price.perSlot": "€ per slot",
+  "landing.f1d": "Real-time slot grid for every court.",
+  "landing.f2d": "Simple flow with admin approval.",
+  "landing.f3d": "One dedicated link per club.",
+  "landing.f4": "Hours and blocks",
+  "landing.f4d": "Opening hours, recurring lessons and maintenance.",
+  "landing.f5": "Automatic notifications",
+  "landing.f5d": "Confirmations and reminders via Telegram and WhatsApp.",
+  "landing.f6": "Reports and revenue",
+  "landing.f6d": "Statistics and period totals."
 }

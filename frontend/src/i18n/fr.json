@@ -298,8 +298,8 @@
   "landing.tryDemo": "Essayer la démo",
   "landing.viewClubs": "Voir les clubs",
   "landing.f1": "Disponibilités live",
-  "landing.f2": "Multi-club",
-  "landing.f3": "Notifications automatiques",
+  "landing.f2": "Réservation en ligne",
+  "landing.f3": "Multi-club",
   "landing.pricing": "Offres",
   "landing.pFree": "Gratuit",
   "landing.pFreeD": "Pour commencer",
@@ -308,5 +308,14 @@
   "landing.pPro": "Pro",
   "landing.pProD": "Pour réseaux de clubs",
   "landing.dir": "Clubs",
-  "price.perSlot": "€ par créneau"
+  "price.perSlot": "€ par créneau",
+  "landing.f1d": "Grille des créneaux en temps réel pour chaque terrain.",
+  "landing.f2d": "Parcours simple avec approbation admin.",
+  "landing.f3d": "Un lien dédié pour chaque club.",
+  "landing.f4": "Horaires et blocages",
+  "landing.f4d": "Horaires, cours récurrents et maintenance.",
+  "landing.f5": "Notifications automatiques",
+  "landing.f5d": "Confirmations et rappels via Telegram et WhatsApp.",
+  "landing.f6": "Statistiques et revenus",
+  "landing.f6d": "Statistiques et totaux par période."
 }

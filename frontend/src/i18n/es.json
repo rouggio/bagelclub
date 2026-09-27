@@ -298,8 +298,8 @@
   "landing.tryDemo": "Probar la demo",
   "landing.viewClubs": "Ver clubes",
   "landing.f1": "Disponibilidad live",
-  "landing.f2": "Multiclub",
-  "landing.f3": "Notificaciones automáticas",
+  "landing.f2": "Reserva online",
+  "landing.f3": "Multiclub",
   "landing.pricing": "Planes",
   "landing.pFree": "Gratis",
   "landing.pFreeD": "Para empezar",
@@ -308,5 +308,14 @@
   "landing.pPro": "Pro",
   "landing.pProD": "Para redes de clubes",
   "landing.dir": "Clubes",
-  "price.perSlot": "€ por turno"
+  "price.perSlot": "€ por turno",
+  "landing.f1d": "Parrilla de turnos en tiempo real por pista.",
+  "landing.f2d": "Flujo simple con aprobación del admin.",
+  "landing.f3d": "Un enlace dedicado por club.",
+  "landing.f4": "Horarios y bloqueos",
+  "landing.f4d": "Horarios, clases recurrentes y mantenimiento.",
+  "landing.f5": "Notificaciones automáticas",
+  "landing.f5d": "Confirmaciones por Telegram y WhatsApp.",
+  "landing.f6": "Informes e ingresos",
+  "landing.f6d": "Estadísticas y totales por período."
 }

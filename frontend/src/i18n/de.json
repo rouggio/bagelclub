@@ -298,8 +298,8 @@
   "landing.tryDemo": "Demo testen",
   "landing.viewClubs": "Clubs ansehen",
   "landing.f1": "Live-Verfügbarkeit",
-  "landing.f2": "Multi-Club",
-  "landing.f3": "Automatische Benachrichtigungen",
+  "landing.f2": "Online-Buchung",
+  "landing.f3": "Multi-Club",
   "landing.pricing": "Pläne",
   "landing.pFree": "Gratis",
   "landing.pFreeD": "Zum Starten",
@@ -308,5 +308,14 @@
   "landing.pPro": "Pro",
   "landing.pProD": "Für Club-Netzwerke",
   "landing.dir": "Clubs",
-  "price.perSlot": "€ pro Slot"
+  "price.perSlot": "€ pro Slot",
+  "landing.f1d": "Echtzeit-Slotraster für jeden Platz.",
+  "landing.f2d": "Einfacher Ablauf mit Admin-Freigabe.",
+  "landing.f3d": "Ein eigener Link pro Club.",
+  "landing.f4": "Zeiten und Sperren",
+  "landing.f4d": "Öffnungszeiten, Kurse und Wartung.",
+  "landing.f5": "Automatische Benachrichtigungen",
+  "landing.f5d": "Bestätigungen via Telegram und WhatsApp.",
+  "landing.f6": "Berichte und Umsatz",
+  "landing.f6d": "Statistiken und Zeitraum-Summen."
 }
