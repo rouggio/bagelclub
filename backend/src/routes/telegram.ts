@@ -1,9 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { users, telegramLinkTokens } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { sendTelegramMessage } from "../services/notifications.js";
 import { BRAND_NAME, TELEGRAM_BOT_USERNAME_FALLBACK } from "../config/brand.js";
+import { requireRequestClub, getClubSettings } from "../services/club.js";
 
 async function getBotUsername(botToken: string): Promise<string> {
   if (!botToken) return TELEGRAM_BOT_USERNAME_FALLBACK;
@@ -15,24 +16,30 @@ async function getBotUsername(botToken: string): Promise<string> {
   return TELEGRAM_BOT_USERNAME_FALLBACK;
 }
 
+/** This club's bot token — strictly per-club settings, no env fallback. */
+async function clubBotToken(db: any, clubId: string): Promise<string> {
+  try {
+    const s = await getClubSettings(db, clubId);
+    return s?.telegramBotToken || "";
+  } catch {
+    return "";
+  }
+}
+
 export default async function telegramRoutes(fastify: FastifyInstance) {
   // POST /api/telegram/link -> create short token and return deep link
   fastify.post("/api/telegram/link", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const user = (req as any).user;
-    // get settings for bot token to build link
-    let botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-    try {
-      const { appSettings } = await import("../db/schema.js");
-      const rows = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-      if (rows[0]?.telegramBotToken) botToken = rows[0].telegramBotToken;
-    } catch {}
+    const botToken = await clubBotToken(db, club.id);
     const username = await getBotUsername(botToken);
     const token = randomBytes(16).toString("hex"); // 32 chars
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     try {
-      await db.insert(telegramLinkTokens).values({ token, userId: user.id, expiresAt });
+      await db.insert(telegramLinkTokens).values({ token, clubId: club.id, userId: user.id, expiresAt });
     } catch (e: any) {
       return reply.status(500).send({ error: "Could not create link" });
     }
@@ -61,7 +68,10 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true, linked: false });
   });
 
-  // POST /api/telegram/webhook -> Telegram calls this when user sends /start
+  // POST /api/telegram/webhook -> Telegram calls this when user sends /start.
+  // Club routing: the link token encodes (club_id, user_id); every bot-token
+  // lookup below is scoped to the token's club. A token-less /start or an
+  // unknown token cannot be routed to any club → silent ok.
   fastify.post("/api/telegram/webhook", async (req, reply) => {
     const db: any = (fastify as any).db;
     const body: any = (req as any).body;
@@ -74,60 +84,29 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
     const text: string = String(message.text).trim();
     // only handle /start <token>
     const m = text.match(/^\/start\s+([a-f0-9]{32})/i);
-    if (!m) {
-      // For plain /start without token, send help
-      if (text === "/start") {
-        let botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-        try {
-          if (db) {
-            const { appSettings } = await import("../db/schema.js");
-            const rows = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-            if (rows[0]?.telegramBotToken) botToken = rows[0].telegramBotToken;
-          }
-        } catch {}
-        if (botToken) {
-          await sendTelegramMessage(botToken, chatId, `Hi! To link your ${BRAND_NAME} account, open your Profile in the app and tap "Connect Telegram" — it will bring you here with a code.`);
-        }
-      }
-      return reply.send({ ok: true });
-    }
+    if (!m) return reply.send({ ok: true });
     const token = m[1].toLowerCase();
     if (!db) return reply.send({ ok: true });
     // find token
     const rows = await db.select().from(telegramLinkTokens).where(eq(telegramLinkTokens.token, token)).limit(1);
     const link = rows[0];
-    if (!link) {
-      // expired or invalid
-      let botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-      try {
-        const { appSettings } = await import("../db/schema.js");
-        const r2 = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-        if (r2[0]?.telegramBotToken) botToken = r2[0].telegramBotToken;
-      } catch {}
-      if (botToken) await sendTelegramMessage(botToken, chatId, "Link expired or invalid. Please generate a new link from your Profile → Connect Telegram.");
-      return reply.send({ ok: true });
-    }
+    if (!link) return reply.send({ ok: true }); // expired or invalid — unroutable, stay silent
+    const botToken = await clubBotToken(db, link.clubId);
     if (new Date(link.expiresAt) < new Date()) {
       await db.delete(telegramLinkTokens).where(eq(telegramLinkTokens.token, token));
-      let botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-      try {
-        const { appSettings } = await import("../db/schema.js");
-        const r2 = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-        if (r2[0]?.telegramBotToken) botToken = r2[0].telegramBotToken;
-      } catch {}
       if (botToken) await sendTelegramMessage(botToken, chatId, "Link expired. Please generate a new one from your Profile.");
       return reply.send({ ok: true });
     }
-    // link user
+    // link user (must still be a live member of the token's club)
+    const uRows = await db.select().from(users)
+      .where(and(eq(users.id, link.userId), eq(users.clubId, link.clubId), isNull(users.deletedAt))).limit(1);
+    if (!uRows[0]) {
+      await db.delete(telegramLinkTokens).where(eq(telegramLinkTokens.token, token));
+      return reply.send({ ok: true });
+    }
     await db.update(users).set({ telegramChatId: chatId } as any).where(eq(users.id, link.userId));
     await db.delete(telegramLinkTokens).where(eq(telegramLinkTokens.token, token));
     // confirm
-    let botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-    try {
-      const { appSettings } = await import("../db/schema.js");
-      const r2 = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-      if (r2[0]?.telegramBotToken) botToken = r2[0].telegramBotToken;
-    } catch {}
     if (botToken) await sendTelegramMessage(botToken, chatId, `✅ Telegram linked to your ${BRAND_NAME} account! You'll receive booking approvals/rejections here.`);
     return reply.send({ ok: true });
   });

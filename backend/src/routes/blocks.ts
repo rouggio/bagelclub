@@ -1,13 +1,30 @@
 import type { FastifyInstance } from "fastify";
 import { blockSchema, blockingRuleSchema } from "../types/schemas.js";
-import { blocks, blockingRules } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { blocks, blockingRules, bookings, courts } from "../db/schema.js";
+import { eq, and, desc } from "drizzle-orm";
+import { requireRequestClub } from "../services/club.js";
+
+/** Live bookings of this club, optionally restricted to one court. */
+async function clubBookings(db: any, clubId: string, courtId?: string | null) {
+  if (courtId) {
+    return db.select().from(bookings).where(and(eq(bookings.clubId, clubId), eq(bookings.courtId, courtId)));
+  }
+  return db.select().from(bookings).where(eq(bookings.clubId, clubId));
+}
+
+async function courtInClub(db: any, clubId: string, courtId: string | null | undefined): Promise<boolean> {
+  if (!courtId) return true; // null = all courts of the club
+  const rows = await db.select({ id: courts.id }).from(courts).where(and(eq(courts.id, courtId), eq(courts.clubId, clubId))).limit(1);
+  return !!rows[0];
+}
 
 export default async function blockRoutes(fastify: FastifyInstance) {
-  fastify.get("/api/blocks", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (_req, reply) => {
-    const db: any = (_req as any).server.db;
+  fastify.get("/api/blocks", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const db: any = (req as any).server.db;
     if (!db) return reply.send([]);
-    const rows = await db.select().from(blocks).orderBy(desc(blocks.startAt));
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    const rows = await db.select().from(blocks).where(eq(blocks.clubId, club.id)).orderBy(desc(blocks.startAt));
     return reply.send(rows);
   });
   fastify.post("/api/blocks", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
@@ -15,19 +32,19 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { court_id, start_at, end_at, reason } = parsed.data;
+    if (!(await courtInClub(db, club.id, court_id))) return reply.status(404).send({ error: "Court not found" });
     const force = (req.query as any)?.force === "true";
     if (!force) {
-      const { bookings } = await import("../db/schema.js");
-      const { and: and2, eq: eq2 } = await import("drizzle-orm");
-      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: process.env.CLUB_TIMEZONE || "Europe/Rome" });
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: club.timezone });
       const sAt = new Date(start_at), eAt = new Date(end_at);
       const sDate = sAt.toISOString().slice(0,10), eDate = eAt.toISOString().slice(0,10);
       // For simplicity check bookings on the block's start date (single day block assumption; for multi-day, check each day)
       // Query bookings that overlap the block's time window on relevant courts
-      let courtIds: (string|null)[] = court_id ? [court_id] : [];
       // If block for all courts (null), check all courts
-      const allBookings: any[] = court_id ? await db.select().from(bookings).where(and2(eq2(bookings.courtId, court_id))) : await db.select().from(bookings);
+      const allBookings: any[] = await clubBookings(db, club.id, court_id);
       const conflicts: any[] = [];
       for (const b of allBookings) {
         if (!["pending_approval","approved"].includes(b.status)) continue;
@@ -59,38 +76,39 @@ export default async function blockRoutes(fastify: FastifyInstance) {
         return reply.status(409).send({ error: "Block would orphan live bookings", conflicts, hint: "cancel/move conflicting bookings first" });
       }
     }
-    const [row] = await db.insert(blocks).values({ courtId: court_id ?? null, startAt: new Date(start_at), endAt: new Date(end_at), reason, createdBy: (req as any).user.id }).returning();
+    const [row] = await db.insert(blocks).values({ clubId: club.id, courtId: court_id ?? null, startAt: new Date(start_at), endAt: new Date(end_at), reason, createdBy: (req as any).user.id }).returning();
     return reply.status(201).send(row);
   });
   fastify.delete("/api/blocks/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { id } = req.params as any;
-    await db.delete(blocks).where(eq(blocks.id, id));
+    await db.delete(blocks).where(and(eq(blocks.id, id), eq(blocks.clubId, club.id)));
     return reply.status(204).send();
   });
   fastify.patch("/api/blocks/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { id } = req.params as any;
     const body = (req as any).body as any;
     const force = (req.query as any)?.force === "true";
     // Fetch existing to compute final values for coherence check
-    const existingRows = await db.select().from(blocks).where(eq(blocks.id, id)).limit(1);
-    if (!existingRows[0] && !force) {
-      // will be 404 anyway, but still need to check
-    }
-    const cur = existingRows[0] || { courtId: null, startAt: new Date(), endAt: new Date() };
+    const existingRows = await db.select().from(blocks).where(and(eq(blocks.id, id), eq(blocks.clubId, club.id))).limit(1);
+    if (!existingRows[0]) return reply.status(404).send({ error: "Not found" });
+    const cur = existingRows[0];
     const finalCourtId = body.court_id !== undefined ? (body.court_id || null) : cur.courtId;
+    if (!(await courtInClub(db, club.id, finalCourtId))) return reply.status(404).send({ error: "Court not found" });
     const finalStartAt = body.start_at !== undefined ? new Date(body.start_at) : cur.startAt;
     const finalEndAt = body.end_at !== undefined ? new Date(body.end_at) : cur.endAt;
     if (!force) {
-      const { bookings } = await import("../db/schema.js");
-      const { and: and2, eq: eq2 } = await import("drizzle-orm");
-      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: process.env.CLUB_TIMEZONE || "Europe/Rome" });
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: club.timezone });
       const sAt = finalStartAt, eAt = finalEndAt;
       const sDate = sAt.toISOString().slice(0,10), eDate = eAt.toISOString().slice(0,10);
-      const allBookings: any[] = finalCourtId ? await db.select().from(bookings).where(and2(eq2(bookings.courtId, finalCourtId))) : await db.select().from(bookings);
+      const allBookings: any[] = await clubBookings(db, club.id, finalCourtId);
       const conflicts: any[] = [];
       for (const b of allBookings) {
         if (!["pending_approval","approved"].includes(b.status)) continue;
@@ -115,7 +133,7 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     if (body.end_at !== undefined) updates.endAt = new Date(body.end_at);
     if (body.reason !== undefined) updates.reason = body.reason;
     if (Object.keys(updates).length === 0) return reply.status(400).send({ error: "No fields to update" });
-    const [row] = await db.update(blocks).set(updates).where(eq(blocks.id, id)).returning();
+    const [row] = await db.update(blocks).set(updates).where(and(eq(blocks.id, id), eq(blocks.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     return reply.send(row);
   });
@@ -123,7 +141,9 @@ export default async function blockRoutes(fastify: FastifyInstance) {
   fastify.get("/api/blocking-rules", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (req as any).server.db;
     if (!db) return reply.send([]);
-    const rows = await db.select().from(blockingRules);
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    const rows = await db.select().from(blockingRules).where(eq(blockingRules.clubId, club.id));
     return reply.send(rows);
   });
   fastify.post("/api/blocking-rules", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
@@ -131,14 +151,15 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { court_id, day_of_week, start_time, end_time, reason, valid_from, valid_until, is_active } = parsed.data;
+    if (!(await courtInClub(db, club.id, court_id))) return reply.status(404).send({ error: "Court not found" });
     const force = (req.query as any)?.force === "true";
     const isActive = is_active ?? true;
     if (!force && isActive) {
-      const { bookings } = await import("../db/schema.js");
-      const { and: and2, eq: eq2 } = await import("drizzle-orm");
-      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: process.env.CLUB_TIMEZONE || "Europe/Rome" });
-      const allBookings: any[] = court_id ? await db.select().from(bookings).where(and2(eq2(bookings.courtId, court_id))) : await db.select().from(bookings);
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: club.timezone });
+      const allBookings: any[] = await clubBookings(db, club.id, court_id);
       const conflicts: any[] = [];
       for (const b of allBookings) {
         if (!["pending_approval","approved"].includes(b.status)) continue;
@@ -153,20 +174,23 @@ export default async function blockRoutes(fastify: FastifyInstance) {
       }
       if (conflicts.length) return reply.status(409).send({ error: "Recurring block would orphan live bookings", conflicts });
     }
-    const [row] = await db.insert(blockingRules).values({ courtId: court_id ?? null, dayOfWeek: day_of_week, startTime: start_time, endTime: end_time, reason, validFrom: valid_from ?? null, validUntil: valid_until ?? null, isActive: isActive }).returning();
+    const [row] = await db.insert(blockingRules).values({ clubId: club.id, courtId: court_id ?? null, dayOfWeek: day_of_week, startTime: start_time, endTime: end_time, reason, validFrom: valid_from ?? null, validUntil: valid_until ?? null, isActive: isActive }).returning();
     return reply.status(201).send(row);
   });
   fastify.patch("/api/blocking-rules/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { id } = req.params as any;
     const body = (req as any).body as any;
     const force = (req.query as any)?.force === "true";
     // Fetch existing for final values
-    const existingRows = await db.select().from(blockingRules).where(eq(blockingRules.id, id)).limit(1);
+    const existingRows = await db.select().from(blockingRules).where(and(eq(blockingRules.id, id), eq(blockingRules.clubId, club.id))).limit(1);
     const cur = existingRows[0];
     if (!cur) return reply.status(404).send({ error: "Not found" });
     const finalCourtId = body.court_id !== undefined ? (body.court_id || null) : cur.courtId;
+    if (!(await courtInClub(db, club.id, finalCourtId))) return reply.status(404).send({ error: "Court not found" });
     const finalDow = body.day_of_week !== undefined ? body.day_of_week : cur.dayOfWeek;
     const finalStart = body.start_time !== undefined ? body.start_time : cur.startTime;
     const finalEnd = body.end_time !== undefined ? body.end_time : cur.endTime;
@@ -174,10 +198,8 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     const finalValidFrom = (body.valid_from !== undefined ? body.valid_from : cur.validFrom) as any;
     const finalValidUntil = (body.valid_until !== undefined ? body.valid_until : cur.validUntil) as any;
     if (!force && finalIsActive) {
-      const { bookings } = await import("../db/schema.js");
-      const { and: and2, eq: eq2 } = await import("drizzle-orm");
-      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: process.env.CLUB_TIMEZONE || "Europe/Rome" });
-      const allBookings: any[] = finalCourtId ? await db.select().from(bookings).where(and2(eq2(bookings.courtId, finalCourtId))) : await db.select().from(bookings);
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: club.timezone });
+      const allBookings: any[] = await clubBookings(db, club.id, finalCourtId);
       const conflicts: any[] = [];
       for (const b of allBookings) {
         if (!["pending_approval","approved"].includes(b.status)) continue;
@@ -201,15 +223,17 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     if (body.is_active !== undefined) updates.isActive = body.is_active;
     if (body.valid_from !== undefined) updates.validFrom = body.valid_from || null;
     if (body.valid_until !== undefined) updates.validUntil = body.valid_until || null;
-    const [row] = await db.update(blockingRules).set(updates).where(eq(blockingRules.id, id)).returning();
+    const [row] = await db.update(blockingRules).set(updates).where(and(eq(blockingRules.id, id), eq(blockingRules.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     return reply.send(row);
   });
   fastify.delete("/api/blocking-rules/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { id } = req.params as any;
-    await db.delete(blockingRules).where(eq(blockingRules.id, id));
+    await db.delete(blockingRules).where(and(eq(blockingRules.id, id), eq(blockingRules.clubId, club.id)));
     return reply.status(204).send();
   });
 }

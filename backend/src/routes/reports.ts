@@ -1,14 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import { bookings, users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+import { requireRequestClub } from "../services/club.js";
 
 export default async function reportsRoutes(fastify: FastifyInstance) {
   fastify.get("/api/reports/bookings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const db: any = (fastify as any).db ?? (fastify as any).server?.db;
     if (!db) return reply.send({ period: "weekly", overall: 0, byUser: [], cancellationsByUser: [], timeline: [] });
 
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const { period, date } = (req.query as any) || {};
     const p = ["weekly", "monthly", "yearly"].includes(period) ? period : "weekly";
-    const tz = process.env.CLUB_TIMEZONE || "Europe/Rome";
+    const tz = club.timezone;
     const refStr = (date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toLocaleDateString("en-CA", { timeZone: tz }));
     let startStr: string;
     let endStr: string;
@@ -31,7 +35,7 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
       endStr = refStr.slice(0, 4) + "-12-31";
     }
 
-    const allBookings: any[] = await db.select().from(bookings);
+    const allBookings: any[] = await db.select().from(bookings).where(eq(bookings.clubId, club.id));
     const periodBookings = allBookings.filter((b: any) => b.date >= startStr && b.date <= endStr);
 
     // Timeline for chart: last N periods ending at ref period
@@ -67,13 +71,17 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
     }
 
     const overall = periodBookings.length;
+    // Revenue from price snapshots (approved bookings only).
+    const revenue_cents = periodBookings
+      .filter((b: any) => b.status === "approved")
+      .reduce((sum: number, b: any) => sum + (Number(b.priceCents) || 0), 0);
     const byUserMap: Record<string, { count: number; username?: string }> = {};
     const cancellationsMap: Record<string, { count: number; username?: string }> = {};
 
-    // Build username map
+    // Build username map (club users only)
     let usernameById: Record<string, string> = {};
     try {
-      const userRows: any[] = await db.select().from(users);
+      const userRows: any[] = await db.select().from(users).where(eq(users.clubId, club.id));
       for (const u of userRows) usernameById[String(u.id)] = u.username;
     } catch {}
 
@@ -95,6 +103,6 @@ export default async function reportsRoutes(fastify: FastifyInstance) {
       .map(([userId, v]) => ({ userId, username: v.username, count: v.count }))
       .sort((a, b) => b.count - a.count);
 
-    return reply.send({ period: p, refDate: refStr, startDate: startStr, endDate: endStr, overall, byUser, cancellationsByUser, timeline });
+    return reply.send({ period: p, refDate: refStr, startDate: startStr, endDate: endStr, overall, revenue_cents, byUser, cancellationsByUser, timeline });
   });
 }

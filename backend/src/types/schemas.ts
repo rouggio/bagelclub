@@ -14,6 +14,7 @@ export const registerSchema = z.object({
   first_name: z.string().min(1).max(100),
   last_name: z.string().min(1).max(100),
   preferred_language: preferredLanguageSchema.optional().default("it"),
+  club_slug: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/).optional(),
 });
 // Admin create has no required email/phone inputs in the UI — both stay optional there.
 export const adminCreateUserSchema = registerSchema.omit({ mobile: true, email: true }).extend({ mobile: mobileSchema.optional(), email: optionalEmailSchema });
@@ -22,6 +23,7 @@ export const loginSchema = z.object({
   username: z.string().optional(),
   email: z.string().email().optional(),
   password: z.string().min(1),
+  club_slug: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/).optional(),
 }).refine((d) => d.username || d.email, { message: "username or email required" });
 
 export const courtSchema = z.object({
@@ -29,6 +31,7 @@ export const courtSchema = z.object({
   type: z.enum(["tennis", "padel"]),
   name: z.string().max(100).optional().nullable(),
   surface: z.string().max(50).optional().nullable(),
+  base_price_cents: z.number().int().min(0).optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -104,6 +107,8 @@ export const settingsSchema = z.object({
   whatsapp_token: z.string().max(2000).optional().nullable(),
   whatsapp_phone_number_id: z.string().max(50).optional().nullable(),
   whatsapp_admin_phone: z.string().max(30).optional().nullable(),
+  enabled_locales: z.array(preferredLanguageSchema).min(1).max(5).optional(),
+  default_locale: preferredLanguageSchema.optional(),
 });
 
 const announcementTranslationEntry = z.object({

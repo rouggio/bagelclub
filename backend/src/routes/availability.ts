@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { splitIntoSlots, overlaps } from "../services/availability.js";
-import { timetables, bookings, blocks, blockingRules, appSettings, users } from "../db/schema.js";
+import { timetables, bookings, blocks, blockingRules, courts, users } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
+import { resolveClubSlug, requireClub, getClubSettings } from "../services/club.js";
 
 export default async function availabilityRoutes(fastify: FastifyInstance) {
   fastify.get("/api/availability", async (req, reply) => {
@@ -14,6 +15,12 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
       const demoSlots = splitIntoSlots("08:00", "22:00", 60).map((s) => ({ ...s, status: "available" as const }));
       return reply.send({ court_id, date, slots: demoSlots });
     }
+
+    // Public read — club slug is mandatory (never leak another club's slots).
+    const club = await requireClub(req, reply, db, resolveClubSlug(req));
+    if (!club) return;
+    const courtRows = await db.select().from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
+    if (!courtRows[0]) return reply.status(404).send({ error: "Court not found" });
 
     const dayOfWeek = new Date(date + "T12:00:00Z").getUTCDay();
     // Load timetable: court-specific override or global
@@ -29,34 +36,34 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
 
     let duration = tt.slotDurationMinutes;
     if (!duration) {
-      const settings = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-      duration = settings[0]?.defaultSlotDurationMinutes ?? 60;
+      const settings = await getClubSettings(db, club.id);
+      duration = settings?.defaultSlotDurationMinutes ?? 60;
     }
     if (!tt.openTime || !tt.closeTime) return reply.send({ court_id, date, slots: [] });
     const baseSlots = splitIntoSlots(tt.openTime.slice(0, 5), tt.closeTime.slice(0, 5), duration);
 
-    // Bookings for that court+date (active holds)
-    const bookingRows = await db.select().from(bookings).where(and(eq(bookings.courtId, court_id), eq(bookings.date, date)));
+    // Bookings for that club+court+date (active holds)
+    const bookingRows = await db.select().from(bookings).where(and(eq(bookings.clubId, club.id), eq(bookings.courtId, court_id), eq(bookings.date, date)));
     const activeBookings = bookingRows.filter((b: any) => ["pending_registration", "pending_approval", "approved"].includes(b.status) && !(b.status === "pending_registration" && b.expiresAt && new Date(b.expiresAt) < new Date()));
-    // Username map for admin display [username]
+    // Username map for admin display [username] — club users only.
     let usernameById: Record<string, string> = {};
     try {
-      const userRows = await db.select().from(users);
+      const userRows = await db.select().from(users).where(eq(users.clubId, club.id));
       for (const u of userRows as any[]) usernameById[String(u.id)] = u.username;
     } catch {}
 
-    // Ad-hoc blocks
+    // Ad-hoc blocks (this club only)
     const dayStart = new Date(date + "T00:00:00Z");
     const dayEnd = new Date(date + "T23:59:59Z");
-    const blockRows = await db.select().from(blocks);
+    const blockRows = await db.select().from(blocks).where(eq(blocks.clubId, club.id));
     const relevantBlocks = blockRows.filter((bl: any) => {
       const s = new Date(bl.startAt);
       const e = new Date(bl.endAt);
       return s <= dayEnd && e >= dayStart && (!bl.courtId || String(bl.courtId) === String(court_id));
     });
 
-    // Recurring rules
-    const ruleRows = await db.select().from(blockingRules).where(eq(blockingRules.isActive, true));
+    // Recurring rules (this club only)
+    const ruleRows = await db.select().from(blockingRules).where(and(eq(blockingRules.clubId, club.id), eq(blockingRules.isActive, true)));
     const relevantRules = ruleRows.filter((ru: any) => ru.dayOfWeek === dayOfWeek && (!ru.courtId || String(ru.courtId) === String(court_id)));
 
     const slots = baseSlots.map((slot) => {

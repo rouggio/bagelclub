@@ -2,9 +2,11 @@ import type { FastifyInstance } from "fastify";
 import { registerSchema, loginSchema } from "../types/schemas.js";
 import bcrypt from "bcryptjs";
 import { users } from "../db/schema.js";
-import { eq, or } from "drizzle-orm";
+import { eq, or, and, isNull } from "drizzle-orm";
+import { resolveClubSlug, requireClub, getClubSettings, clubLocales } from "../services/club.js";
 
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
+const live = () => isNull(users.deletedAt);
 
 function refreshCookieOpts() {
   return {
@@ -12,6 +14,28 @@ function refreshCookieOpts() {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
+  };
+}
+
+function signAccess(fastify: FastifyInstance, user: any, clubSlug: string | null) {
+  return fastify.jwt.sign({
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    clubId: user.clubId ?? null,
+    preferred_language: user.preferredLanguage,
+  } as any);
+}
+
+function publicUser(user: any, clubSlug: string | null) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    clubId: user.clubId ?? null,
+    club_slug: clubSlug,
+    preferred_language: user.preferredLanguage,
   };
 }
 
@@ -25,36 +49,50 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const db: any = (fastify as any).db;
     if (!db) {
       // No DB (dev without docker) — fallback to dummy
-      const user = { id: "dev-" + Date.now(), username: data.username, role: "visitor" as const, email: data.email };
-      const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role });
+      const user = { id: "dev-" + Date.now(), username: data.username, role: "visitor" as const, email: data.email, clubId: null };
+      const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role, clubId: null });
       return reply.status(201).send({ user, token });
     }
 
+    // Club first: public registration always lands in exactly one club as visitor.
+    const club = await requireClub(req, reply, db, resolveClubSlug(req) ?? (data.club_slug ? String(data.club_slug).toLowerCase() : null));
+    if (!club) return;
+    const settings = await getClubSettings(db, club.id);
+    const { enabled, def } = clubLocales(settings);
+    const lang = data.preferred_language ?? def;
+    if (!enabled.includes(lang)) return reply.status(400).send({ error: "preferred_language not enabled for this club" });
+
     try {
       const emailVal = (data.email as string | null | undefined)?.toLowerCase?.() ?? null;
+      const uname = String(data.username);
+      const dupName = await db.select({ id: users.id }).from(users)
+        .where(and(eq(users.clubId, club.id), eq(users.username, uname), live())).limit(1);
+      if (dupName[0]) return reply.status(409).send({ error: "username or email already taken" });
       if (emailVal) {
-        const dup = await db.select().from(users).where(eq(users.email, emailVal)).limit(1);
-        if (dup[0]) return reply.status(409).send({ error: "username or email already taken" });
+        const dupMail = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.clubId, club.id), eq(users.email, emailVal), live())).limit(1);
+        if (dupMail[0]) return reply.status(409).send({ error: "username or email already taken" });
       }
       const [user] = await db
         .insert(users)
         .values({
-          username: data.username,
+          clubId: club.id,
+          username: uname,
           email: emailVal,
           mobile: data.mobile,
           passwordHash,
           firstName: data.first_name,
           lastName: data.last_name,
           role: "visitor",
-          preferredLanguage: data.preferred_language ?? "it",
+          preferredLanguage: lang,
         })
         .returning();
 
-      const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role, preferred_language: user.preferredLanguage } as any);
+      const token = signAccess(fastify, user, club.slug);
       // Persistent session: httpOnly refresh cookie (7d sliding). SPA renews the
       // short-lived access token via POST /api/auth/refresh — no login needed.
       reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
-      return reply.status(201).send({ user: { id: user.id, username: user.username, email: user.email, role: user.role, preferred_language: user.preferredLanguage }, token });
+      return reply.status(201).send({ user: publicUser(user, club.slug), token });
     } catch (e: any) {
       if (String(e.message).includes("unique") || String(e.code) === "23505") {
         return reply.status(409).send({ error: "username or email already taken" });
@@ -71,25 +109,38 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured — set DATABASE_URL" });
 
+    const slug = resolveClubSlug(req) ?? ((parsed.data as any).club_slug ? String((parsed.data as any).club_slug).toLowerCase() : null);
     const identifier = (email || username)!.toLowerCase();
-    const rows = await db
-      .select()
-      .from(users)
-      .where(or(eq(users.email, identifier), eq(users.username, identifier)))
-      .limit(1);
-    // Also try case-sensitive username if not found via lower
-    let user = rows[0];
-    if (!user && username) {
-      const r2 = await db.select().from(users).where(eq(users.username, username)).limit(1);
-      user = r2[0];
+    const idMatch = or(eq(users.email, identifier), eq(users.username, identifier));
+
+    let user: any;
+    let clubSlug: string | null = null;
+    if (slug) {
+      // Club members (and club admins): identity resolved inside the club.
+      const club = await requireClub(req, reply, db, slug);
+      if (!club) return;
+      const rows = await db.select().from(users)
+        .where(and(eq(users.clubId, club.id), idMatch, live())).limit(1);
+      user = rows[0];
+      if (!user && username) {
+        const r2 = await db.select().from(users)
+          .where(and(eq(users.clubId, club.id), eq(users.username, username), live())).limit(1);
+        user = r2[0];
+      }
+      clubSlug = club.slug;
+    } else {
+      // No slug: platform superadmin login only (never a club user).
+      const rows = await db.select().from(users)
+        .where(and(eq(users.role, "superadmin" as any), idMatch, live())).limit(1);
+      user = rows[0];
     }
     if (!user) return reply.status(401).send({ error: "Invalid credentials" });
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return reply.status(401).send({ error: "Invalid credentials" });
 
-    const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role, preferred_language: user.preferredLanguage } as any);
+    const token = signAccess(fastify, user, clubSlug);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
-    return reply.send({ user: { id: user.id, username: user.username, email: user.email, role: user.role, preferred_language: user.preferredLanguage }, token });
+    return reply.send({ user: publicUser(user, clubSlug), token });
   });
 
   // Silent session renewal: verifies the httpOnly refresh cookie (NOT the access
@@ -106,15 +157,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch {
       return reply.status(401).send({ error: "Refresh expired — please login again" });
     }
-    const rows = await db.select().from(users).where(eq(users.id, payload.id)).limit(1);
+    const rows = await db.select().from(users).where(and(eq(users.id, payload.id), live())).limit(1);
     const user = rows[0];
     if (!user) return reply.status(401).send({ error: "User not found" });
-    const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role, preferred_language: user.preferredLanguage } as any);
+    let clubSlug: string | null = null;
+    if (user.clubId) {
+      const { clubs } = await import("../db/schema.js");
+      const crows = await db.select().from(clubs).where(eq(clubs.id, user.clubId)).limit(1);
+      if (!crows[0] || !crows[0].isActive) return reply.status(401).send({ error: "Club unavailable" });
+      clubSlug = crows[0].slug;
+    }
+    const token = signAccess(fastify, user, clubSlug);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
-    return reply.send({
-      token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role, preferred_language: user.preferredLanguage },
-    });
+    return reply.send({ token, user: publicUser(user, clubSlug) });
   });
 
   fastify.post("/api/auth/logout", async (_req, reply) => {

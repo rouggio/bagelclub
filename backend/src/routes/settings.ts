@@ -3,46 +3,57 @@ import { settingsSchema } from "../types/schemas.js";
 import { appSettings } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { maskSettingsForAdminResponse } from "../services/notifications.js";
+import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales } from "../services/club.js";
+
+const FALLBACK_INFO = { club_name: "Green Village", club_phone: "3923047417", club_address: "" };
+const FALLBACK_SETTINGS = {
+  default_slot_duration_minutes: 60,
+  booking_hold_minutes: 30,
+  max_advance_days: 14,
+  min_cancel_hours: 2,
+  auto_approve_bookings: false,
+  club_name: "Green Village",
+  club_phone: "3923047417",
+  club_address: "",
+  public_url: "https://empanadel.onrender.com",
+  notifications_enabled: false,
+  notify_on_auto_approved: false,
+  notify_on_approval: true,
+  notify_on_rejection: true,
+  notify_via_telegram: true,
+  notify_via_whatsapp: true,
+};
 
 export default async function settingsRoutes(fastify: FastifyInstance) {
-  // Public club info for footer (no auth)
-  fastify.get("/api/club-info", async (_req, reply) => {
-    const db: any = (_req as any).server.db ?? (_req as any).db;
-    if (!db) return reply.send({ club_name: "Green Village", club_phone: "3923047417", club_address: "" });
+  // Public club info for footer (no auth) — scoped by slug.
+  fastify.get("/api/club-info", async (req, reply) => {
+    const db: any = (req as any).server.db ?? (req as any).db;
+    if (!db) return reply.send(FALLBACK_INFO);
     try {
-      const rows = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-      const s = rows[0];
-      if (!s) return reply.send({ club_name: "Green Village", club_phone: "3923047417", club_address: "" });
-      return reply.send({ club_name: s.clubName || "Green Village", club_phone: s.clubPhone || "3923047417", club_address: s.clubAddress || "" });
+      const club = await requireClub(req, reply, db, resolveClubSlug(req));
+      if (!club) return;
+      const s = await getClubSettings(db, club.id);
+      const { enabled, def } = clubLocales(s);
+      return reply.send({
+        club_name: s?.clubName || club.name,
+        club_phone: s?.clubPhone || "",
+        club_address: s?.clubAddress || "",
+        slug: club.slug,
+        locales: enabled,
+        default_locale: def,
+      });
     } catch {
-      return reply.send({ club_name: "Green Village", club_phone: "3923047417", club_address: "" });
+      return reply.send(FALLBACK_INFO);
     }
   });
 
-  fastify.get("/api/settings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (_req, reply) => {
-    const db: any = (_req as any).server.db;
-    if (!db) {
-      return reply.send({
-        default_slot_duration_minutes: 60,
-        booking_hold_minutes: 30,
-        max_advance_days: 14,
-        min_cancel_hours: 2,
-        auto_approve_bookings: false,
-        club_name: "Green Village",
-        club_phone: "3923047417",
-        club_address: "",
-        public_url: "https://empanadel.onrender.com",
-        notifications_enabled: false,
-        notify_on_auto_approved: false,
-        notify_on_approval: true,
-        notify_on_rejection: true,
-        notify_via_telegram: true,
-        notify_via_whatsapp: true,
-      });
-    }
-    const rows = await db.select().from(appSettings).where(eq(appSettings.id, 1));
-    const s = rows[0];
-    if (!s) return reply.send({ default_slot_duration_minutes: 60, booking_hold_minutes: 30, max_advance_days: 14, min_cancel_hours: 2, auto_approve_bookings: false, club_name: "Green Village", club_phone: "3923047417", club_address: "", public_url: "https://empanadel.onrender.com", notifications_enabled: false, notify_on_auto_approved: false, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true });
+  fastify.get("/api/settings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const db: any = (req as any).server.db;
+    if (!db) return reply.send(FALLBACK_SETTINGS);
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    const s = await getClubSettings(db, club.id);
+    if (!s) return reply.send(FALLBACK_SETTINGS);
     return reply.send(maskSettingsForAdminResponse(s));
   });
 
@@ -51,6 +62,8 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
     const updates: any = {};
     if (parsed.data.default_slot_duration_minutes !== undefined) updates.defaultSlotDurationMinutes = parsed.data.default_slot_duration_minutes;
     if (parsed.data.booking_hold_minutes !== undefined) updates.bookingHoldMinutes = parsed.data.booking_hold_minutes;
@@ -84,8 +97,20 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       else if (v?.startsWith("0")) v = v.slice(1);
       updates.whatsappAdminPhone = v || null;
     }
+    // Locales: default must stay inside the enabled set.
+    if (parsed.data.enabled_locales !== undefined || parsed.data.default_locale !== undefined) {
+      const current = await getClubSettings(db, club.id);
+      const enabled = parsed.data.enabled_locales ?? current?.enabledLocales ?? ["it", "en", "fr", "de", "es"];
+      let def = parsed.data.default_locale ?? current?.defaultLocale ?? enabled[0];
+      if (!enabled.includes(def)) def = enabled[0];
+      updates.enabledLocales = [...new Set(enabled)];
+      updates.defaultLocale = def;
+    }
     updates.updatedAt = new Date();
-    const [row] = await db.update(appSettings).set(updates).where(eq(appSettings.id, 1)).returning();
+    const existing = await getClubSettings(db, club.id);
+    const row = existing
+      ? (await db.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
+      : (await db.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
     return reply.send(maskSettingsForAdminResponse(row));
   });
 }
