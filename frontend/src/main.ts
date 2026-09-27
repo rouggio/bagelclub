@@ -139,6 +139,8 @@ function app() {
     registerLangOpen: false as boolean,
     profileLangOpen: false as boolean,
     adminMobileOpen: false as boolean,
+    courtsMenuOpen: false as boolean,
+    settingsMenuOpen: false as boolean,
 
     t(key: string): string {
       return translate(this.lang, key);

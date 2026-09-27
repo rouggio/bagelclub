@@ -317,5 +317,9 @@
   "landing.f5": "Automatische Benachrichtigungen",
   "landing.f5d": "Bestätigungen via Telegram und WhatsApp.",
   "landing.f6": "Berichte und Umsatz",
-  "landing.f6d": "Statistiken und Zeitraum-Summen."
+  "landing.f6d": "Statistiken und Zeitraum-Summen.",
+  "admin.menu.courts": "Plätze",
+  "admin.menu.courtsDef": "Platzdefinition",
+  "admin.menu.slots": "Zeitfenster",
+  "admin.menu.settings": "Einstellungen"
 }

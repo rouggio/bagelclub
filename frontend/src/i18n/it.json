@@ -317,5 +317,9 @@
   "landing.f5": "Notifiche automatiche",
   "landing.f5d": "Conferme e promemoria via Telegram e WhatsApp.",
   "landing.f6": "Report e incassi",
-  "landing.f6d": "Statistiche e totali per periodo."
+  "landing.f6d": "Statistiche e totali per periodo.",
+  "admin.menu.courts": "Campi",
+  "admin.menu.courtsDef": "Definizione campi",
+  "admin.menu.slots": "Fasce orarie",
+  "admin.menu.settings": "Impostazioni"
 }

@@ -317,5 +317,9 @@
   "landing.f5": "Notifications automatiques",
   "landing.f5d": "Confirmations et rappels via Telegram et WhatsApp.",
   "landing.f6": "Statistiques et revenus",
-  "landing.f6d": "Statistiques et totaux par période."
+  "landing.f6d": "Statistiques et totaux par période.",
+  "admin.menu.courts": "Terrains",
+  "admin.menu.courtsDef": "Définition des terrains",
+  "admin.menu.slots": "Créneaux horaires",
+  "admin.menu.settings": "Paramètres"
 }

@@ -317,5 +317,9 @@
   "landing.f5": "Automatic notifications",
   "landing.f5d": "Confirmations and reminders via Telegram and WhatsApp.",
   "landing.f6": "Reports and revenue",
-  "landing.f6d": "Statistics and period totals."
+  "landing.f6d": "Statistics and period totals.",
+  "admin.menu.courts": "Courts",
+  "admin.menu.courtsDef": "Courts definition",
+  "admin.menu.slots": "Time slots",
+  "admin.menu.settings": "Settings"
 }
