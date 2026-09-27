@@ -102,6 +102,7 @@ function app() {
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
+    platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; is_active: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     // Demo wizard (prospect self-service).
     demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
     demoResult: null as null | { slug: string; name: string; url: string; admin_username: string; admin_password: string; expires_at: string },
@@ -1570,6 +1571,14 @@ function app() {
         const res = await platformFetch("/api/platform/audit");
         if (res.ok) this.platformAudit = await res.json();
       } catch {}
+    },
+    async loadPlatformReports() {
+      this.platformError = "";
+      try {
+        const res = await platformFetch("/api/platform/reports");
+        if (!res.ok) throw new Error(await res.text());
+        this.platformReports = await res.json();
+      } catch (e: any) { this.platformError = e.message || String(e); }
     },
     async ensureDemo() {
       this.platformError = "";

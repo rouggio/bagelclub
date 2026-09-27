@@ -155,8 +155,39 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true, deleted });
   });
 
-  fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {
+  // Platform-wide reporting: totals + per-club breakdown (revenue from
+  // approved-booking price snapshots).
+  fastify.get("/api/platform/reports", { preHandler: pre }, async (req, reply) => {
     const db: any = (fastify as any).db;
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const { bookings, users } = await import("../db/schema.js");
+    const allClubs = await db.select().from(clubs);
+    const allBookings = await db.select().from(bookings);
+    const allUsers = await db.select().from(users);
+    const perClub = (allClubs as any[]).map((c: any) => {
+      const cb = (allBookings as any[]).filter((b: any) => String(b.clubId) === String(c.id));
+      const approved = cb.filter((b: any) => b.status === "approved");
+      return {
+        slug: c.slug,
+        name: c.name,
+        plan: c.plan,
+        is_active: c.isActive,
+        users: (allUsers as any[]).filter((u: any) => String(u.clubId) === String(c.id)).length,
+        bookings: cb.length,
+        approved: approved.length,
+        revenue_cents: approved.reduce((s: number, b: any) => s + (Number(b.priceCents) || 0), 0),
+      };
+    });
+    const totals = {
+      clubs: (allClubs as any[]).length,
+      users: (allUsers as any[]).length,
+      bookings: (allBookings as any[]).length,
+      revenue_cents: perClub.reduce((s: number, c: any) => s + c.revenue_cents, 0),
+    };
+    return reply.send({ totals, perClub });
+  });
+
+  fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    const db: any = (fastify as any).db;
     if (!db) return reply.send([]);
     const rows = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(100);
     const clubRows = await db.select().from(clubs);

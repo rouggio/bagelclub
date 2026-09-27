@@ -142,6 +142,7 @@
   <div class="flex gap-2">
   <button @click="view='platform-new'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.new')"></button>
   <button @click="view='platform-settings'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.settings')"></button>
+  <button @click="view='platform-reports'; loadPlatformReports()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.reports')"></button>
   <button @click="platformLogout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
   </div>
   </div>
@@ -177,7 +178,12 @@
   <button @click="view='platform-clubs'" class="w-full text-sm text-zinc-600" x-text="t('platform.back')"></button>
   </section>
   <section x-show="view==='platform-settings'" class="space-y-4">
-  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2><button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.back')"></button></div>
+  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2>
+  <div class="flex gap-2">
+  <button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.clubs')"></button>
+  <button @click="view='platform-reports'; loadPlatformReports()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.reports')"></button>
+  </div>
+  </div>
   <div class="flex flex-wrap gap-2">
   <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
   <button @click="resetDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
@@ -188,6 +194,29 @@
   <template x-for="a in platformAudit" :key="a.id">
   <div class="rounded-xl border bg-white p-3 text-xs"><span class="font-mono" x-text="a.created_at"></span><span class="font-semibold" x-text="' ' + a.action"></span><span x-text="' ' + (a.club_slug || a.target || '')"></span></div>
   </template>
+  </section>
+  <section x-show="view==='platform-reports'" class="space-y-4">
+  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.reports')"></h2>
+  <div class="flex gap-2">
+  <button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.clubs')"></button>
+  <button @click="view='platform-settings'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.settings')"></button>
+  </div>
+  </div>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
+  <div x-show="platformReports" class="grid gap-3 md:grid-cols-4">
+  <div class="rounded-xl border bg-white p-4"><div class="text-2xl font-bold" x-text="platformReports?.totals.clubs"></div><div class="text-xs text-zinc-500" x-text="t('platform.clubs')"></div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="text-2xl font-bold" x-text="platformReports?.totals.users"></div><div class="text-xs text-zinc-500">users</div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="text-2xl font-bold" x-text="platformReports?.totals.bookings"></div><div class="text-xs text-zinc-500">bookings</div></div>
+  <div class="rounded-xl border bg-white p-4"><div class="text-2xl font-bold" x-text="fmtPrice(platformReports?.totals.revenue_cents)"></div><div class="text-xs text-zinc-500">revenue</div></div>
+  </div>
+  <div class="space-y-3">
+  <template x-for="c in (platformReports?.perClub || [])" :key="c.slug">
+  <div class="rounded-xl border bg-white p-4">
+  <div class="font-semibold" x-text="`${c.name} · ${c.plan}${c.is_active ? '' : ' · suspended'}`"></div>
+  <div class="text-xs text-zinc-500" x-text="`users ${c.users} · bookings ${c.bookings} · approved ${c.approved} · revenue ${fmtPrice(c.revenue_cents) || '—'}`"></div>
+  </div>
+  </template>
+  </div>
   </section>
   <section x-show="view==='home'" class="space-y-6">
    <div class="hero-gradient rounded-2xl p-8">
