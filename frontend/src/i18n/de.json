@@ -321,5 +321,6 @@
   "admin.menu.courts": "Plätze",
   "admin.menu.courtsDef": "Platzdefinition",
   "admin.menu.slots": "Zeitfenster",
-  "admin.menu.settings": "Einstellungen"
+  "admin.menu.settings": "Einstellungen",
+  "platform.settings": "Einstellungen"
 }

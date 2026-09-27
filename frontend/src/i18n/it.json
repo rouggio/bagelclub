@@ -321,5 +321,6 @@
   "admin.menu.courts": "Campi",
   "admin.menu.courtsDef": "Definizione campi",
   "admin.menu.slots": "Fasce orarie",
-  "admin.menu.settings": "Impostazioni"
+  "admin.menu.settings": "Impostazioni",
+  "platform.settings": "Impostazioni"
 }

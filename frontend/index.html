@@ -141,10 +141,7 @@
   <h2 class="text-xl font-bold" x-text="t('platform.clubs')"></h2>
   <div class="flex gap-2">
   <button @click="view='platform-new'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.new')"></button>
-  <button @click="view='platform-audit'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.audit')"></button>
-  <button @click="ensureDemo()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
-  <button @click="resetDemo()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
-  <button @click="cleanupDemos()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.cleanup')"></button>
+  <button @click="view='platform-settings'; loadPlatformAudit()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.settings')"></button>
   <button @click="platformLogout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
   </div>
   </div>
@@ -179,8 +176,15 @@
   <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line" x-text="platformError"></div>
   <button @click="view='platform-clubs'" class="w-full text-sm text-zinc-600" x-text="t('platform.back')"></button>
   </section>
-  <section x-show="view==='platform-audit'" class="space-y-3">
-  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.audit')"></h2><button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.back')"></button></div>
+  <section x-show="view==='platform-settings'" class="space-y-4">
+  <div class="flex items-center justify-between"><h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2><button @click="view='platform-clubs'" class="rounded-lg border px-4 py-2 text-sm" x-text="t('platform.back')"></button></div>
+  <div class="flex flex-wrap gap-2">
+  <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
+  <button @click="resetDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
+  <button @click="cleanupDemos()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.cleanup')"></button>
+  </div>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
+  <h3 class="font-semibold" x-text="t('platform.audit')"></h3>
   <template x-for="a in platformAudit" :key="a.id">
   <div class="rounded-xl border bg-white p-3 text-xs"><span class="font-mono" x-text="a.created_at"></span><span class="font-semibold" x-text="' ' + a.action"></span><span x-text="' ' + (a.club_slug || a.target || '')"></span></div>
   </template>

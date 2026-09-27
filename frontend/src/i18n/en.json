@@ -321,5 +321,6 @@
   "admin.menu.courts": "Courts",
   "admin.menu.courtsDef": "Courts definition",
   "admin.menu.slots": "Time slots",
-  "admin.menu.settings": "Settings"
+  "admin.menu.settings": "Settings",
+  "platform.settings": "Settings"
 }

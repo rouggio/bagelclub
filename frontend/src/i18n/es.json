@@ -321,5 +321,6 @@
   "admin.menu.courts": "Pistas",
   "admin.menu.courtsDef": "Definición de pistas",
   "admin.menu.slots": "Franjas horarias",
-  "admin.menu.settings": "Ajustes"
+  "admin.menu.settings": "Ajustes",
+  "platform.settings": "Ajustes"
 }
