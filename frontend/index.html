@@ -62,7 +62,7 @@
  </div>
  </template>
  <a href="#profile" x-show="user" class="hidden text-sm font-medium text-zinc-700 hover:text-black md:inline" x-text="user?.username" @click.prevent="view='profile'; location.hash='profile'; loadProfile()"></a>
- <button x-show="!user" @click="view='login'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-4 py-2 text-sm font-medium" x-text="t('nav.login')"></button>
+  <button x-show="!user && clubSlug" @click="view='login'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-4 py-2 text-sm font-medium" x-text="t('nav.login')"></button>
  <button x-show="user" @click="logout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
  </div>
  </div>
