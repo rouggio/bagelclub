@@ -1,6 +1,13 @@
 import Alpine from "alpinejs";
 import { detectLang, setLang, t as translate, type Lang } from "./i18n/index.js";
 import { DIAL_CODES, DIAL_CODE_BY_REGION } from "./dialCodes.js";
+import {
+  clubSlugFromPath, initClubSlug, getClubSlug, setClubSlug,
+  storedToken, storeToken, clearToken, storedIntent, storeIntent, clearIntent,
+  apiFetch, isPlatformPath, platformFetch,
+} from "./clubContext.js";
+
+try { initClubSlug(location.pathname); } catch {}
 
 // Default country dial code from browser locale (fr-CH → +41), else app
 // language (it → +39 …), else +39 (club is Italian). Full list in dialCodes.ts.
@@ -23,72 +30,6 @@ declare global {
 }
 
 type Court = { id: string; number: number; type: "tennis" | "padel"; name?: string; surface?: string; is_active: boolean };
-
-// ---- Multitenancy context (module-level so every fetch site shares it) ----
-export function clubSlugFromPath(): string | null {
-  try {
-    const m = location.pathname.match(/^\/c\/([a-z0-9-]{3,50})\/?/);
-    return m ? m[1].toLowerCase() : null;
-  } catch { return null; }
-}
-let currentClubSlug: string | null = clubSlugFromPath();
-export function getClubSlug(): string | null { return currentClubSlug; }
-export function setClubSlug(s: string | null) { currentClubSlug = s ? s.toLowerCase() : null; }
-
-function tokenKey(slug: string | null): string { return slug ? `token_${slug}` : "token"; }
-function intentKey(slug: string | null): string { return slug ? `pending_booking_intent_${slug}` : "pending_booking_intent"; }
-
-export function storedToken(): string | null {
-  const slug = getClubSlug();
-  return localStorage.getItem(tokenKey(slug)) || (slug ? storedToken() : null);
-}
-export function storeToken(t: string) {
-  localStorage.setItem(tokenKey(getClubSlug()), t);
-  clearToken(); // never keep a club-less copy
-}
-export function clearToken() {
-  const slug = getClubSlug();
-  localStorage.removeItem(tokenKey(slug));
-  clearToken();
-}
-export function storedIntent(): string | null {
-  const slug = getClubSlug();
-  return localStorage.getItem(intentKey(slug)) || (slug ? storedIntent() : null);
-}
-export function storeIntent(v: string) { localStorage.setItem(intentKey(getClubSlug()), v); }
-export function clearIntent() {
-  const slug = getClubSlug();
-  localStorage.removeItem(intentKey(slug));
-  clearIntent();
-}
-
-/** Central fetch: attaches X-Club-Slug + Authorization (namespaced token).
- *  Call-site "Bearer null" placeholders (legacy global reads) are replaced. */
-export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const headers: Record<string, string> = { ...((init.headers as any) || {}) };
-  const slug = getClubSlug();
-  if (slug && !headers["X-Club-Slug"]) headers["X-Club-Slug"] = slug;
-  const auth = headers["Authorization"] || headers["authorization"];
-  if (!auth || /Bearer\s+(null|undefined|)$/.test(String(auth))) {
-    const tok = storedToken();
-    if (tok) headers["Authorization"] = `Bearer ${tok}`;
-    else { delete headers["Authorization"]; delete headers["authorization"]; }
-  }
-  return fetch(input, { ...init, headers });
-}
-
-export function isPlatformPath(): boolean {
-  try { return location.pathname === "/platform" || location.pathname.startsWith("/platform/"); }
-  catch { return false; }
-}
-
-/** Platform fetch: superadmin token, never a club slug. */
-export async function platformFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const headers: Record<string, string> = { ...((init.headers as any) || {}) };
-  const tok = localStorage.getItem("platform_token");
-  if (tok && !headers["Authorization"]) headers["Authorization"] = `Bearer ${tok}`;
-  return fetch(input, { ...init, headers });
-}
 
 function app() {
   return {
@@ -246,7 +187,7 @@ function app() {
 
     async init() {
       // Platform area has no club context.
-      if (isPlatformPath()) {
+      if (isPlatformPath(location.pathname)) {
         this.isPlatform = true;
         this.lang = detectLang();
         setLang(this.lang);
@@ -263,7 +204,7 @@ function app() {
       }
       // Club context: /c/:slug/ is canonical. Bare paths fall back to the
       // club directory (single club → auto-redirect).
-      let slug = clubSlugFromPath();
+      let slug = getClubSlug() || clubSlugFromPath(location.pathname);
       if (!slug) {
         const clubs = await this.loadClubsList();
         if (clubs.length === 1) {
@@ -480,7 +421,7 @@ function app() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // store the httpOnly refresh cookie (dev is cross-origin)
-        body: JSON.stringify({ ...this.regForm, mobile: this.fullMobile(this.regForm.mobile_code, this.regForm.mobile_number), preferred_language: this.lang, club_slug: getClubSlug() }),
+        body: JSON.stringify({ ...this.regForm, mobile: this.fullMobile(this.regForm.mobile_code, this.regForm.mobile_number), preferred_language: this.lang, ...(getClubSlug() ? { club_slug: getClubSlug() } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -542,7 +483,8 @@ function app() {
 
     async login() {
       this.authError = "";
-      const body: any = { password: this.authForm.password, club_slug: getClubSlug() };
+      const clubSlug = getClubSlug();
+      const body: any = { password: this.authForm.password, ...(clubSlug ? { club_slug: clubSlug } : {}) };
       if (this.authForm.username.includes("@")) body.email = this.authForm.username; else body.username = this.authForm.username;
       const res = await apiFetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
