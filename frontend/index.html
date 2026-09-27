@@ -11,7 +11,7 @@
  <div x-data="app()" x-init="init()" class="flex min-h-screen flex-col">
  <header class="site-header sticky top-0 z-30 backdrop-blur">
  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-  <a href="#" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="t('app.name')">Bagel Club</span></a>
+  <a href="#" @click.prevent="clubSlug ? (view='home', location.hash='home') : (view='clubs', window.scrollTo(0, 0))" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="t('app.name')">Bagel Club</span></a>
   <nav class="hidden gap-6 text-sm md:flex">
   <template x-if="clubSlug">
   <a href="#courts" class="hover:text-black" x-text="t('nav.courts')"></a>
