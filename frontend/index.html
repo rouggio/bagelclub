@@ -12,10 +12,12 @@
  <header class="site-header sticky top-0 z-30 backdrop-blur">
  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
   <a href="#" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="t('app.name')">Bagel Club</span></a>
- <nav class="hidden gap-6 text-sm md:flex">
- <a href="#courts" class="hover:text-black" x-text="t('nav.courts')"></a>
- <a href="#me" x-show="user" class="hover:text-black" x-text="t('nav.myBookings')"></a>
- <template x-if="user?.role==='admin'">
+  <nav class="hidden gap-6 text-sm md:flex">
+  <template x-if="clubSlug">
+  <a href="#courts" class="hover:text-black" x-text="t('nav.courts')"></a>
+  </template>
+  <a href="#me" x-show="user && clubSlug" class="hover:text-black" x-text="t('nav.myBookings')"></a>
+  <template x-if="user?.role==='admin' && clubSlug">
  <div class="flex gap-6">
   <a href="#admin-courts" class="hover:text-black" x-text="t('admin.courts')"></a>
   <a href="#admin-timetable" class="hover:text-black" x-text="t('admin.timetable')"></a>
@@ -30,7 +32,7 @@
   </template>
    </nav>
    <!-- Mobile admin dropdown (top, mobile only) -->
-   <div x-show="user?.role==='admin'" class="md:hidden relative">
+    <div x-show="user?.role==='admin' && clubSlug" class="md:hidden relative">
    <button @click="adminMobileOpen=!adminMobileOpen" class="flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-xs font-medium">Admin <span x-text="adminMobileOpen ? '▲' : '▼'"></span></button>
    <div x-show="adminMobileOpen" @click.outside="adminMobileOpen=false" class="absolute left-0 top-10 mt-1 w-56 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
     <a href="#admin-courts" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.courts')"></a>
@@ -61,7 +63,7 @@
  </div>
  </div>
  </template>
- <a href="#profile" x-show="user" class="hidden text-sm font-medium text-zinc-700 hover:text-black md:inline" x-text="user?.username" @click.prevent="view='profile'; location.hash='profile'; loadProfile()"></a>
+  <a href="#profile" x-show="user && clubSlug" class="hidden text-sm font-medium text-zinc-700 hover:text-black md:inline" x-text="user?.username" @click.prevent="view='profile'; location.hash='profile'; loadProfile()"></a>
   <button x-show="!user && clubSlug" @click="view='login'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-4 py-2 text-sm font-medium" x-text="t('nav.login')"></button>
  <button x-show="user" @click="logout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
  </div>
