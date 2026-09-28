@@ -9,6 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import authPlugin from "./plugins/auth.js";
+import abusePlugin from "./plugins/abuse.js";
 import healthRoutes from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
 import courtRoutes from "./routes/courts.js";
@@ -34,6 +35,7 @@ const __dirname = path.dirname(__filename);
 export async function buildApp() {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL || "info" },
+    trustProxy: true, // behind Render proxy: req.ip honors X-Forwarded-For (abuse shield)
   });
 
   // DB — attach to fastify instance if DATABASE_URL present (Render PG or local docker)
@@ -82,6 +84,7 @@ export async function buildApp() {
 
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
   await app.register(authPlugin);
+  await app.register(abusePlugin);
 
   // Routes
   await app.register(healthRoutes);

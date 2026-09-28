@@ -232,3 +232,12 @@ export const telegramLinkTokens = pgTable("telegram_link_tokens", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Abuse shield (#13): persistent IP blocks. Platform-only access via
+// superadmin routes; never tenant data, so no RLS and no club_id.
+export const ipBlocks = pgTable("ip_blocks", {
+  ip: varchar("ip", { length: 64 }).primaryKey(),
+  reason: varchar("reason", { length: 100 }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

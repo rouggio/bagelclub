@@ -197,6 +197,27 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send((rows as any[]).map((r: any) => ({ ...r, club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null })));
   });
 
+  // Abuse shield: list active IP blocks + unblock.
+  fastify.get("/api/platform/abuse", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    try {
+      const { ipBlocks } = await import("../db/schema.js");
+      const { desc } = await import("drizzle-orm");
+      const rows = await db.select().from(ipBlocks).orderBy(desc(ipBlocks.createdAt)).limit(200);
+      return reply.send(rows.filter((r: any) => new Date(r.expiresAt).getTime() > Date.now()));
+    } catch (e: any) {
+      return reply.send([]);
+    }
+  });
+
+  fastify.delete("/api/platform/abuse/:ip", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const { unblockIp } = await import("../plugins/abuse.js");
+    await unblockIp(db, String((req.params as any).ip));
+    await audit(db, (req as any).user.id, "platform.abuse.unblock", String((req.params as any).ip), {});
+    return reply.send({ ok: true });
+  });
+
   // Reset a club admin's password (support). Scoped: target must be a live
   // admin of the named club; new password returned once.
   fastify.post("/api/platform/clubs/:slug/reset-admin", { preHandler: pre }, async (req, reply) => {

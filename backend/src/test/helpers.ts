@@ -13,7 +13,7 @@ export async function testDb() {
 export async function resetDb() {
   const { db, pool } = createDb(TEST_DATABASE_URL);
   await pool.query(
-    "TRUNCATE telegram_link_tokens, announcement_translations, bookings, blocks, blocking_rules, timetables, announcements, audit_log, users, courts, app_settings, clubs CASCADE"
+    "TRUNCATE telegram_link_tokens, announcement_translations, bookings, blocks, blocking_rules, timetables, announcements, audit_log, users, courts, app_settings, clubs, ip_blocks CASCADE"
   );
   const clubId = await seedClub(db, "green-village", "Green Village", "Europe/Rome");
   await pool.end();
@@ -44,6 +44,8 @@ export async function seedClub(db: any, slug: string, name: string, timezone: st
 
 export async function buildTestApp() {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
+  // Neutralise dev .env owner URL: trust-root paths must hit the test DB.
+  delete process.env.AUTH_DATABASE_URL;
   process.env.NODE_ENV = "test";
   return buildApp();
 }
