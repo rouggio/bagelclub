@@ -102,7 +102,8 @@ function app() {
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
-    platformSettings: { base_url: "" as string } as { base_url: string },
+    platformFooter: "" as string,
+    platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
     platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; is_active: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     // Demo wizard (prospect self-service).
@@ -196,6 +197,7 @@ function app() {
         this.lang = detectLang();
         setLang(this.lang);
         document.title = `${this.t("app.name")} — Platform`;
+        this.loadPlatformFooter();
         const ptok = localStorage.getItem("platform_token");
         if (ptok) {
           try {
@@ -216,10 +218,12 @@ function app() {
           return;
         }
         this.view = "clubs";
+        this.loadPlatformFooter();
       } else if (!slug) {
         // Dedicated directory page.
         await this.loadClubsList();
         this.view = "directory";
+        this.loadPlatformFooter();
       } else {
         setClubSlug(slug);
         this.clubSlug = slug;
@@ -781,6 +785,13 @@ function app() {
       const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ auto_approve_bookings: next }) });
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       this.adminSettings.auto_approve_bookings = next;
+    },
+
+    async loadPlatformFooter() {
+      try {
+        const res = await apiFetch("/api/platform/public");
+        if (res.ok) this.platformFooter = (await res.json()).footer_text || "";
+      } catch {}
     },
 
     async loadClubsList() {

@@ -37,6 +37,14 @@ async function audit(db: any, actorId: string, action: string, target: string, m
 export default async function platformRoutes(fastify: FastifyInstance) {
   const pre = [fastify.authenticate, fastify.requireSuperadmin, async (req: any, _reply: any) => { await attachSuperadmin(req); }] as any;
 
+  // Public: platform footer text for landing/directory/platform pages.
+  fastify.get("/api/platform/public", async (req, reply) => {
+    const db: any = (fastify as any).db;
+    if (!db) return reply.send({ footer_text: "" });
+    const { getPlatformSetting } = await import("../services/club.js");
+    return reply.send({ footer_text: (await getPlatformSetting(db, "footer_text")) || "" });
+  });
+
   fastify.get("/api/platform/clubs", { preHandler: pre }, async (req, reply) => {
     let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
@@ -194,12 +202,15 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   fastify.get("/api/platform/settings", { preHandler: pre }, async (req, reply) => {
     const db: any = reqDb(req);
     const { getPlatformSetting } = await import("../services/club.js");
-    return reply.send({ base_url: (await getPlatformSetting(db, "base_url")) || "" });
+    return reply.send({
+      base_url: (await getPlatformSetting(db, "base_url")) || "",
+      footer_text: (await getPlatformSetting(db, "footer_text")) || "",
+    });
   });
 
   fastify.put("/api/platform/settings", { preHandler: pre }, async (req, reply) => {
     const db: any = reqDb(req);
-    const { base_url } = (req as any).body as any;
+    const { base_url, footer_text } = (req as any).body as any;
     if (base_url !== undefined && base_url !== null && base_url !== "") {
       try {
         const u = new URL(String(base_url));
@@ -211,8 +222,14 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     const { setPlatformSetting, getPlatformSetting } = await import("../services/club.js");
     const v = base_url ? String(base_url).replace(/\/$/, "") : null;
     await setPlatformSetting(db, "base_url", v);
-    await audit(db, (req as any).user.id, "platform.settings", "base_url", { base_url: v });
-    return reply.send({ base_url: (await getPlatformSetting(db, "base_url")) || "" });
+    if (footer_text !== undefined) {
+      await setPlatformSetting(db, "footer_text", String(footer_text).slice(0, 500) || null);
+    }
+    await audit(db, (req as any).user.id, "platform.settings", "base_url+footer_text", { base_url: v });
+    return reply.send({
+      base_url: (await getPlatformSetting(db, "base_url")) || "",
+      footer_text: (await getPlatformSetting(db, "footer_text")) || "",
+    });
   });
 
   // Abuse shield: list active IP blocks + unblock.

@@ -324,5 +324,7 @@
   "admin.menu.settings": "Paramètres",
   "platform.settings": "Paramètres",
   "platform.reports": "Rapports",
-  "platform.baseUrl": "URL de base"
+  "platform.baseUrl": "URL de base",
+  "landing.ownDemo": "Créez la vôtre",
+  "platform.footerText": "Texte de pied de page"
 }

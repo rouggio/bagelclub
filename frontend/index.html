@@ -102,7 +102,8 @@
   <h1 class="text-3xl font-bold md:text-4xl" x-text="t('landing.title')"></h1>
   <p class="mt-2 max-w-xl/90" x-text="t('landing.sub')"></p>
   <div class="mt-4 flex flex-wrap gap-2">
-  <a href="#demo" @click.prevent="view='demo'" class="inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('landing.tryDemo')"></a>
+  <a href="/club/demo/" class="inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('landing.tryDemo')"></a>
+  <a href="#demo" @click.prevent="view='demo'" class="inline-block rounded-lg border border-white px-6 py-2 text-sm font-semibold text-white" x-text="t('landing.ownDemo')"></a>
   <a href="/clubs" class="inline-block rounded-lg border border-white px-6 py-2 text-sm font-semibold text-white" x-text="t('landing.viewClubs')"></a>
   </div>
   </div>
@@ -206,6 +207,7 @@
   <h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2>
   <div class="rounded-xl border bg-white p-4 space-y-2">
   <label class="block text-sm"><span x-text="t('platform.baseUrl')"></span><input x-model="platformSettings.base_url" placeholder="https://…" class="mt-1 w-full rounded-lg border px-3 py-2 font-mono" /></label>
+  <label class="block text-sm"><span x-text="t('platform.footerText')"></span><input x-model="platformSettings.footer_text" maxlength="500" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
   <div class="flex items-center gap-2">
   <button @click="savePlatformSettings()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.save')"></button>
   <span class="text-sm text-zinc-600" x-text="platformSettingsMsg"></span>
@@ -1004,7 +1006,7 @@
   </section>
    </main>
 
-   <footer class="site-footer px-4 py-4 text-center text-xs text-zinc-500" x-text="clubInfo ? `${clubInfo.club_name || 'Green Village'} - tel. ${clubInfo.club_phone || '3923047417'}${clubInfo.club_address ? ' - ' + clubInfo.club_address : ''}` : t('footer')"></footer>
+   <footer class="site-footer px-4 py-4 text-center text-xs text-zinc-500" x-text="clubSlug ? `${clubInfo?.club_name || 'Green Village'} - tel. ${clubInfo?.club_phone || '3923047417'}${clubInfo?.club_address ? ' - ' + clubInfo.club_address : ''}` : (platformFooter || t('footer'))"></footer>
  </div>
  <script type="module" src="/src/main.ts"></script>
  </body>

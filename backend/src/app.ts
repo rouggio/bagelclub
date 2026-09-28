@@ -153,6 +153,19 @@ export async function buildApp() {
           app.log.error(e, "demo cleanup cron failed");
         }
       });
+      // Showcase reset every 3 hours: the public demo club (credentials in a
+      // public announcement) is wiped + reseeded so prospects always find it fresh.
+      cron.default.schedule("0 */3 * * *", async () => {
+        if (!process.env.DATABASE_URL) return;
+        try {
+          const { withSuperadminScope } = await import("./services/club.js");
+          const { resetDemoShowcase } = await import("./services/demo.js");
+          await withSuperadminScope((app as any).db, async (cx: any) => resetDemoShowcase(cx));
+          app.log.info("demo showcase reset");
+        } catch (e) {
+          app.log.error(e, "demo reset cron failed");
+        }
+      });
     } catch {
       // node-cron not essential in dev without DB
     }

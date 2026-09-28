@@ -61,7 +61,37 @@ export async function resetDemoShowcase(db: any) {
   if (first) {
     await db.insert(blockingRules).values({ clubId: club.id, courtId: first.id, dayOfWeek: 1, startTime: "09:00", endTime: "11:00", reason: "Scuola tennis", isActive: true });
   }
+  await seedShowcaseExtras(db, club.id);
   return club;
+}
+
+/**
+ * Showcase extras: three pre-configured demo players + a PUBLIC announcement
+ * with all credentials in clear (admin + players). Runs on every reset, so
+ * the announcement survives the wipe. Personal runs don't get these.
+ */
+export async function seedShowcaseExtras(db: any, clubId: string) {
+  const hash = await bcrypt.hash("demo1234!", 10);
+  for (const n of [1, 2, 3]) {
+    await db.insert(users).values({
+      clubId, username: `demo${n}`, email: null, passwordHash: hash,
+      firstName: "Demo", lastName: `Player ${n}`, role: "associate", isVerified: true,
+    }).onConflictDoNothing();
+  }
+  const body = [
+    "Welcome! Play with this club or create your own demo from the home page.",
+    "This demo resets every 3 hours — everything here is public test data.",
+    "",
+    "Admin: demo-admin / demo1234!",
+    "Players: demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+    "",
+    "Benvenuti! Gioca con questo club o crea la tua demo dalla home.",
+    "Questa demo si azzera ogni 3 ore — tutto qui è pubblico.",
+  ].join("\n");
+  await db.insert(announcements).values({
+    clubId, title: "Demo access / Accesso demo", body,
+    visibility: "public", position: 0,
+  }).onConflictDoNothing();
 }
 
 /** Delete expired personal demo runs (never the showcase). Returns deleted slugs. */
