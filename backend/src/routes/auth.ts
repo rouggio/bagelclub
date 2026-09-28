@@ -115,9 +115,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
     let user: any;
     let clubSlug: string | null = null;
+    let club: any = null;
     if (slug) {
       // Club members (and club admins): identity resolved inside the club.
-      const club = await requireClub(req, reply, db, slug);
+      club = await requireClub(req, reply, db, slug);
       if (!club) return;
       const rows = await db.select().from(users)
         .where(and(eq(users.clubId, club.id), idMatch, live())).limit(1);
@@ -146,6 +147,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.send({ two_factor_required: true, challenge_id: ch.challengeId, expires_at: ch.expiresAt });
       } catch (e: any) {
         return reply.status(e.statusCode || 500).send({ error: e.message || "2FA failed" });
+      }
+    }
+
+    // Club admins stop here too when the club enforces 2FA.
+    if (user.role === "admin" && club) {
+      const { getClubSettings } = await import("../services/club.js");
+      const settings = await getClubSettings(db, club.id);
+      if (settings?.twoFaEnabled) {
+        const { startClubChallenge } = await import("../services/twoFactor.js");
+        try {
+          const ch = await startClubChallenge(db, club, user, "login");
+          return reply.send({ two_factor_required: true, challenge_id: ch.challengeId, expires_at: ch.expiresAt });
+        } catch (e: any) {
+          return reply.status(e.statusCode || 500).send({ error: e.message || "2FA failed" });
+        }
       }
     }
 
@@ -188,7 +204,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  // Step 2 of superadmin login: verify the Telegram OTP → full session.
+  // Step 2 of 2FA login: verify the OTP → full session (superadmin or club admin).
   fastify.post("/api/auth/verify-2fa", async (req, reply) => {
     const { challenge_id, code } = ((req as any).body as any) || {};
     if (!challenge_id || code === undefined) return reply.status(400).send({ error: "challenge_id + code required" });
@@ -202,14 +218,26 @@ export default async function authRoutes(fastify: FastifyInstance) {
     if (!chRows[0]) return reply.status(401).send({ error: "Invalid or expired code" });
     const uRows = await db.select().from(users).where(and(eq(users.id, chRows[0].userId), isNull(users.deletedAt))).limit(1);
     const user = uRows[0];
-    if (!user || user.role !== "superadmin") return reply.status(401).send({ error: "Invalid or expired code" });
+    if (!user || !["superadmin", "admin"].includes(user.role)) return reply.status(401).send({ error: "Invalid or expired code" });
+    let clubSlug: string | null = null;
+    if (user.role === "admin") {
+      // Club admins complete 2FA only while their club enforces it.
+      if (!user.clubId) return reply.status(401).send({ error: "Invalid or expired code" });
+      const { getClubSettings } = await import("../services/club.js");
+      const { clubs } = await import("../db/schema.js");
+      const settings = await getClubSettings(db, user.clubId);
+      if (!settings?.twoFaEnabled) return reply.status(401).send({ error: "Invalid or expired code" });
+      const crows = await db.select().from(clubs).where(eq(clubs.id, user.clubId)).limit(1);
+      if (!crows[0] || !crows[0].isActive) return reply.status(401).send({ error: "Club unavailable" });
+      clubSlug = crows[0].slug;
+    }
     try {
       await verifyChallenge(db, user.id, challenge_id, code);
     } catch (e: any) {
       return reply.status(401).send({ error: "Invalid or expired code" });
     }
-    const token = signAccess(fastify, user, null);
+    const token = signAccess(fastify, user, clubSlug);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
-    return reply.send({ user: publicUser(user, null), token });
+    return reply.send({ user: publicUser(user, clubSlug), token });
   });
 }

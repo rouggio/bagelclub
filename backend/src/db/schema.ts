@@ -186,6 +186,7 @@ export const appSettings = pgTable("app_settings", {
   whatsappAdminPhone: varchar("whatsapp_admin_phone", { length: 30 }),
   enabledLocales: text("enabled_locales").array().notNull().default(sql`ARRAY['it','en','fr','de','es']`),
   defaultLocale: varchar("default_locale", { length: 5 }).notNull().default("it"),
+  twoFaEnabled: boolean("two_fa_enabled").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -255,6 +256,7 @@ export const loginChallenges = pgTable("login_challenges", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   codeHash: varchar("code_hash", { length: 64 }).notNull(),
+  purpose: varchar("purpose", { length: 20 }).notNull().default("login"),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   attempts: integer("attempts").notNull().default(0),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),

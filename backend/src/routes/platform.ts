@@ -191,11 +191,25 @@ export default async function platformRoutes(fastify: FastifyInstance) {
 
   fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
     if (!db) return reply.send([]);
+    const { users } = await import("../db/schema.js");
     const rows = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(100);
     const clubRows = await db.select().from(clubs);
     const slugById: Record<string, string> = {};
-    for (const c of clubRows as any[]) slugById[String(c.id)] = c.slug;
-    return reply.send((rows as any[]).map((r: any) => ({ ...r, club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null })));
+    const nameByClubId: Record<string, string> = {};
+    for (const c of clubRows as any[]) { slugById[String(c.id)] = c.slug; nameByClubId[String(c.id)] = c.name; }
+    const userRows = await db.select().from(users);
+    const nameByUserId: Record<string, string> = {};
+    for (const u of userRows as any[]) nameByUserId[String(u.id)] = u.username;
+    return reply.send((rows as any[]).map((r: any) => ({
+      id: r.id,
+      created_at: r.createdAt,
+      action: r.action,
+      actor_username: r.actorId ? nameByUserId[String(r.actorId)] ?? null : null,
+      club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null,
+      club_name: r.clubId ? nameByClubId[String(r.clubId)] ?? null : null,
+      target: r.target,
+      meta: r.meta,
+    })));
   });
 
   // Platform settings (e.g. base_url — the single website for all clubs).

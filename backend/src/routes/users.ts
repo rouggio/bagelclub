@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { users } from "../db/schema.js";
+import { users, appSettings } from "../db/schema.js";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { profileSchema, adminCreateUserSchema } from "../types/schemas.js";
 import { requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
@@ -20,6 +20,38 @@ function safeUser(r: any) {
 async function liveSelf(db: any, authUser: any) {
   const rows = await db.select().from(users).where(and(eq(users.id, authUser.id), live())).limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * Contact-change guard for club admins under enforced 2FA:
+ * - with a valid OTP (two_fa_code against the target's live `contact`
+ *   challenge): change applies, 2FA stays on;
+ * - without: change applies but club 2FA is DISABLED (new channel unverified).
+ * Returns { disabled } or { error } (caller replies 401).
+ */
+async function guardAdminContactChange(db: any, club: any, target: any, body: any, rawCode?: any): Promise<{ disabled: boolean; error?: string }> {
+  const changing = body.mobile !== undefined || body.telegram_chat_id !== undefined;
+  if (!changing || target.role !== "admin") return { disabled: false };
+  const settings = await getClubSettings(db, club.id);
+  if (!settings?.twoFaEnabled) return { disabled: false };
+  const code = rawCode;
+  if (code) {
+    const { verifyChallenge } = await import("../services/twoFactor.js");
+    const { loginChallenges } = await import("../db/schema.js");
+    const { desc } = await import("drizzle-orm");
+    const rows = await db.select().from(loginChallenges).where(
+      and(eq(loginChallenges.userId, target.id), eq(loginChallenges.purpose, "contact"), isNull(loginChallenges.consumedAt))
+    ).orderBy(desc(loginChallenges.createdAt)).limit(1);
+    if (!rows[0]) return { disabled: false, error: "No pending code — request one first" };
+    try {
+      await verifyChallenge(db, target.id, rows[0].id, code, "contact");
+    } catch {
+      return { disabled: false, error: "Invalid or expired code" };
+    }
+    return { disabled: false };
+  }
+  await db.update(appSettings).set({ twoFaEnabled: false, updatedAt: new Date() }).where(eq(appSettings.clubId, club.id));
+  return { disabled: true };
 }
 
 export default async function userRoutes(fastify: FastifyInstance) {
@@ -80,11 +112,34 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (dup[0] && String(dup[0].id) !== String(user.id)) return reply.status(409).send({ error: "username or email already taken" });
     }
     try {
+      const guard = await guardAdminContactChange(db, club, me, body, (req as any).body?.two_fa_code);
+      if (guard.error) return reply.status(401).send({ error: guard.error });
       const [row] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning();
-      return reply.send(safeUser(row));
+      const out: any = safeUser(row);
+      if (guard.disabled) out.two_fa_disabled = true;
+      return reply.send(out);
     } catch (e: any) {
       if (String(e.code) === "23505") return reply.status(409).send({ error: "username or email already taken" });
       throw e;
+    }
+  });
+
+  // Request an OTP on the CURRENT channel (needed to change contact while 2FA is on).
+  fastify.post("/api/users/me/contact-challenge", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const me = await liveSelf(db, (req as any).user);
+    if (!me) return reply.status(401).send({ error: "User not found" });
+    if (me.role !== "admin") return reply.status(400).send({ error: "Only club admins use 2FA" });
+    const { startClubChallenge } = await import("../services/twoFactor.js");
+    try {
+      const { via, expiresAt } = await startClubChallenge(db, club, me, "contact");
+      return reply.send({ sent_via: via, expires_at: expiresAt });
+    } catch (e: any) {
+      return reply.status(e.statusCode || 500).send({ error: e.message || "OTP failed" });
     }
   });
 
@@ -219,9 +274,15 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (dup[0] && String(dup[0].id) !== String(id)) return reply.status(409).send({ error: "username or email already taken" });
     }
     try {
+      const targetRows = await db.select().from(users).where(and(eq(users.id, id), eq(users.clubId, club.id), live())).limit(1);
+      if (!targetRows[0]) return reply.status(404).send({ error: "Not found" });
+      const guard = await guardAdminContactChange(db, club, targetRows[0], body, (req as any).body?.two_fa_code);
+      if (guard.error) return reply.status(401).send({ error: guard.error });
       const [row] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
       if (!row) return reply.status(404).send({ error: "Not found" });
-      return reply.send({ id: row.id, username: row.username, email: row.email, role: row.role });
+      const out: any = { id: row.id, username: row.username, email: row.email, role: row.role };
+      if (guard.disabled) out.two_fa_disabled = true;
+      return reply.send(out);
     } catch (e: any) {
       if (String(e.code) === "23505") return reply.status(409).send({ error: "username or email already taken" });
       throw e;

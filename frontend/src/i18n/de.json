@@ -331,5 +331,16 @@
   "imp.banner": "Admin-Sitzung — läuft ab in",
   "imp.end": "Beenden",
   "platform.verify": "Bestätigen",
-  "platform.codeHint": "Wir haben einen 6-stelligen Code an Telegram gesendet."
+  "platform.codeHint": "Wir haben einen 6-stelligen Code an Telegram gesendet.",
+  "platform.auditClubCreate": "Club erstellt",
+  "platform.auditClubPatch": "Club aktualisiert",
+  "platform.auditClubSeed": "Club initialisiert",
+  "platform.auditDemoEnsure": "Demo vorbereitet",
+  "platform.auditDemoReset": "Demo zurückgesetzt",
+  "platform.auditDemoCleanup": "Demos aufgeräumt",
+  "platform.auditSettings": "Einstellungen aktualisiert",
+  "platform.auditAbuseUnblock": "IP entsperrt",
+  "platform.auditImpGrant": "Impersonation erteilt",
+  "platform.auditImpRevoke": "Impersonation widerrufen",
+  "platform.auditAdminReset": "Admin-Passwort zurückgesetzt"
 }

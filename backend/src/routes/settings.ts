@@ -64,6 +64,9 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
   fastify.put("/api/settings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = settingsSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
+    if (parsed.data.two_fa_enabled !== undefined) {
+      return reply.status(400).send({ error: "2FA changes require OTP: use POST /api/settings/2fa/code + /confirm" });
+    }
     const db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
@@ -116,5 +119,64 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       ? (await qdb.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
       : (await qdb.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
     return reply.send(maskSettingsForAdminResponse(row));
+  });
+
+  // Club-admin 2FA state changes (OTP-gated both ways).
+  // POST /api/settings/2fa/code {action: enable|disable} → delivers OTP.
+  fastify.post("/api/settings/2fa/code", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const { action } = ((req as any).body as any) || {};
+    if (!["enable", "disable"].includes(action)) return reply.status(400).send({ error: "action must be enable|disable" });
+    const poolDb: any = (fastify as any).db;
+    if (!poolDb) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const settings = await getClubSettings(db, club.id);
+    const on = !!settings?.twoFaEnabled;
+    if (action === "enable" && on) return reply.status(400).send({ error: "2FA already enabled" });
+    if (action === "disable" && !on) return reply.status(400).send({ error: "2FA already disabled" });
+    const { users } = await import("../db/schema.js");
+    const { eq: eqU } = await import("drizzle-orm");
+    const me = await db.select().from(users).where(eqU(users.id, (req as any).user.id)).limit(1).then((r: any) => r[0]);
+    if (!me) return reply.status(401).send({ error: "User not found" });
+    const { startClubChallenge } = await import("../services/twoFactor.js");
+    try {
+      const { via, challengeId, expiresAt } = await startClubChallenge(db, club, me, action === "enable" ? "activation" : "deactivation");
+      return reply.send({ sent_via: via, challenge_id: challengeId, expires_at: expiresAt });
+    } catch (e: any) {
+      return reply.status(e.statusCode || 500).send({ error: e.message || "OTP failed" });
+    }
+  });
+
+  // POST /api/settings/2fa/confirm {action, code} → applies the change.
+  fastify.post("/api/settings/2fa/confirm", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const { action, code, challenge_id } = ((req as any).body as any) || {};
+    if (!["enable", "disable"].includes(action) || !code) return reply.status(400).send({ error: "action + code required" });
+    const poolDb: any = (fastify as any).db;
+    if (!poolDb) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const me = (req as any).user;
+    const { verifyChallenge } = await import("../services/twoFactor.js");
+    try {
+      if (challenge_id) {
+        await verifyChallenge(db, me.id, challenge_id, code, action === "enable" ? "activation" : "deactivation");
+      } else {
+        // Find the caller's live challenge for this purpose.
+        const { loginChallenges } = await import("../db/schema.js");
+        const { and, isNull, desc } = await import("drizzle-orm");
+        const rows = await db.select().from(loginChallenges).where(
+          and(eq(loginChallenges.userId, me.id), eq(loginChallenges.purpose, action === "enable" ? "activation" : "deactivation"), isNull(loginChallenges.consumedAt))
+        ).orderBy(desc(loginChallenges.createdAt)).limit(1);
+        if (!rows[0]) return reply.status(401).send({ error: "No pending code — request one first" });
+        await verifyChallenge(db, me.id, rows[0].id, code, action === "enable" ? "activation" : "deactivation");
+      }
+    } catch (e: any) {
+      return reply.status(401).send({ error: "Invalid or expired code" });
+    }
+    await db.update(appSettings).set({ twoFaEnabled: action === "enable", updatedAt: new Date() }).where(eq(appSettings.clubId, club.id));
+    const s = await getClubSettings(db, club.id);
+    return reply.send(maskSettingsForAdminResponse(s));
   });
 }

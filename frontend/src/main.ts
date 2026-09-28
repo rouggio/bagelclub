@@ -1650,6 +1650,39 @@ function app() {
         if (res.ok) this.platformAudit = await res.json();
       } catch {}
     },
+    auditLabel(action: string): string {
+      const map: Record<string, string> = {
+        "platform.club.create": "auditClubCreate",
+        "platform.club.patch": "auditClubPatch",
+        "platform.club.seed": "auditClubSeed",
+        "platform.demo.ensure": "auditDemoEnsure",
+        "platform.demo.reset": "auditDemoReset",
+        "platform.demo.cleanup": "auditDemoCleanup",
+        "platform.settings": "auditSettings",
+        "platform.abuse.unblock": "auditAbuseUnblock",
+        "platform.impersonate.grant": "auditImpGrant",
+        "platform.impersonate.revoke": "auditImpRevoke",
+        "platform.admin.reset-password": "auditAdminReset",
+      };
+      const key = map[action];
+      if (!key) return action;
+      const v = this.t(`platform.${key}`);
+      return v === `platform.${key}` ? action : v;
+    },
+    fmtDateTime(iso: any): string {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso || "");
+        return d.toLocaleString(this.lang, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      } catch { return String(iso || ""); }
+    },
+    metaText(meta: any): string {
+      if (!meta) return "";
+      try {
+        const o = typeof meta === "string" ? JSON.parse(meta) : meta;
+        return Object.entries(o).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ");
+      } catch { return String(meta); }
+    },
     async loadPlatformSettings() {
       this.platformSettingsMsg = "";
       try {

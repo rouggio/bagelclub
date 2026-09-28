@@ -148,6 +148,13 @@
       "when": 1790628060792,
       "tag": "0020_login_challenges",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790628831884,
+      "tag": "0021_club_2fa",
+      "breakpoints": true
     }
   ]
 }

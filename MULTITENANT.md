@@ -211,11 +211,10 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   (`≥16` chars or generated), 2FA deferred; `GET /api/clubs` public directory
   only exposes `is_listed + is_active` clubs (suspended/hidden never leak).
 
-### 2FA for the single superadmin (locked 2026-09-28)
-- Step 1 (`POST /api/auth/login`, no slug, password OK) returns
+### 2FA for the single superadmin (locked 2026-09-28)- Step 1 (`POST /api/auth/login`, no slug, password OK) returns
   `{two_factor_required: true, challenge_id}` — never a session token.
 - Step 2 (`POST /api/auth/verify-2fa {challenge_id, code}`) checks a 6-digit
-  OTP (sha256, 10-min TTL, single-use, 5 attempts then lockout) delivered via
+  OTP (sha256, 2-min TTL, single-use, 5 attempts then lockout) delivered via
   Telegram to `SUPERADMIN_TELEGRAM_CHAT_ID` using `SUPERADMIN_TELEGRAM_BOT_TOKEN`
   (both Render secrets, no fallback in production). Failures count into the
   abuse-shield login bucket.
@@ -253,8 +252,7 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   explicitly that they touch only demo rows (row-count assertions per table
   before/after on non-demo clubs).
 
-### 11. Per-club locales (locked 2026-09-27)
-- Today i18n is global: 5 langs `it|en|fr|de|es`, `users.preferred_language`
+### 11. Per-club locales (locked 2026-09-27)- Today i18n is global: 5 langs `it|en|fr|de|es`, `users.preferred_language`
   enum, `frontend/src/i18n/*.json`, header language switcher, per-lang
   announcement translations. Becomes club config: `app_settings.enabled_locales
   TEXT[] NOT NULL DEFAULT '{it,en,fr,de,es}'` + `default_locale VARCHAR(5) NOT
@@ -268,6 +266,28 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
   the frontend boots without an extra round-trip; announcements serve only
   translations in enabled locales (others never created).
 - Seed/backfill: existing club keeps all 5 (today's behaviour unchanged).
+
+### 12. Club-admin 2FA, per-club opt-in (locked 2026-09-28)
+- `app_settings.two_fa_enabled` (default false). When on, every club `admin`
+  login is password → OTP (`login` purpose challenge, Telegram-first /
+  WhatsApp-fallback to the admin's linked channel) → session. Members/visitors
+  never challenged. `PUT /api/settings` rejects `two_fa_enabled` outright.
+- Enable AND disable both OTP-gated: `POST /api/settings/2fa/code
+  {action}` delivers to the caller's current channel,
+  `POST /api/settings/2fa/confirm {action, code[, challenge_id]}` applies.
+  Activation proves the admin can receive+relay before anything turns on.
+- Contact guard: an admin changing `mobile`/`telegram_chat_id` (`PATCH
+  /users/me`, admin `PATCH /users/:id`) must attach `two_fa_code` from a
+  `contact` challenge (`POST /api/users/me/contact-challenge`, sent to the
+  OLD channel). With valid code the change applies and 2FA stays on; without
+  it the change applies but club 2FA is DISABLED (`two_fa_disabled: true` in
+  the response) — an unverified channel can never stay enforced.
+- Lockout recovery (no code changes — supported by construction):
+  1. another healthy admin disables 2FA with their own OTP, fixes the contact,
+     re-enables; 2. single-admin club: superadmin impersonates (grant flow,
+     no club OTP needed), updates the contact — the guard auto-disables 2FA —
+     admin re-links and re-enables. WhatsApp/mobile fallback also covers a
+     lost Telegram link without any rescue.
 
 ### 5. Ops (small)
 Same Render service + Neon DB. Env keeps platform secrets only; per-club creds

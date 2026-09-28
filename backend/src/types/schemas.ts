@@ -108,6 +108,8 @@ export const settingsSchema = z.object({
   whatsapp_admin_phone: z.string().max(30).optional().nullable(),
   enabled_locales: z.array(preferredLanguageSchema).min(1).max(5).optional(),
   default_locale: preferredLanguageSchema.optional(),
+  // 2FA state changes go through /api/settings/2fa/* (OTP-gated), never PUT.
+  two_fa_enabled: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

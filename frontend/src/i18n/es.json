@@ -331,5 +331,16 @@
   "imp.banner": "Sesión admin — expira en",
   "imp.end": "Terminar",
   "platform.verify": "Verificar",
-  "platform.codeHint": "Te enviamos un código de 6 dígitos por Telegram."
+  "platform.codeHint": "Te enviamos un código de 6 dígitos por Telegram.",
+  "platform.auditClubCreate": "Club creado",
+  "platform.auditClubPatch": "Club actualizado",
+  "platform.auditClubSeed": "Club inicializado",
+  "platform.auditDemoEnsure": "Demo preparada",
+  "platform.auditDemoReset": "Demo restablecida",
+  "platform.auditDemoCleanup": "Demos limpiadas",
+  "platform.auditSettings": "Ajustes actualizados",
+  "platform.auditAbuseUnblock": "IP desbloqueada",
+  "platform.auditImpGrant": "Impersonación concedida",
+  "platform.auditImpRevoke": "Impersonación revocada",
+  "platform.auditAdminReset": "Contraseña admin restablecida"
 }

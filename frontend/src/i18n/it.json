@@ -331,5 +331,16 @@
   "imp.banner": "Stai operando come admin — scade tra",
   "imp.end": "Termina",
   "platform.verify": "Verifica",
-  "platform.codeHint": "Ti abbiamo inviato un codice a 6 cifre su Telegram."
+  "platform.codeHint": "Ti abbiamo inviato un codice a 6 cifre su Telegram.",
+  "platform.auditClubCreate": "Club creato",
+  "platform.auditClubPatch": "Club aggiornato",
+  "platform.auditClubSeed": "Club inizializzato",
+  "platform.auditDemoEnsure": "Demo preparata",
+  "platform.auditDemoReset": "Demo azzerata",
+  "platform.auditDemoCleanup": "Demo pulite",
+  "platform.auditSettings": "Impostazioni aggiornate",
+  "platform.auditAbuseUnblock": "IP sbloccato",
+  "platform.auditImpGrant": "Accesso impersonato",
+  "platform.auditImpRevoke": "Impersonificazione revocata",
+  "platform.auditAdminReset": "Password admin resettata"
 }
