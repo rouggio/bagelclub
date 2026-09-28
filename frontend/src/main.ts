@@ -50,6 +50,9 @@ function app() {
     _refreshTimer: null as number | null,
     _refreshing: false as boolean,
     authForm: { username: "", password: "" },
+    loginChallenge: null as null | { challenge_id: string; expires_at: string },
+    loginCode: "" as string,
+    twoFa: { pendingAction: "" as "" | "enable" | "disable", code: "" as string, msg: "" as string },
     regForm: { username: "", email: "", mobile_code: defaultDialCode(), mobile_number: "", first_name: "", last_name: "", password: "" },
     countryCodes: DIAL_CODES,
     authError: "" as string,
@@ -75,7 +78,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notificationTestResult: "" as string,
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
@@ -502,6 +505,8 @@ function app() {
 
     async login() {
       this.authError = "";
+      this.loginChallenge = null;
+      this.loginCode = "";
       const clubSlug = getClubSlug();
       const body: any = { password: this.authForm.password, ...(clubSlug ? { club_slug: clubSlug } : {}) };
       if (this.authForm.username.includes("@")) body.email = this.authForm.username; else body.username = this.authForm.username;
@@ -532,7 +537,26 @@ function app() {
         return;
       }
       if (data.token) storeToken(data.token);
-      this.user = data.user || null;
+      if (data.two_factor_required) {
+        this.loginChallenge = { challenge_id: data.challenge_id, expires_at: data.expires_at };
+        this.loginCode = "";
+        return;
+      }
+      this.afterLogin(data);
+    },
+    async verifyLogin2fa() {      this.authError = "";
+      if (!this.loginChallenge) return;
+      try {
+        const res = await apiFetch("/api/auth/verify-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ challenge_id: this.loginChallenge.challenge_id, code: this.loginCode.trim() }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.authError = `• ${data.error || this.t("error.loginFailed")}`; return; }
+        if (data.token) storeToken(data.token);
+        this.loginChallenge = null;
+        this.loginCode = "";
+        this.afterLogin(data);
+      } catch (e: any) { this.authError = `• ${this.t("error.loginFailed")}`; }
+    },
+    afterLogin(data: any) {      this.user = data.user || null;
       this.startTokenRefresh();
       this.checkImpSession();
       this.loadAnnouncements();
@@ -1750,6 +1774,28 @@ function app() {
         this.demoResult = data;
       } catch (e: any) { this.demoError = e.message || String(e); }
       finally { this.demoLoading = false; }
+    },
+
+    async requestTwoFaCode(action: "enable" | "disable") {
+      this.twoFa = { pendingAction: action, code: "", msg: "" };
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/settings/2fa/code", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.twoFa.msg = data.error || "failed"; this.twoFa.pendingAction = ""; return; }
+        this.twoFa.msg = "";
+      } catch (e: any) { this.twoFa.msg = e.message || String(e); this.twoFa.pendingAction = ""; }
+    },
+    async confirmTwoFaCode() {
+      if (!this.twoFa.pendingAction) return;
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/settings/2fa/confirm", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: this.twoFa.pendingAction, code: this.twoFa.code.trim() }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.twoFa.msg = data.error || "verification failed"; return; }
+        this.twoFa = { pendingAction: "", code: "", msg: "" };
+        await this.loadAdminSettings();
+      } catch (e: any) { this.twoFa.msg = e.message || String(e); }
     },
 
     startEditBooking(b: any) {

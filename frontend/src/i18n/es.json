@@ -342,5 +342,12 @@
   "platform.auditAbuseUnblock": "IP desbloqueada",
   "platform.auditImpGrant": "Impersonación concedida",
   "platform.auditImpRevoke": "Impersonación revocada",
-  "platform.auditAdminReset": "Contraseña admin restablecida"
+  "platform.auditAdminReset": "Contraseña admin restablecida",
+  "auth.otpHint": "Introduce el código que te acabamos de enviar.",
+  "admin.2fa.title": "Autenticación en dos pasos",
+  "admin.2fa.enable": "Activar",
+  "admin.2fa.disable": "Desactivar",
+  "admin.2fa.confirm": "Confirmar",
+  "admin.2fa.on": "Activada para todos los admins",
+  "admin.2fa.off": "Desactivada"
 }

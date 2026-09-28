@@ -342,5 +342,12 @@
   "platform.auditAbuseUnblock": "IP entsperrt",
   "platform.auditImpGrant": "Impersonation erteilt",
   "platform.auditImpRevoke": "Impersonation widerrufen",
-  "platform.auditAdminReset": "Admin-Passwort zurückgesetzt"
+  "platform.auditAdminReset": "Admin-Passwort zurückgesetzt",
+  "auth.otpHint": "Gib den Code ein, den wir dir gesendet haben.",
+  "admin.2fa.title": "Zwei-Faktor-Authentifizierung",
+  "admin.2fa.enable": "Aktivieren",
+  "admin.2fa.disable": "Deaktivieren",
+  "admin.2fa.confirm": "Bestätigen",
+  "admin.2fa.on": "Für alle Admins aktiv",
+  "admin.2fa.off": "Deaktiviert"
 }

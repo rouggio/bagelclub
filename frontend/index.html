@@ -368,10 +368,17 @@
   </section>
 
   <section x-show="view==='login'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
- <h2 class="text-lg font-bold" x-text="t('auth.login')"></h2>
- <input x-model="authForm.username" :placeholder="t('auth.usernameOrEmail')" class="w-full rounded-lg border px-3 py-2" />
- <input x-model="authForm.password" type="password" :placeholder="t('auth.password')" class="w-full rounded-lg border px-3 py-2" />
+  <h2 class="text-lg font-bold" x-text="t('auth.login')"></h2>
+  <div x-show="!loginChallenge" class="space-y-4">
+  <input x-model="authForm.username" :placeholder="t('auth.usernameOrEmail')" class="w-full rounded-lg border px-3 py-2" />
+  <input x-model="authForm.password" type="password" :placeholder="t('auth.password')" class="w-full rounded-lg border px-3 py-2" />
   <button @click="login()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('auth.login')"></button>
+  </div>
+  <div x-show="loginChallenge" class="space-y-4">
+  <p class="text-sm text-zinc-600" x-text="t('auth.otpHint')"></p>
+  <input x-model="loginCode" inputmode="numeric" maxlength="6" placeholder="••••••" class="w-full rounded-lg border px-3 py-2 text-center text-lg tracking-widest font-mono" />
+  <button @click="verifyLogin2fa()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('platform.verify')"></button>
+  </div>
   <button @click="view='register'" class="w-full text-sm text-zinc-600" x-text="t('auth.needAccount')"></button>
   <div x-show="authError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="authError"></div>
   </section>
@@ -843,14 +850,29 @@
   <input x-model="clubForm.club_address" :placeholder="t('admin.club.address')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <button @click="saveClubInfo()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.club.save')"></button>
     </div>
-   <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
-   <div>
-   <div class="font-medium text-sm" x-text="t('admin.autoApprove')"></div>
-    <div class="text-xs text-zinc-500" x-text="adminSettings ? (adminSettings.auto_approve_bookings ? t('admin.autoApprove.enabled') : t('admin.autoApprove.disabled')) : ''"></div>
-   </div>
-   <button @click="toggleAutoApprove()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="adminSettings?.auto_approve_bookings ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="adminSettings?.auto_approve_bookings ? 'ON' : 'OFF'"></button>
-   </div>
-    </section>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.autoApprove')"></div>
+   <div class="text-xs text-zinc-500" x-text="adminSettings ? (adminSettings.auto_approve_bookings ? t('admin.autoApprove.enabled') : t('admin.autoApprove.disabled')) : ''"></div>
+  </div>
+  <button @click="toggleAutoApprove()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="adminSettings?.auto_approve_bookings ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="adminSettings?.auto_approve_bookings ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
+  <div class="flex items-center justify-between">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.2fa.title')"></div>
+  <div class="text-xs text-zinc-500" x-text="adminSettings?.two_fa_enabled ? t('admin.2fa.on') : t('admin.2fa.off')"></div>
+  </div>
+  <button x-show="!adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('enable')" class="rounded-lg px-4 py-2 text-xs font-medium bg-emerald-200 border border-emerald-300 text-emerald-900" x-text="t('admin.2fa.enable')"></button>
+  <button x-show="adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('disable')" class="rounded-lg px-4 py-2 text-xs font-medium bg-zinc-200" x-text="t('admin.2fa.disable')"></button>
+  </div>
+  <div x-show="twoFa.pendingAction" class="flex gap-2">
+  <input x-model="twoFa.code" inputmode="numeric" maxlength="6" placeholder="••••••" class="flex-1 rounded-lg border px-3 py-2 text-center font-mono" />
+  <button @click="confirmTwoFaCode()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-xs font-medium" x-text="t('admin.2fa.confirm')"></button>
+  </div>
+  <div x-show="twoFa.msg" class="text-xs text-red-600" x-text="twoFa.msg"></div>
+  </div>
+   </section>
 
    <section x-show="view==='admin-reports'" class="space-y-4">
    <h2 class="text-xl font-bold" x-text="t('admin.reports.title')"></h2>
