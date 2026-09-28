@@ -253,6 +253,54 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  // Impersonation grants: brief superadmin-as-club-admin sessions (15 min,
+  // one club, single active grant per superadmin). The issued JWT carries
+  // role=admin + imp=grantId; club routes re-verify the grant row, so revoke
+  // ends the session immediately. Grant create/revoke are audited.
+  fastify.post("/api/platform/clubs/:slug/grant", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const { slug } = req.params as any;
+    const actor = (req as any).user;
+    const rows = await db.select().from(clubs).where(eq(clubs.slug, slug)).limit(1);
+    const club = rows[0];
+    if (!club || !club.isActive) return reply.status(404).send({ error: "Club not found or suspended" });
+    const { impersonationGrants } = await import("../db/schema.js");
+    const { and, isNull } = await import("drizzle-orm");
+    // Single active grant: revoke any live ones first.
+    await db.update(impersonationGrants).set({ revokedAt: new Date() }).where(
+      and(eq(impersonationGrants.superadminId, actor.id), isNull(impersonationGrants.revokedAt))
+    );
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const [grant] = await db.insert(impersonationGrants).values({
+      clubId: club.id, superadminId: actor.id, expiresAt,
+    }).returning();
+    const token = fastify.jwt.sign(
+      { id: actor.id, username: actor.username, role: "admin", clubId: club.id, imp: grant.id } as any,
+      { expiresIn: "15m" } as any
+    );
+    await audit(db, actor.id, "platform.impersonate.grant", slug, { grant_id: grant.id });
+    return reply.status(201).send({ token, expires_at: expiresAt.toISOString(), club_slug: club.slug });
+  });
+
+  fastify.delete("/api/platform/clubs/:slug/grant", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const { slug } = req.params as any;
+    const actor = (req as any).user;
+    const crows = await db.select().from(clubs).where(eq(clubs.slug, slug)).limit(1);
+    if (!crows[0]) return reply.status(404).send({ error: "Not found" });
+    const { impersonationGrants } = await import("../db/schema.js");
+    const { and, isNull } = await import("drizzle-orm");
+    await db.update(impersonationGrants).set({ revokedAt: new Date() }).where(
+      and(
+        eq(impersonationGrants.superadminId, actor.id),
+        eq(impersonationGrants.clubId, crows[0].id),
+        isNull(impersonationGrants.revokedAt)
+      )
+    );
+    await audit(db, actor.id, "platform.impersonate.revoke", slug, {});
+    return reply.send({ ok: true });
+  });
+
   // Reset a club admin's password (support). Scoped: target must be a live
   // admin of the named club; new password returned once.
   fastify.post("/api/platform/clubs/:slug/reset-admin", { preHandler: pre }, async (req, reply) => {

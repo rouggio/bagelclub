@@ -326,5 +326,10 @@
   "platform.reports": "Berichte",
   "platform.baseUrl": "Basis-URL",
   "landing.ownDemo": "Club einrichten",
-  "platform.footerText": "Footer-Text"
+  "platform.footerText": "Footer-Text",
+  "platform.access": "Als Admin zugreifen",
+  "imp.banner": "Admin-Sitzung — läuft ab in",
+  "imp.end": "Beenden",
+  "platform.verify": "Bestätigen",
+  "platform.codeHint": "Wir haben einen 6-stelligen Code an Telegram gesendet."
 }

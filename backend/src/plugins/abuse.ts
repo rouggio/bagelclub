@@ -135,16 +135,19 @@ export default fp(async function abusePlugin(fastify: FastifyInstance) {
     await noteEvent(db, ip, "burst").catch(() => false);
   });
 
-  fastify.addHook("onResponse", async (req: FastifyRequest, reply: FastifyReply) => {
+  // NOTE: onSend (not onResponse) — it runs before the response completes,
+  // so counting is settled before the next request can arrive (no race).
+  fastify.addHook("onSend", async (req: FastifyRequest, reply: FastifyReply, payload: unknown) => {
     try {
       const db: any = (fastify as any).db;
       const ip = clientIp(req);
       const status = reply.statusCode;
-      if (req.url.startsWith("/api/auth/login") && status === 401) {
+      if ((req.url.startsWith("/api/auth/login") || req.url.startsWith("/api/auth/verify-2fa")) && status === 401) {
         await noteEvent(db, ip, "loginFail");
       } else if (status === 404 && req.url.startsWith("/api/")) {
         await noteEvent(db, ip, "notFound");
       }
     } catch {}
+    return payload;
   });
 });

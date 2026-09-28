@@ -138,6 +138,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return reply.status(401).send({ error: "Invalid credentials" });
 
+    // Superadmin stops here: second factor (Telegram OTP) required.
+    if (user.role === "superadmin") {
+      const { startChallenge } = await import("../services/twoFactor.js");
+      try {
+        const ch = await startChallenge(db, user);
+        return reply.send({ two_factor_required: true, challenge_id: ch.challengeId, expires_at: ch.expiresAt });
+      } catch (e: any) {
+        return reply.status(e.statusCode || 500).send({ error: e.message || "2FA failed" });
+      }
+    }
+
     const token = signAccess(fastify, user, clubSlug);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
@@ -175,5 +186,30 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post("/api/auth/logout", async (_req, reply) => {
     reply.clearCookie?.("refresh_token", { path: "/" });
     return reply.send({ ok: true });
+  });
+
+  // Step 2 of superadmin login: verify the Telegram OTP → full session.
+  fastify.post("/api/auth/verify-2fa", async (req, reply) => {
+    const { challenge_id, code } = ((req as any).body as any) || {};
+    if (!challenge_id || code === undefined) return reply.status(400).send({ error: "challenge_id + code required" });
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db;
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const { verifyChallenge } = await import("../services/twoFactor.js");
+    // Resolve the challenge's owner first (trust root: exact id match).
+    const { loginChallenges } = await import("../db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    const chRows = await db.select().from(loginChallenges).where(eq(loginChallenges.id, challenge_id)).limit(1);
+    if (!chRows[0]) return reply.status(401).send({ error: "Invalid or expired code" });
+    const uRows = await db.select().from(users).where(and(eq(users.id, chRows[0].userId), isNull(users.deletedAt))).limit(1);
+    const user = uRows[0];
+    if (!user || user.role !== "superadmin") return reply.status(401).send({ error: "Invalid or expired code" });
+    try {
+      await verifyChallenge(db, user.id, challenge_id, code);
+    } catch (e: any) {
+      return reply.status(401).send({ error: "Invalid or expired code" });
+    }
+    const token = signAccess(fastify, user, null);
+    reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
+    return reply.send({ user: publicUser(user, null), token });
   });
 }

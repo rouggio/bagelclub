@@ -7,6 +7,8 @@ export interface JwtPayload {
   role: "visitor" | "associate" | "admin" | "superadmin";
   /** Club scope. Null only for superadmin (platform, outside clubs). */
   clubId: string | null;
+  /** Impersonation grant id — present when a superadmin acts as club admin. */
+  imp?: string;
   preferred_language?: "it" | "en" | "fr" | "de" | "es";
 }
 

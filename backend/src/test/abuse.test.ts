@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { cleanSlate, buildTestApp, authHeaders, testDb } from "./helpers.js";
+import { cleanSlate, buildTestApp, authHeaders, testDb, loginSuperadmin } from "./helpers.js";
 import { isProbe, shouldBlock, LIMITS } from "../plugins/abuse.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -28,22 +28,25 @@ describe("abuse shield", () => {
   });
 
   it("blocks an IP after repeated login failures, superadmin can unblock", async () => {
+    // Unique IP per run: hermetic against stale blocks from earlier runs.
+    const ip = `10.99.${1 + Math.floor(Math.random() * 200)}.${1 + Math.floor(Math.random() * 200)}`;
+    const H = { "X-Forwarded-For": ip };
     // 10 bad logins are 401s; the 11th trips the block.
     for (let i = 0; i < LIMITS.loginFail.max; i++) {
       const r = await app.inject({
-        method: "POST", url: "/api/auth/login", headers: { "X-Forwarded-For": "9.9.9.9" },
+        method: "POST", url: "/api/auth/login", headers: H,
         payload: { username: "member", password: "wrong" },
       });
       expect(r.statusCode).toBe(401);
     }
     const blocked = await app.inject({
-      method: "POST", url: "/api/auth/login", headers: { "X-Forwarded-For": "9.9.9.9" },
+      method: "POST", url: "/api/auth/login", headers: H,
       payload: { username: "member", password: "wrong" },
     });
     expect(blocked.statusCode).toBe(403);
     // A different IP is unaffected.
     const other = await app.inject({
-      method: "POST", url: "/api/auth/login", headers: { "X-Forwarded-For": "9.9.9.10" },
+      method: "POST", url: "/api/auth/login", headers: { "X-Forwarded-For": "10.98.98.98" },
       payload: { username: "member", password: "wrong" },
     });
     expect(other.statusCode).toBe(401);
@@ -55,14 +58,14 @@ describe("abuse shield", () => {
       firstName: "B", lastName: "O", role: "superadmin", isVerified: true,
     });
     await pool.end();
-    const boss = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "boss@t.local", password: "Test1234!" } });
-    const list = await app.inject({ method: "GET", url: "/api/platform/abuse", headers: authHeaders(boss.json().token) });
+    const boss = await loginSuperadmin(app, "boss@t.local");
+    const list = await app.inject({ method: "GET", url: "/api/platform/abuse", headers: authHeaders(boss.token) });
     expect(list.statusCode).toBe(200);
-    expect((list.json() as any[]).some((b: any) => b.ip === "9.9.9.9")).toBe(true);
-    const un = await app.inject({ method: "DELETE", url: "/api/platform/abuse/9.9.9.9", headers: authHeaders(boss.json().token) });
+    expect((list.json() as any[]).some((b: any) => b.ip === ip)).toBe(true);
+    const un = await app.inject({ method: "DELETE", url: `/api/platform/abuse/${ip}`, headers: authHeaders(boss.token) });
     expect(un.statusCode).toBe(200);
     const again = await app.inject({
-      method: "POST", url: "/api/auth/login", headers: { "X-Forwarded-For": "9.9.9.9" },
+      method: "POST", url: "/api/auth/login", headers: H,
       payload: { username: "member", password: "wrong" },
     });
     expect(again.statusCode).toBe(401);

@@ -68,6 +68,35 @@ export function authHeaders(token: string, slug?: string) {
   return h;
 }
 
+/**
+ * Superadmin login incl. 2FA (dev-fallback path: no Telegram secrets, so the
+ * code is captured from the server log instead of delivered).
+ */
+export async function loginSuperadmin(app: any, email: string, password = "Test1234!") {
+  const keepBot = process.env.SUPERADMIN_TELEGRAM_BOT_TOKEN;
+  const keepChat = process.env.SUPERADMIN_TELEGRAM_CHAT_ID;
+  delete process.env.SUPERADMIN_TELEGRAM_BOT_TOKEN;
+  delete process.env.SUPERADMIN_TELEGRAM_CHAT_ID;
+  const lines: string[] = [];
+  const orig = console.warn;
+  console.warn = (...a: any[]) => { lines.push(a.join(" ")); };
+  let res: any;
+  try {
+    res = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email, password } });
+  } finally {
+    console.warn = orig;
+    if (keepBot !== undefined) process.env.SUPERADMIN_TELEGRAM_BOT_TOKEN = keepBot;
+    if (keepChat !== undefined) process.env.SUPERADMIN_TELEGRAM_CHAT_ID = keepChat;
+  }
+  const m = lines.join("\n").match(/\b(\d{6})\b/);
+  if (res.statusCode !== 200 || !res.json().challenge_id || !m) {
+    throw new Error(`2fa challenge failed ${res.statusCode}: ${res.body}`);
+  }
+  const v = await app.inject({ method: "POST", url: "/api/auth/verify-2fa", payload: { challenge_id: res.json().challenge_id, code: m[1] } });
+  if (v.statusCode !== 200) throw new Error(`2fa verify failed ${v.statusCode}: ${v.body}`);
+  return v.json();
+}
+
 /** Every suite starts from a clean seeded DB. */
 export function cleanSlate() {
   beforeEach(async () => {

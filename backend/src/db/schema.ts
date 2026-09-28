@@ -239,6 +239,28 @@ export const platformSettings = pgTable("platform_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Impersonation grants: time-boxed superadmin-as-club-admin sessions.
+// Checked in code (assertClubAccess); no RLS, like other platform tables.
+export const impersonationGrants = pgTable("club_impersonation_grants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+  superadminId: uuid("superadmin_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Superadmin 2FA login challenges (Telegram OTP). Short-lived, single-use.
+export const loginChallenges = pgTable("login_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  codeHash: varchar("code_hash", { length: 64 }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Abuse shield (#13): persistent IP blocks. Platform-only access via
 // superadmin routes; never tenant data, so no RLS and no club_id.
 export const ipBlocks = pgTable("ip_blocks", {

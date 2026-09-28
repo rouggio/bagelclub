@@ -68,19 +68,47 @@ export async function requireClub(req: FastifyRequest, reply: FastifyReply, db: 
 }
 
 /**
- * Cross-check JWT against the resolved club. Superadmin bypasses club scope.
- * Replies 403 on mismatch, returns false.
+ * Cross-check JWT against the resolved club. Superadmin has NO implicit
+ * access (must impersonate via a live grant — see grant endpoints).
+ * Impersonated sessions (role admin + imp claim) re-verify the grant row,
+ * so revocation ends the session immediately. Replies 403, returns false.
  */
-export function assertClubAccess(req: FastifyRequest, reply: FastifyReply, club: any): boolean {
+export async function assertClubAccess(req: FastifyRequest, reply: FastifyReply, club: any): Promise<boolean> {
   const user = (req as any).user;
   if (!user) {
     reply.status(401).send({ error: "Unauthorized" });
     return false;
   }
-  if (user.role === "superadmin") return true;
+  if (user.role === "superadmin") {
+    reply.status(403).send({ error: "Impersonation grant required" });
+    return false;
+  }
   if (!user.clubId || user.clubId !== club.id) {
     reply.status(403).send({ error: "Cross-club access denied" });
     return false;
+  }
+  if (user.imp) {
+    try {
+      const db: any = (req as any).server?.db;
+      const { impersonationGrants } = await import("../db/schema.js");
+      const { eq, and, isNull } = await import("drizzle-orm");
+      const rows = await db.select().from(impersonationGrants).where(
+        and(
+          eq(impersonationGrants.id, user.imp),
+          eq(impersonationGrants.clubId, club.id),
+          eq(impersonationGrants.superadminId, user.id),
+          isNull(impersonationGrants.revokedAt)
+        )
+      ).limit(1);
+      const g = rows[0];
+      if (!g || new Date(g.expiresAt).getTime() < Date.now()) {
+        reply.status(403).send({ error: "Impersonation expired or revoked" });
+        return false;
+      }
+    } catch (e) {
+      reply.status(403).send({ error: "Impersonation check failed" });
+      return false;
+    }
   }
   return true;
 }
@@ -97,7 +125,7 @@ export async function requireRequestClub(req: FastifyRequest, reply: FastifyRepl
   if (slug) {
     const club = await requireClub(req, reply, db, slug);
     if (!club) return null;
-    if (!assertClubAccess(req, reply, club)) return null;
+    if (!(await assertClubAccess(req, reply, club))) return null;
     return club;
   }
   if (user?.role === "superadmin") {

@@ -76,10 +76,11 @@ describe("auth (club-scoped)", () => {
     });
     await pool.end();
     const res = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "boss@test.local", password: "Test1234!" } });
+    // Step 1 yields a 2FA challenge, never a session (full flow in twofa.test.ts).
     expect(res.statusCode).toBe(200);
-    expect(res.json().user.clubId).toBeNull();
-    const clubs = await app.inject({ method: "GET", url: "/api/platform/clubs", headers: authHeaders(res.json().token) });
-    expect(clubs.statusCode).toBe(200);
+    expect(res.json().two_factor_required).toBe(true);
+    expect(res.json().token).toBeUndefined();
+    expect(res.json().challenge_id).toBeTruthy();
   });
 
   it("old token without clubId is rejected", async () => {

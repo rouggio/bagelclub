@@ -326,5 +326,10 @@
   "platform.reports": "Rapports",
   "platform.baseUrl": "URL de base",
   "landing.ownDemo": "Configurez votre club",
-  "platform.footerText": "Texte de pied de page"
+  "platform.footerText": "Texte de pied de page",
+  "platform.access": "Accéder comme admin",
+  "imp.banner": "Session admin — expire dans",
+  "imp.end": "Terminer",
+  "platform.verify": "Vérifier",
+  "platform.codeHint": "Nous avons envoyé un code à 6 chiffres sur Telegram."
 }

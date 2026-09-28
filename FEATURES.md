@@ -19,16 +19,17 @@
 | 11 | Court rental pricing display (per-court price, snapshot on booking, revenue reports) | ✅ | planned | `MULTITENANT.md` §8B |
 | 12 | Demo tenant (public sandbox club, routine reset for prospect self-demo) | ✅ | planned | `MULTITENANT.md` §10 |
 | 13 | Abuse shield (IP blacklist: login brute-force, DDoS patterns, URL-mangling probes; extends current rate limits) | ✅ | planned | `SPEC.md` §8 |
-| 14 | Per-club locales (enabled language list + default; single-locale clubs hide language UI and announcement translations) | ✅ | planned | `MULTITENANT.md` §11 |
-| 14 | Online payment collection (Stripe/subscriptions/player checkout) | ❌ | deferred | was `SPEC.md:20` non-goal |
-| 15 | Peak/off-peak price rules, discounts, memberships | ❌ | deferred | `MULTITENANT.md` §8B |
-| 16 | Tournaments (brackets, scheduling, court assignment, entries) | ❌ | deferred | `SPEC.md` §§3.3, 12 Phase 3 |
-| 17 | Player & team rankings (per-sport points, levels, leaderboards) | ❌ | deferred | `SPEC.md` §§3.3, 12 Phase 3 |
-| 18 | Social login alt route (OAuth Google/Apple; identity still club-scoped, one user = one club) | ❌ | deferred | `SPEC.md` §8 |
-| 19 | Calendar sync, native apps, realtime chat | ❌ | deferred | `SPEC.md:20` non-goals |
-| 20 | Memberships join table (one login, many clubs) | ❌ | deferred | `MULTITENANT.md` §1 |
+| 14 | Superadmin 2FA (Telegram OTP second step; secrets on Render) | ✅ | planned | `MULTITENANT.md` §9 |
+| 15 | Per-club locales (enabled language list + default; single-locale clubs hide language UI and announcement translations) | ✅ | planned | `MULTITENANT.md` §11 |
+| 16 | Online payment collection (Stripe/subscriptions/player checkout) | ❌ | deferred | was `SPEC.md:20` non-goal |
+| 17 | Peak/off-peak price rules, discounts, memberships | ❌ | deferred | `MULTITENANT.md` §8B |
+| 18 | Tournaments (brackets, scheduling, court assignment, entries) | ❌ | deferred | `SPEC.md` §§3.3, 12 Phase 3 |
+| 19 | Player & team rankings (per-sport points, levels, leaderboards) | ❌ | deferred | `SPEC.md` §§3.3, 12 Phase 3 |
+| 20 | Social login alt route (OAuth Google/Apple; identity still club-scoped, one user = one club) | ❌ | deferred | `SPEC.md` §8 |
+| 21 | Calendar sync, native apps, realtime chat | ❌ | deferred | `SPEC.md:20` non-goals |
+| 22 | Memberships join table (one login, many clubs) | ❌ | deferred | `MULTITENANT.md` §1 |
 
 ## Rules
 - New feature requests land here first with an MVP? flag before any design doc grows.
 - Tests are incremental: every feature ships with its vitest coverage, no big-bang test phase.
-- `MULTITENANT.md` stays a design doc for features 5–14, not the list itself.
+- `MULTITENANT.md` stays a design doc for features 5–15, not the list itself.

@@ -31,10 +31,26 @@ export function storeToken(t: string) {
   localStorage.setItem(slug ? "token_" + slug : "token", t);
   if (slug) localStorage.removeItem("token"); // never keep a club-less copy
 }
+export function storeTokenFor(slug: string, t: string) {
+  localStorage.setItem("token_" + slug.toLowerCase(), t);
+  localStorage.removeItem("token");
+}
+export function clearTokenFor(slug: string) {
+  localStorage.removeItem("token_" + slug.toLowerCase());
+}
 export function clearToken() {
   const slug = getClubSlug();
   if (slug) localStorage.removeItem("token_" + slug);
   localStorage.removeItem("token");
+}
+
+/** Decode a JWT payload (no verification — UI display only). */
+export function decodeToken(t: string | null): any | null {
+  try {
+    if (!t) return null;
+    const part = t.split(".")[1];
+    return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch { return null; }
 }
 export function storedIntent(): string | null {
   const slug = getClubSlug();

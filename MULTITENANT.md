@@ -2,7 +2,7 @@
 
 > Analysis only (2026-09-26, extended 2026-09-27 on `feat/multitenancy`). No code changed.
 > Locked for v1: one user = one club (`club_id` on users, no memberships join table).
-> Feature list lives in `FEATURES.md` — this file is the design doc for features 5–14.
+> Feature list lives in `FEATURES.md` — this file is the design doc for features 5–15.
 
 ## Recommendation
 Shared DB + `club_id` discriminator on every tenant table. Schema-per-tenant or
@@ -210,6 +210,18 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
 - Security: rate-limit login 5/min/IP (existing), strong seed password required
   (`≥16` chars or generated), 2FA deferred; `GET /api/clubs` public directory
   only exposes `is_listed + is_active` clubs (suspended/hidden never leak).
+
+### 2FA for the single superadmin (locked 2026-09-28)
+- Step 1 (`POST /api/auth/login`, no slug, password OK) returns
+  `{two_factor_required: true, challenge_id}` — never a session token.
+- Step 2 (`POST /api/auth/verify-2fa {challenge_id, code}`) checks a 6-digit
+  OTP (sha256, 10-min TTL, single-use, 5 attempts then lockout) delivered via
+  Telegram to `SUPERADMIN_TELEGRAM_CHAT_ID` using `SUPERADMIN_TELEGRAM_BOT_TOKEN`
+  (both Render secrets, no fallback in production). Failures count into the
+  abuse-shield login bucket.
+- Local dev without secrets logs the code to the server console (loud warning,
+  never in production). Table `login_challenges` (`0020`); `/platform` login
+  is a two-step UI (code screen after password).
 
 ### 10. Demo tenant — public sandbox, routinely reset
 - One special club: slug `demo` (reserved, uncreatable via API), flagged

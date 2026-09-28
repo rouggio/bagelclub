@@ -4,7 +4,7 @@ import { DIAL_CODES, DIAL_CODE_BY_REGION } from "./dialCodes.js";
 import {
   clubSlugFromPath, initClubSlug, getClubSlug, setClubSlug,
   storedToken, storeToken, clearToken, storedIntent, storeIntent, clearIntent,
-  apiFetch, isPlatformPath, platformFetch,
+  apiFetch, isPlatformPath, platformFetch, storeTokenFor, clearTokenFor, decodeToken,
 } from "./clubContext.js";
 
 try { initClubSlug(location.pathname); } catch {}
@@ -97,12 +97,16 @@ function app() {
     isPlatform: false as boolean,
     platformUser: null as null | { id: string; username: string; role: string },
     platformForm: { username: "", password: "" } as { username: string; password: string },
+    platformChallenge: null as null | { challenge_id: string; expires_at: string },
+    platformCode: "" as string,
     platformClubs: [] as any[],
     platformLoading: false as boolean,
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
     platformFooter: "" as string,
+    // Impersonation session (superadmin acting as club admin).
+    impSession: null as null | { clubSlug: string; expiresAt: number },
     platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
     platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
@@ -266,6 +270,7 @@ function app() {
               this.loadAvailability();
             }
             this.startTokenRefresh();
+      this.checkImpSession();
           }
         } catch {}
       }
@@ -273,6 +278,7 @@ function app() {
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible" && this.user) this.refreshToken();
       });
+      this.checkImpSession();
       const hash = location.hash.replace("#", "").split("?")[0];
       if (hash) this.view = hash;
       this.syncHighlight();
@@ -469,6 +475,7 @@ function app() {
       if (data.token) storeToken(data.token);
       this.user = data.user || { id: "1", username: this.regForm.username, role: "visitor", preferred_language: this.lang };
       this.startTokenRefresh();
+      this.checkImpSession();
       this.loadAnnouncements();
       // Registration never books: with a booking in progress, return to the
       // confirm screen (intent kept in memory + localStorage) so the user
@@ -527,6 +534,7 @@ function app() {
       if (data.token) storeToken(data.token);
       this.user = data.user || null;
       this.startTokenRefresh();
+      this.checkImpSession();
       this.loadAnnouncements();
       if (data.user?.preferred_language) {
         this.lang = data.user.preferred_language;
@@ -792,6 +800,47 @@ function app() {
         const res = await apiFetch("/api/platform/public");
         if (res.ok) this.platformFooter = (await res.json()).footer_text || "";
       } catch {}
+    },
+    checkImpSession() {
+      // Show the banner when the club token carries an impersonation claim.
+      const p = decodeToken(storedToken());
+      if (p?.imp && p?.exp && getClubSlug()) {
+        this.impSession = { clubSlug: getClubSlug()!, expiresAt: p.exp * 1000 };
+      } else {
+        this.impSession = null;
+      }
+    },
+    impCountdown(): string {
+      if (!this.impSession) return "";
+      const ms = Math.max(0, this.impSession.expiresAt - Date.now());
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    },
+    async accessClubAsAdmin(slug: string) {
+      this.platformError = "";
+      try {
+        const res = await platformFetch(`/api/platform/clubs/${slug}/grant`, { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || "grant failed"; return; }
+        storeTokenFor(slug, data.token);
+        window.open(`/club/${slug}/`, "_blank");
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async endImpersonation() {
+      const slug = this.impSession?.clubSlug || getClubSlug();
+      try {
+        // Revoke via platform token if present; the club tab has none.
+        const ptok = localStorage.getItem("platform_token");
+        if (ptok && slug) {
+          await platformFetch(`/api/platform/clubs/${slug}/grant`, { method: "DELETE" });
+        }
+      } catch {}
+      if (slug) clearTokenFor(slug);
+      this.impSession = null;
+      this.user = null;
+      this.view = "home";
+      location.hash = "home";
     },
 
     async loadClubsList() {
@@ -1535,9 +1584,29 @@ function app() {
         if (this.platformForm.username.includes("@")) body.email = this.platformForm.username; else body.username = this.platformForm.username;
         const res = await platformFetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || data.user?.role !== "superadmin") { this.platformError = data.error || "login failed"; return; }
+        if (!res.ok || (data.user?.role !== "superadmin" && !data.two_factor_required)) { this.platformError = data.error || "login failed"; return; }
+        if (data.two_factor_required) {
+          this.platformChallenge = { challenge_id: data.challenge_id, expires_at: data.expires_at };
+          this.platformCode = "";
+          return;
+        }
         localStorage.setItem("platform_token", data.token);
         this.platformUser = data.user;
+        this.view = "platform-clubs";
+        this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async platformVerify2fa() {
+      this.platformError = "";
+      if (!this.platformChallenge) return;
+      try {
+        const res = await platformFetch("/api/auth/verify-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challenge_id: this.platformChallenge.challenge_id, code: this.platformCode.trim() }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || "verification failed"; return; }
+        localStorage.setItem("platform_token", data.token);
+        this.platformUser = data.user;
+        this.platformChallenge = null;
+        this.platformCode = "";
         this.view = "platform-clubs";
         this.loadPlatformClubs();
       } catch (e: any) { this.platformError = e.message || String(e); }

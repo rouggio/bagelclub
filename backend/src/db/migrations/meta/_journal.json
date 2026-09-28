@@ -134,6 +134,20 @@
       "when": 1790607310450,
       "tag": "0018_platform_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790627512240,
+      "tag": "0019_impersonation",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790628060792,
+      "tag": "0020_login_challenges",
+      "breakpoints": true
     }
   ]
 }
