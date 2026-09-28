@@ -105,7 +105,7 @@ function app() {
     platformFooter: "" as string,
     platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
     platformSettingsMsg: "" as string,
-    platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; is_active: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
+    platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     // Demo wizard (prospect self-service).
     demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
     demoResult: null as null | { slug: string; name: string; url: string; admin_username: string; admin_password: string; expires_at: string },
@@ -1570,7 +1570,7 @@ function app() {
     async savePlatformClub(c: any) {
       this.platformError = "";
       try {
-        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: c.plan, is_active: c.is_active, is_listed: c.is_listed }) });
+        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: c.plan, is_active: c.isActive, is_listed: c.isListed }) });
         if (!res.ok) this.platformError = await res.text();
         else await this.loadPlatformClubs();
       } catch (e: any) { this.platformError = e.message || String(e); }
