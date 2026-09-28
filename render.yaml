@@ -5,7 +5,7 @@ services:
     plan: starter
     region: frankfurt
     branch: main
-    buildCommand: NPM_CONFIG_PRODUCTION=false npm ci --prefix backend && npm run build --prefix backend && NPM_CONFIG_PRODUCTION=false npm ci --prefix frontend && npm run build --prefix frontend
+    buildCommand: NPM_CONFIG_PRODUCTION=false npm ci --prefix backend && npm run build --prefix backend && NPM_CONFIG_PRODUCTION=false npm ci --prefix frontend && npm test --prefix frontend && npm run build --prefix frontend
     startCommand: npm run migrate --prefix backend && npm start --prefix backend
     healthCheckPath: /health
     envVars:
