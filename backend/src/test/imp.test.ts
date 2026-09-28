@@ -38,6 +38,16 @@ describe("impersonation grants", () => {
     expect(courts.statusCode).toBe(200);
   });
 
+  it("/me returns the club-admin persona for a live grant (never the superadmin row)", async () => {
+    const g = await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
+    const me = await app.inject({
+      method: "GET", url: "/api/users/me",
+      headers: { Authorization: `Bearer ${g.json().token}`, "X-Club-Slug": "green-village" },
+    });
+    expect(me.statusCode).toBe(200);
+    expect(me.json()).toMatchObject({ role: "admin", club_slug: "green-village", imp: true });
+  });
+
   it("second grant revokes the first; explicit revoke ends the session", async () => {
     const g1 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();
     const g2 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();

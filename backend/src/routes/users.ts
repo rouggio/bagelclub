@@ -63,6 +63,19 @@ export default async function userRoutes(fastify: FastifyInstance) {
       const club = await requireRequestClub(req, reply, poolDb);
       if (!club) return;
       const db = reqDb(req);
+      if (authUser.imp) {
+        // Impersonated superadmin: present the club-admin persona. The grant
+        // row was already re-verified by requireRequestClub, so a live grant
+        // is guaranteed here. Never leak the superadmin row into club UI
+        // (role drives the admin menus; username stays traceable in audit).
+        return {
+          id: authUser.id, username: authUser.username, email: null, role: "admin",
+          club_slug: club.slug, imp: true,
+          preferred_language: null, preferred_sport: null,
+          first_name: null, last_name: null, mobile: null,
+          telegram_chat_id: null, gender: null, birthdate: null,
+        };
+      }
       const me = await liveSelf(db, authUser);
       if (me) return safeUser(me);
       return reply.status(401).send({ error: "User not found" });

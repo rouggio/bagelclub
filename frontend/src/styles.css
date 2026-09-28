@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Alpine.js: hide x-cloak elements until Alpine boots (no pre-init flash). */
+[x-cloak] { display: none !important; }
+
 /* ============================================================
    EMPANADEL THEME — single source of truth for all colors
    Edit only this :root block to change the site palette.

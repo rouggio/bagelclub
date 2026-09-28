@@ -254,9 +254,10 @@ function app() {
         try {
           let res: Response | null = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
           if (res.status === 401) {
-            // Access token expired (15m) — renew silently via the httpOnly
-            // refresh cookie (7d sliding) instead of forcing a re-login.
-            if (await this.refreshToken()) {
+            // Dead impersonation session (expired/revoked grant): drop it,
+            // never try the refresh cookie (foreign identity).
+            if ((decodeToken(token) as any)?.imp) { clearToken(); res = null; }
+            else if (await this.refreshToken()) {
               const t2 = storedToken();
               res = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${t2}` } });
             } else {
@@ -1517,6 +1518,10 @@ function app() {
     // Silent session renewal via the httpOnly refresh cookie (7d sliding).
     // Returns true if a fresh access token was stored.
     async refreshToken(): Promise<boolean> {
+      // Impersonation tokens are fixed 15-minute windows — never rotate them
+      // with the browser refresh cookie (it belongs to another identity and
+      // would silently replace the imp session).
+      try { if ((decodeToken(storedToken()) as any)?.imp) return true; } catch {}
       if (this._refreshing) return !!storedToken();
       this._refreshing = true;
       try {
