@@ -190,9 +190,28 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
-    if (!db) return reply.send([]);
+    if (!db) return reply.send({ rows: [], total: 0 });
     const { users } = await import("../db/schema.js");
-    const rows = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(100);
+    const { gte, lte, sql } = await import("drizzle-orm");
+    const q = (req.query as any) || {};
+    const limit = Math.min(Math.max(Number(q.limit) || 50, 1), 200);
+    const offset = Math.max(Number(q.offset) || 0, 0);
+    const conds: any[] = [];
+    if (q.from && /^\d{4}-\d{2}-\d{2}/.test(String(q.from))) conds.push(gte(auditLog.createdAt, new Date(String(q.from))));
+    if (q.to && /^\d{4}-\d{2}-\d{2}/.test(String(q.to))) {
+      const end = new Date(String(q.to));
+      if (String(q.to).length <= 10) end.setDate(end.getDate() + 1); // inclusive day
+      conds.push(lte(auditLog.createdAt, end));
+    }
+    if (q.club) {
+      const crows = await db.select().from(clubs).where(eq(clubs.slug, String(q.club)));
+      if (!crows[0]) return reply.send({ rows: [], total: 0, limit, offset });
+      conds.push(eq(auditLog.clubId, crows[0].id));
+    }
+    const where = conds.length ? and(...conds) : undefined;
+    const totalRows: any[] = await db.select({ n: sql`count(*)` }).from(auditLog).where(where);
+    const total = Number(totalRows[0]?.n ?? 0);
+    const rows = await db.select().from(auditLog).where(where).orderBy(desc(auditLog.createdAt)).limit(limit).offset(offset);
     const clubRows = await db.select().from(clubs);
     const slugById: Record<string, string> = {};
     const nameByClubId: Record<string, string> = {};
@@ -200,16 +219,21 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     const userRows = await db.select().from(users);
     const nameByUserId: Record<string, string> = {};
     for (const u of userRows as any[]) nameByUserId[String(u.id)] = u.username;
-    return reply.send((rows as any[]).map((r: any) => ({
-      id: r.id,
-      created_at: r.createdAt,
-      action: r.action,
-      actor_username: r.actorId ? nameByUserId[String(r.actorId)] ?? null : null,
-      club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null,
-      club_name: r.clubId ? nameByClubId[String(r.clubId)] ?? null : null,
-      target: r.target,
-      meta: r.meta,
-    })));
+    return reply.send({
+      rows: (rows as any[]).map((r: any) => ({
+        id: r.id,
+        created_at: r.createdAt,
+        action: r.action,
+        actor_username: r.actorId ? nameByUserId[String(r.actorId)] ?? null : null,
+        club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null,
+        club_name: r.clubId ? nameByClubId[String(r.clubId)] ?? null : null,
+        target: r.target,
+        meta: r.meta,
+      })),
+      total,
+      limit,
+      offset,
+    });
   });
 
   // Platform settings (e.g. base_url — the single website for all clubs).

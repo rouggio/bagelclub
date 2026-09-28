@@ -107,6 +107,11 @@ function app() {
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
+    auditTotal: 0 as number,
+    auditPage: 1 as number,
+    auditFrom: "" as string,
+    auditTo: "" as string,
+    auditClub: "" as string,
     platformFooter: "" as string,
     // Impersonation session (superadmin acting as club admin).
     impSession: null as null | { clubSlug: string; expiresAt: number },
@@ -1670,9 +1675,21 @@ function app() {
     },
     async loadPlatformAudit() {
       try {
-        const res = await platformFetch("/api/platform/audit");
-        if (res.ok) this.platformAudit = await res.json();
+        const params = new URLSearchParams();
+        params.set("limit", "50");
+        params.set("offset", String((this.auditPage - 1) * 50));
+        if (this.auditFrom) params.set("from", this.auditFrom);
+        if (this.auditTo) params.set("to", this.auditTo);
+        if (this.auditClub) params.set("club", this.auditClub);
+        const res = await platformFetch(`/api/platform/audit?${params.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        this.platformAudit = data.rows || [];
+        this.auditTotal = data.total || 0;
       } catch {}
+    },
+    auditPages(): number {
+      return Math.max(1, Math.ceil(this.auditTotal / 50));
     },
     auditLabel(action: string): string {
       const map: Record<string, string> = {

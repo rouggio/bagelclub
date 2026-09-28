@@ -76,6 +76,20 @@ describe("impersonation grants", () => {
   it("grant creation is audited", async () => {
     await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
     const audit = await app.inject({ method: "GET", url: "/api/platform/audit", headers: H() });
-    expect((audit.json() as any[]).some((a: any) => a.action === "platform.impersonate.grant")).toBe(true);
+    expect(audit.statusCode).toBe(200);
+    expect(audit.json().total).toBeGreaterThan(0);
+    expect((audit.json().rows as any[]).some((a: any) => a.action === "platform.impersonate.grant")).toBe(true);
+  });
+
+  it("audit supports club + time filters and paging", async () => {
+    await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
+    const filtered = await app.inject({ method: "GET", url: "/api/platform/audit?club=green-village&limit=1&offset=0", headers: H() });
+    expect(filtered.statusCode).toBe(200);
+    expect(filtered.json().rows.length).toBeLessThanOrEqual(1);
+    expect(filtered.json().rows.every((a: any) => a.club_slug === "green-village")).toBe(true);
+    const empty = await app.inject({ method: "GET", url: "/api/platform/audit?club=no-such-club", headers: H() });
+    expect(empty.json()).toMatchObject({ rows: [], total: 0 });
+    const dated = await app.inject({ method: "GET", url: "/api/platform/audit?from=2000-01-01&to=2000-01-02", headers: H() });
+    expect(dated.json()).toMatchObject({ rows: [], total: 0 });
   });
 });

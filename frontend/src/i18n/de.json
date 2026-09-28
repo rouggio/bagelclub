@@ -349,5 +349,13 @@
   "admin.2fa.disable": "Deaktivieren",
   "admin.2fa.confirm": "Bestätigen",
   "admin.2fa.on": "Für alle Admins aktiv",
-  "admin.2fa.off": "Deaktiviert"
+  "admin.2fa.off": "Deaktiviert",
+  "platform.auditTime": "Zeit",
+  "platform.auditUser": "Benutzer",
+  "platform.auditAction": "Aktion",
+  "platform.auditFrom": "Von",
+  "platform.auditTo": "Bis",
+  "platform.auditClub": "Club",
+  "platform.auditPrev": "‹ Zurück",
+  "platform.auditNext": "Weiter ›"
 }
