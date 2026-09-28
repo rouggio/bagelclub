@@ -38,7 +38,7 @@
   <template x-if="isPlatform && platformUser">
   <div class="flex gap-6">
   <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="hover:text-black" x-text="t('platform.clubs')"></a>
-  <a href="#platform" @click.prevent="view='platform-settings'" class="hover:text-black" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformSettings()" class="hover:text-black" x-text="t('platform.settings')"></a>
   <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="hover:text-black" x-text="t('platform.reports')"></a>
   <a href="#platform" @click.prevent="view='platform-audit'; loadPlatformAudit()" class="hover:text-black" x-text="t('platform.audit')"></a>
   </div>
@@ -91,7 +91,7 @@
   </nav>
   <nav x-show="isPlatform && platformUser" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
   <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.clubs')"></a>
-  <a href="#platform" @click.prevent="view='platform-settings'" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.settings')"></a>
+  <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformSettings()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.settings')"></a>
   <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.reports')"></a>
   <a href="#platform" @click.prevent="view='platform-audit'; loadPlatformAudit()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.audit')"></a>
   </nav>
@@ -204,6 +204,13 @@
   </section>
   <section x-show="view==='platform-settings'" class="space-y-4">
   <h2 class="text-xl font-bold" x-text="t('platform.settings')"></h2>
+  <div class="rounded-xl border bg-white p-4 space-y-2">
+  <label class="block text-sm"><span x-text="t('platform.baseUrl')"></span><input x-model="platformSettings.base_url" placeholder="https://…" class="mt-1 w-full rounded-lg border px-3 py-2 font-mono" /></label>
+  <div class="flex items-center gap-2">
+  <button @click="savePlatformSettings()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-sm" x-text="t('platform.save')"></button>
+  <span class="text-sm text-zinc-600" x-text="platformSettingsMsg"></span>
+  </div>
+  </div>
   <div class="flex flex-wrap gap-2">
   <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
   <button @click="resetDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
@@ -812,9 +819,7 @@
   <input x-model="clubForm.club_name" :placeholder="t('admin.club.name')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <input x-model="clubForm.club_phone" :placeholder="t('admin.club.phone')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <input x-model="clubForm.club_address" :placeholder="t('admin.club.address')" class="w-full rounded-lg border px-3 py-2 text-sm" />
-   <input x-model="clubForm.public_url" :placeholder="t('admin.club.publicUrlPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" />
-   <p class="text-xs text-zinc-500" x-text="t('admin.club.publicUrlHint')"></p>
-   <button @click="saveClubInfo()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.club.save')"></button>
+  <button @click="saveClubInfo()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.club.save')"></button>
     </div>
    <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
    <div>

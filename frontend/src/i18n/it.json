@@ -323,5 +323,6 @@
   "admin.menu.slots": "Fasce orarie",
   "admin.menu.settings": "Impostazioni",
   "platform.settings": "Impostazioni",
-  "platform.reports": "Report"
+  "platform.reports": "Report",
+  "platform.baseUrl": "URL di base"
 }

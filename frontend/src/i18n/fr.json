@@ -323,5 +323,6 @@
   "admin.menu.slots": "Créneaux horaires",
   "admin.menu.settings": "Paramètres",
   "platform.settings": "Paramètres",
-  "platform.reports": "Rapports"
+  "platform.reports": "Rapports",
+  "platform.baseUrl": "URL de base"
 }

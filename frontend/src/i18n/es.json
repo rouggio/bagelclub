@@ -323,5 +323,6 @@
   "admin.menu.slots": "Franjas horarias",
   "admin.menu.settings": "Ajustes",
   "platform.settings": "Ajustes",
-  "platform.reports": "Informes"
+  "platform.reports": "Informes",
+  "platform.baseUrl": "URL base"
 }

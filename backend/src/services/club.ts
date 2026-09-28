@@ -124,6 +124,25 @@ export async function getClubSettings(db: any, clubId: string) {
   return rows[0] ?? null;
 }
 
+/** Platform setting (superadmin-maintained, e.g. base_url). */
+export async function getPlatformSetting(db: any, key: string): Promise<string | null> {
+  try {
+    const { platformSettings } = await import("../db/schema.js");
+    const rows = await db.select().from(platformSettings).where(eq(platformSettings.key, key)).limit(1);
+    return rows[0]?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setPlatformSetting(db: any, key: string, value: string | null) {
+  const { platformSettings } = await import("../db/schema.js");
+  await db.insert(platformSettings).values({ key, value, updatedAt: new Date() }).onConflictDoUpdate({
+    target: [platformSettings.key],
+    set: { value, updatedAt: new Date() },
+  });
+}
+
 export function clubLocales(settings: any): { enabled: string[]; def: string } {
   const enabled = Array.isArray(settings?.enabledLocales) && settings.enabledLocales.length > 0
     ? settings.enabledLocales

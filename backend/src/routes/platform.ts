@@ -26,7 +26,6 @@ const patchClubSchema = z.object({
   is_active: z.boolean().optional(),
   is_listed: z.boolean().optional(),
   max_courts: z.number().int().min(0).nullable().optional(),
-  public_url: z.string().url().max(255).nullable().optional().or(z.literal("")),
 });
 
 async function audit(db: any, actorId: string, action: string, target: string, meta?: any) {
@@ -98,12 +97,6 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     if (d.is_listed !== undefined) updates.isListed = d.is_listed;
     if (d.max_courts !== undefined) updates.maxCourts = d.max_courts;
     const [row] = await db.update(clubs).set(updates).where(eq(clubs.id, club.id)).returning();
-    if (d.public_url !== undefined) {
-      const v = d.public_url ? String(d.public_url).replace(/\/$/, "") : null;
-      const srows = await db.select().from(appSettings).where(eq(appSettings.clubId, club.id)).limit(1);
-      if (srows[0]) await db.update(appSettings).set({ publicUrl: v, updatedAt: new Date() }).where(eq(appSettings.clubId, club.id));
-      else await db.insert(appSettings).values({ clubId: club.id, publicUrl: v }).onConflictDoNothing();
-    }
     await audit(db, (req as any).user.id, "platform.club.patch", slug, d);
     return reply.send(row);
   });
@@ -195,6 +188,31 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     const slugById: Record<string, string> = {};
     for (const c of clubRows as any[]) slugById[String(c.id)] = c.slug;
     return reply.send((rows as any[]).map((r: any) => ({ ...r, club_slug: r.clubId ? slugById[String(r.clubId)] ?? null : null })));
+  });
+
+  // Platform settings (e.g. base_url — the single website for all clubs).
+  fastify.get("/api/platform/settings", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const { getPlatformSetting } = await import("../services/club.js");
+    return reply.send({ base_url: (await getPlatformSetting(db, "base_url")) || "" });
+  });
+
+  fastify.put("/api/platform/settings", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const { base_url } = (req as any).body as any;
+    if (base_url !== undefined && base_url !== null && base_url !== "") {
+      try {
+        const u = new URL(String(base_url));
+        if (!["http:", "https:"].includes(u.protocol)) return reply.status(400).send({ error: "base_url must be http(s)" });
+      } catch {
+        return reply.status(400).send({ error: "base_url must be a valid URL" });
+      }
+    }
+    const { setPlatformSetting, getPlatformSetting } = await import("../services/club.js");
+    const v = base_url ? String(base_url).replace(/\/$/, "") : null;
+    await setPlatformSetting(db, "base_url", v);
+    await audit(db, (req as any).user.id, "platform.settings", "base_url", { base_url: v });
+    return reply.send({ base_url: (await getPlatformSetting(db, "base_url")) || "" });
   });
 
   // Abuse shield: list active IP blocks + unblock.

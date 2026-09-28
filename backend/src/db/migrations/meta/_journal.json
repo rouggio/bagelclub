@@ -127,6 +127,13 @@
       "when": 1790592525027,
       "tag": "0017_abuse",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790607310450,
+      "tag": "0018_platform_settings",
+      "breakpoints": true
     }
   ]
 }

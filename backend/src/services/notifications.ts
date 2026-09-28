@@ -21,7 +21,7 @@ export async function getNotificationSettings(db: Db, clubId?: string) {
   }
 }
 
-/** Per-club notify context: settings + club (slug/name for deep links). */
+/** Per-club notify context: settings + club (slug/name) + platform base URL. */
 export async function getClubNotifyContext(db: Db, clubId: string) {
   const settings = await getNotificationSettings(db, clubId);
   let club: any = null;
@@ -31,7 +31,12 @@ export async function getClubNotifyContext(db: Db, clubId: string) {
     const rows = await db.select().from(clubs).where(eq(clubs.id, clubId)).limit(1);
     club = rows[0] ?? null;
   } catch {}
-  return { settings, club };
+  let platformBase: string | null = null;
+  try {
+    const { getPlatformSetting } = await import("./club.js");
+    platformBase = await getPlatformSetting(db, "base_url");
+  } catch {}
+  return { settings, club, platformBase };
 }
 
 // Fire-and-forget safety (Phase 4 RLS): notifications outlive the request
@@ -108,10 +113,11 @@ export async function sendWhatsAppMessage(phoneNumberId: string, token: string, 
   }
 }
 
-function bookingAdminUrl(bookingId: string, settings: any, slug?: string | null): string {
-  // Strictly per-club: no env fallback (removed — shared fallback is a crosstalk gun).
-  // Without a public_url there is no absolute link, so callers omit the CTA.
-  const base = (settings?.publicUrl || "").replace(/\/$/, "");
+function bookingAdminUrl(bookingId: string, platformBase: string | null, slug?: string | null): string {
+  // Platform base URL (superadmin-maintained) + club slug. No per-club URL,
+  // no env fallback. Without a base URL there is no absolute link, so callers
+  // omit the CTA.
+  const base = (platformBase || "").replace(/\/$/, "");
   if (!base || !slug) return "";
   return `${base}/club/${slug}/#admin-bookings?highlight=${bookingId}`;
 }
@@ -200,25 +206,25 @@ const NOTIF = {
   },
 } as const;
 
-function buildAdminPendingMessage(b: any, user: any, court: any, clubName: string, settings: any, lang: Lang, slug?: string | null): string {
+function buildAdminPendingMessage(b: any, user: any, court: any, clubName: string, platformBase: string | null, lang: Lang, slug?: string | null): string {
   const T = NOTIF[normalizeLang(lang)];
   const courtLabel = court?.name ? `${court.name} · ${court.type}` : `Court #${court?.number ?? b.courtId?.slice(0, 6)}`;
   const when = `${b.date} ${String(b.startTime).slice(0, 5)}–${String(b.endTime).slice(0, 5)}`;
   const who = user ? `${user.username} (${user.firstName ?? ""} ${user.lastName ?? ""})`.trim() : b.userId;
   const rent = b.rentRacquets ? ` · ${b.rentRacquets} racquets` : "";
   const players = b.players ? ` · ${b.players} players` : "";
-  const url = bookingAdminUrl(b.id, settings, slug);
+  const url = bookingAdminUrl(b.id, platformBase, slug);
   const cta = url ? `\n${T.manage(url)}` : "";
   return `🔔 <b>${clubName}</b> ${T.dash} ${T.adminPendingTitle}\n${T.court}: ${courtLabel}\n${T.when}: ${when}${players}${rent}\n${T.user}: ${who}\n${T.notes}: ${b.notes || "-"}${cta}`;
 }
-function buildAdminPendingPlain(b: any, user: any, court: any, clubName: string, settings: any, lang: Lang, slug?: string | null): string {
+function buildAdminPendingPlain(b: any, user: any, court: any, clubName: string, platformBase: string | null, lang: Lang, slug?: string | null): string {
   const T = NOTIF[normalizeLang(lang)];
   const courtLabel = court?.name ? `${court.name} · ${court.type}` : `Court #${court?.number ?? b.courtId?.slice(0, 6)}`;
   const when = `${b.date} ${String(b.startTime).slice(0, 5)}–${String(b.endTime).slice(0, 5)}`;
   const who = user ? `${user.username} (${user.firstName ?? ""} ${user.lastName ?? ""})`.trim() : b.userId;
   const rent = b.rentRacquets ? ` · ${b.rentRacquets} racquets` : "";
   const players = b.players ? ` · ${b.players} players` : "";
-  const url = bookingAdminUrl(b.id, settings, slug);
+  const url = bookingAdminUrl(b.id, platformBase, slug);
   const cta = url ? `\n${T.managePlain(url)}` : "";
   return `🔔 ${clubName} ${T.dash} ${T.adminPendingTitle}\n${T.court}: ${courtLabel}\n${T.when}: ${when}${players}${rent}\n${T.user}: ${who}\n${T.notes}: ${b.notes || "-"}${cta}`;
 }
@@ -257,7 +263,7 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     if (!booking?.clubId) return;
     const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
     try {
-    const { settings, club } = await getClubNotifyContext(db, booking.clubId);
+    const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings || !settings.notificationsEnabled) return;
     // respect channel toggles
     const viaTelegram = (settings as any).notifyViaTelegram ?? true;
@@ -307,7 +313,7 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
         } catch {}
         const text = autoApproved
           ? buildAdminAutoMessage(booking, user, court, clubName, lang)
-          : buildAdminPendingMessage(booking, user, court, clubName, settings, lang, slug);
+          : buildAdminPendingMessage(booking, user, court, clubName, platformBase, lang, slug);
         sendTelegramMessage(telegramBotToken, chatId, text).catch(() => {});
       }
     }
@@ -330,7 +336,7 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
       } catch {}
       const waText = autoApproved
         ? buildAdminAutoPlain(booking, user, court, clubName, lang)
-        : buildAdminPendingPlain(booking, user, court, clubName, settings, lang, slug);
+        : buildAdminPendingPlain(booking, user, court, clubName, platformBase, lang, slug);
       sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, whatsappAdminPhone, waText).catch(() => {});
     }
     } finally {
@@ -346,7 +352,7 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     if (!booking?.clubId) return;
     const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
     try {
-    const { settings, club } = await getClubNotifyContext(db, booking.clubId);
+    const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings || !settings.notificationsEnabled) return;
     if (decision === "approved" && (settings as any).notifyOnApproval === false) return;
     if (decision === "rejected" && (settings as any).notifyOnRejection === false) return;
@@ -403,7 +409,6 @@ export function maskSettingsForAdminResponse(s: any) {
     club_name: s.clubName,
     club_phone: s.clubPhone,
     club_address: s.clubAddress,
-    public_url: s.publicUrl || "https://empanadel.onrender.com",
     notifications_enabled: s.notificationsEnabled,
     notify_on_auto_approved: s.notifyOnAutoApproved ?? false,
     notify_on_approval: s.notifyOnApproval ?? true,

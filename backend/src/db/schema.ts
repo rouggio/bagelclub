@@ -173,7 +173,6 @@ export const appSettings = pgTable("app_settings", {
   clubName: varchar("club_name", { length: 100 }),
   clubPhone: varchar("club_phone", { length: 30 }),
   clubAddress: varchar("club_address", { length: 200 }),
-  publicUrl: varchar("public_url", { length: 255 }),
   notificationsEnabled: boolean("notifications_enabled").notNull().default(false),
   notifyOnAutoApproved: boolean("notify_on_auto_approved").notNull().default(false),
   notifyOnApproval: boolean("notify_on_approval").notNull().default(true),
@@ -231,6 +230,13 @@ export const telegramLinkTokens = pgTable("telegram_link_tokens", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Platform settings (superadmin-maintained, e.g. base_url). No RLS, no club.
+export const platformSettings = pgTable("platform_settings", {
+  key: varchar("key", { length: 50 }).primaryKey(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Abuse shield (#13): persistent IP blocks. Platform-only access via

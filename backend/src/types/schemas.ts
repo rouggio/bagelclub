@@ -95,7 +95,6 @@ export const settingsSchema = z.object({
   club_name: z.string().max(100).optional().nullable(),
   club_phone: z.string().max(30).optional().nullable(),
   club_address: z.string().max(200).optional().nullable(),
-  public_url: z.string().url().max(255).optional().nullable().or(z.literal("")),
   notifications_enabled: z.boolean().optional(),
   notify_on_auto_approved: z.boolean().optional(),
   notify_on_approval: z.boolean().optional(),

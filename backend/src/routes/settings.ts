@@ -78,7 +78,6 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.club_name !== undefined) updates.clubName = parsed.data.club_name || null;
     if (parsed.data.club_phone !== undefined) updates.clubPhone = parsed.data.club_phone || null;
     if (parsed.data.club_address !== undefined) updates.clubAddress = parsed.data.club_address || null;
-    if (parsed.data.public_url !== undefined) updates.publicUrl = parsed.data.public_url ? parsed.data.public_url.replace(/\/$/, "") : null;
     if (parsed.data.notifications_enabled !== undefined) updates.notificationsEnabled = parsed.data.notifications_enabled;
     if (parsed.data.notify_on_auto_approved !== undefined) updates.notifyOnAutoApproved = parsed.data.notify_on_auto_approved;
     if (parsed.data.notify_on_approval !== undefined) updates.notifyOnApproval = parsed.data.notify_on_approval;

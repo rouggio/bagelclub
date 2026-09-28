@@ -323,5 +323,6 @@
   "admin.menu.slots": "Time slots",
   "admin.menu.settings": "Settings",
   "platform.settings": "Settings",
-  "platform.reports": "Reports"
+  "platform.reports": "Reports",
+  "platform.baseUrl": "Base URL"
 }

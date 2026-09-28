@@ -323,5 +323,6 @@
   "admin.menu.slots": "Zeitfenster",
   "admin.menu.settings": "Einstellungen",
   "platform.settings": "Einstellungen",
-  "platform.reports": "Berichte"
+  "platform.reports": "Berichte",
+  "platform.baseUrl": "Basis-URL"
 }

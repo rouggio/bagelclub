@@ -102,6 +102,8 @@ function app() {
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
+    platformSettings: { base_url: "" as string } as { base_url: string },
+    platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; is_active: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     // Demo wizard (prospect self-service).
     demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
@@ -111,7 +113,7 @@ function app() {
     clubInfoLoading: false as boolean,
     clubInfoError: "" as string,
     clubInfoSuccess: "" as string,
-    clubForm: { club_name: "" as string, club_phone: "" as string, club_address: "" as string, public_url: "https://empanadel.onrender.com" as string } as { club_name: string; club_phone: string; club_address: string; public_url: string },
+    clubForm: { club_name: "" as string, club_phone: "" as string, club_address: "" as string } as { club_name: string; club_phone: string; club_address: string },
     adminCourts: [] as Court[],
     adminCourtsLoading: false as boolean,
     adminCourtError: "" as string,
@@ -812,8 +814,7 @@ function app() {
             setLang(this.lang);
             localStorage.setItem("lang", this.lang);
           }
-          const keepUrl = this.clubForm.public_url;
-          this.clubForm = { club_name: this.clubInfo?.club_name || "", club_phone: this.clubInfo?.club_phone || "", club_address: this.clubInfo?.club_address || "", public_url: keepUrl || "https://empanadel.onrender.com" };
+          this.clubForm = { club_name: this.clubInfo?.club_name || "", club_phone: this.clubInfo?.club_phone || "", club_address: this.clubInfo?.club_address || "" };
         }
       } catch {}
     },
@@ -825,7 +826,7 @@ function app() {
         const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const s = await res.json();
-          this.clubForm = { club_name: s.club_name || "", club_phone: s.club_phone || "", club_address: s.club_address || "", public_url: s.public_url || "https://empanadel.onrender.com" };
+          this.clubForm = { club_name: s.club_name || "", club_phone: s.club_phone || "", club_address: s.club_address || "" };
           this.clubInfo = { club_name: s.club_name, club_phone: s.club_phone, club_address: s.club_address };
         }
       } catch (e: any) { this.clubInfoError = e.message || String(e); }
@@ -834,14 +835,10 @@ function app() {
     async saveClubInfo() {
       this.clubInfoError = ""; this.clubInfoSuccess = "";
       const token = storedToken();
-      let url = this.clubForm.public_url?.trim() || null;
-      if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ club_name: this.clubForm.club_name || null, club_phone: this.clubForm.club_phone || null, club_address: this.clubForm.club_address || null, public_url: url }) });
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ club_name: this.clubForm.club_name || null, club_phone: this.clubForm.club_phone || null, club_address: this.clubForm.club_address || null }) });
       if (!res.ok) {
         const data = await res.json().catch(() => null) as any;
-        if (data?.fieldErrors?.public_url) {
-          this.clubInfoError = `${this.t('field.public_url')}: ${this.t('validation.url')}`;
-        } else if (data?.fieldErrors) {
+        if (data?.fieldErrors) {
           const lines: string[] = [];
           for (const [field, errs] of Object.entries(data.fieldErrors as Record<string, string[]>)) {
             const label = this.t(`field.${field}`) !== `field.${field}` ? this.t(`field.${field}`) : field;
@@ -854,10 +851,7 @@ function app() {
         return;
       }
       this.clubInfoSuccess = this.t("admin.club.saved");
-      const savedUrl = url;
       await this.loadAdminClubInfo();
-      // loadAdminClubInfo may reset to fallback if empty — preserve the just-saved url
-      if (savedUrl) this.clubForm.public_url = savedUrl;
       await this.loadClubInfo();
       setTimeout(() => { this.clubInfoSuccess = ""; }, 3000);
     },
@@ -1575,6 +1569,22 @@ function app() {
         const res = await platformFetch("/api/platform/audit");
         if (res.ok) this.platformAudit = await res.json();
       } catch {}
+    },
+    async loadPlatformSettings() {
+      this.platformSettingsMsg = "";
+      try {
+        const res = await platformFetch("/api/platform/settings");
+        if (res.ok) this.platformSettings = await res.json();
+      } catch (e: any) { this.platformSettingsMsg = e.message || String(e); }
+    },
+    async savePlatformSettings() {
+      this.platformSettingsMsg = "";
+      try {
+        const res = await platformFetch("/api/platform/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(this.platformSettings) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformSettingsMsg = data.error || "save failed"; return; }
+        this.platformSettings = data;
+      } catch (e: any) { this.platformSettingsMsg = e.message || String(e); }
     },
     async loadPlatformReports() {
       this.platformError = "";
