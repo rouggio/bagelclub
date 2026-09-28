@@ -1,5 +1,6 @@
 import { clubs, courts, timetables, users, bookings, blocks, blockingRules, announcements, telegramLinkTokens, appSettings } from "../db/schema.js";
 import { eq, and, ne } from "drizzle-orm";
+import { withClubScope } from "./club.js";
 import bcrypt from "bcryptjs";
 
 async function demoClubSeed(db: any, clubId: string, courtSpecs: Array<{ type: "tennis" | "padel"; count: number }>, adminPassword: string) {
@@ -102,7 +103,11 @@ export async function startDemoRun(db: any, opts: { displayName?: string | null;
     demoExpiresAt: new Date(Date.now() + 24 * 3600 * 1000),
   }).returning();
   const adminPassword = randomBytes(6).toString("hex");
-  await demoClubSeed(db, club.id, opts.courts.filter((c) => c.count > 0), adminPassword);
+  // Seed under RLS with the fresh club's own scope (clubs INSERT of a demo
+  // row is policy-allowed; the rest matches the new club_id).
+  await withClubScope(db, club.id, async (cx: any) => {
+    await demoClubSeed(cx, club.id, opts.courts.filter((c) => c.count > 0), adminPassword);
+  });
   return { club, adminUsername: "demo-admin", adminPassword };
 }
 

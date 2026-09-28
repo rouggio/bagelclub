@@ -4,9 +4,9 @@ import { clubs, courts, timetables, users, appSettings } from "./schema.js";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
-const url = process.env.DATABASE_URL;
+const url = process.env.OWNER_DATABASE_URL || process.env.DATABASE_URL;
 if (!url) {
-  console.error("DATABASE_URL not set");
+  console.error("OWNER_DATABASE_URL (or DATABASE_URL) not set");
   process.exit(1);
 }
 

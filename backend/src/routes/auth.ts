@@ -46,7 +46,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const { password, ...data } = parsed.data as any;
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const db: any = (fastify as any).db;
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db; // trust root: credential checks run owner-side
     if (!db) {
       // No DB (dev without docker) — fallback to dummy
       const user = { id: "dev-" + Date.now(), username: data.username, role: "visitor" as const, email: data.email, clubId: null };
@@ -106,7 +106,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const parsed = loginSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const { username, email, password } = parsed.data;
-    const db: any = (fastify as any).db;
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db; // trust root: credential checks run owner-side
     if (!db) return reply.status(501).send({ error: "DB not configured — set DATABASE_URL" });
 
     const slug = resolveClubSlug(req) ?? ((parsed.data as any).club_slug ? String((parsed.data as any).club_slug).toLowerCase() : null);
@@ -147,7 +147,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // token — the old auth-gated version could never renew an expired session),
   // issues a fresh 15m access token and rotates the cookie (7d sliding window).
   fastify.post("/api/auth/refresh", async (req, reply) => {
-    const db: any = (fastify as any).db;
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db; // trust root: credential checks run owner-side
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const raw = (req as any).cookies?.refresh_token;
     if (!raw) return reply.status(401).send({ error: "No refresh session" });

@@ -4,7 +4,7 @@ import { users } from "./schema.js";
 import { eq, and, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
-const url = process.env.DATABASE_URL;
+const url = process.env.OWNER_DATABASE_URL || process.env.DATABASE_URL;
 const email = (process.env.PLATFORM_ADMIN_EMAIL || "").toLowerCase();
 const password = process.env.PLATFORM_ADMIN_PASSWORD || "";
 if (!url) {

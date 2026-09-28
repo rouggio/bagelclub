@@ -63,6 +63,7 @@ export async function requireClub(req: FastifyRequest, reply: FastifyReply, db: 
     reply.status(403).send({ error: "Club suspended" });
     return null;
   }
+  await attachClubClient(req, { clubId: club.id });
   return club;
 }
 
@@ -113,6 +114,7 @@ export async function requireRequestClub(req: FastifyRequest, reply: FastifyRepl
     reply.status(401).send({ error: "Club unavailable" });
     return null;
   }
+  await attachClubClient(req, { clubId: club.id });
   return club;
 }
 
@@ -130,4 +132,107 @@ export function clubLocales(settings: any): { enabled: string[]; def: string } {
     ? settings.defaultLocale
     : enabled[0];
   return { enabled, def };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4 RLS: per-request database scope.
+//
+// Runtime connects as a NON-OWNER app role; RLS policies deny tenant rows
+// unless the request-scoped GUC matches. Owners (migrations, seeds, dashboard)
+// bypass RLS by design — never use FORCE.
+//
+// attachClubClient() checks out one pooled connection, opens a transaction and
+// SET LOCALs the GUC. All subsequent queries on the returned drizzle instance
+// run inside that transaction. app.ts commits + releases onResponse.
+// Without attach, reqDb() falls back to the pool (fail-open for trust-root
+// paths that carry their own credential checks: auth, webhook bootstrap).
+// ---------------------------------------------------------------------------
+
+export async function attachClubClient(req: any, opts: { clubId?: string | null; superadmin?: boolean }) {
+  if (req.clubDb) return req.clubDb;
+  const pool = req.server?.pool;
+  if (!pool) return null;
+  try {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      if (opts.superadmin) await client.query("SET LOCAL app.superadmin = '1'");
+      else if (opts.clubId) await client.query(`SET LOCAL app.club_id = '${String(opts.clubId).replace(/'/g, "''")}'`);
+      // else: fail-closed — no GUC, tenant tables deny.
+      const { drizzle } = await import("drizzle-orm/node-postgres");
+      const schema = await import("../db/schema.js");
+      req.clubDb = drizzle(client, { schema });
+      req.clubClient = client;
+      return req.clubDb;
+    } catch (e) {
+      try { client.release(); } catch {}
+      req.log?.warn?.(e, "attachClubClient failed, falling back to pool");
+      return null;
+    }
+  } catch (e) {
+    req.log?.warn?.(e, "attachClubClient checkout failed, falling back to pool");
+    return null;
+  }
+}
+
+/** Request-scoped drizzle (RLS GUC set) or the pool fallback. */
+export function reqDb(req: any) {
+  return req.clubDb ?? req.server?.db;
+}
+
+/** Superadmin request scope (platform routes). Call after requireSuperadmin. */
+export async function attachSuperadmin(req: any) {
+  return attachClubClient(req, { superadmin: true });
+}
+
+/**
+ * Self-managed club scope for fire-and-forget / background work (notifications,
+ * cron): checks out a pooled client, sets the GUC, runs fn, commits + releases.
+ * Pass a pool drizzle (createDb flag) — transaction clients pass through.
+ */
+export async function withClubScope(poolDb: any, clubId: string | null | undefined, fn: (cx: any) => Promise<any>) {
+  if (!poolDb?.__isPool || !clubId) return fn(poolDb);
+  const pool = poolDb.__pool;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SET LOCAL app.club_id = '${String(clubId).replace(/'/g, "''")}'`);
+    const { drizzle } = await import("drizzle-orm/node-postgres");
+    const schema = await import("../db/schema.js");
+    const cx = drizzle(client, { schema });
+    try {
+      const out = await fn(cx);
+      await client.query("COMMIT");
+      return out;
+    } catch (e) {
+      try { await client.query("ROLLBACK"); } catch {}
+      throw e;
+    }
+  } finally {
+    try { client.release(); } catch {}
+  }
+}
+
+/** Self-managed superadmin scope (cron cleanup). */
+export async function withSuperadminScope(poolDb: any, fn: (cx: any) => Promise<any>) {
+  if (!poolDb?.__isPool) return fn(poolDb);
+  const pool = poolDb.__pool;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL app.superadmin = '1'");
+    const { drizzle } = await import("drizzle-orm/node-postgres");
+    const schema = await import("../db/schema.js");
+    const cx = drizzle(client, { schema });
+    try {
+      const out = await fn(cx);
+      await client.query("COMMIT");
+      return out;
+    } catch (e) {
+      try { await client.query("ROLLBACK"); } catch {}
+      throw e;
+    }
+  } finally {
+    try { client.release(); } catch {}
+  }
 }

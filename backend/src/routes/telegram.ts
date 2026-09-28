@@ -4,7 +4,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { sendTelegramMessage } from "../services/notifications.js";
 import { BRAND_NAME, TELEGRAM_BOT_USERNAME_FALLBACK } from "../config/brand.js";
-import { requireRequestClub, getClubSettings } from "../services/club.js";
+import { requireRequestClub, getClubSettings, reqDb, attachClubClient } from "../services/club.js";
 
 async function getBotUsername(botToken: string): Promise<string> {
   if (!botToken) return TELEGRAM_BOT_USERNAME_FALLBACK;
@@ -29,10 +29,11 @@ async function clubBotToken(db: any, clubId: string): Promise<string> {
 export default async function telegramRoutes(fastify: FastifyInstance) {
   // POST /api/telegram/link -> create short token and return deep link
   fastify.post("/api/telegram/link", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req);
     const user = (req as any).user;
     const botToken = await clubBotToken(db, club.id);
     const username = await getBotUsername(botToken);
@@ -51,8 +52,11 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
 
   // GET /api/telegram/status -> whether linked
   fastify.get("/api/telegram/status", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ linked: false });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req);
     const user = (req as any).user;
     const rows = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
     const linked = !!rows[0]?.telegramChatId;
@@ -61,8 +65,11 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
 
   // POST /api/telegram/unlink
   fastify.post("/api/telegram/unlink", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ ok: true });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req);
     const user = (req as any).user;
     await db.update(users).set({ telegramChatId: null } as any).where(eq(users.id, user.id));
     return reply.send({ ok: true, linked: false });
@@ -73,7 +80,9 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
   // lookup below is scoped to the token's club. A token-less /start or an
   // unknown token cannot be routed to any club → silent ok.
   fastify.post("/api/telegram/webhook", async (req, reply) => {
-    const db: any = (fastify as any).db;
+    // Trust-root bootstrap: the link token IS the credential (exact match,
+    // owner-side). Everything after routes to the token's club.
+    const ownerDb: any = (fastify as any).dbOwner ?? (fastify as any).db;
     const body: any = (req as any).body;
     // Telegram update structure: { message: { chat: {id}, text: "/start <token>" } }
     const message = body?.message || body?.edited_message;
@@ -86,11 +95,14 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
     const m = text.match(/^\/start\s+([a-f0-9]{32})/i);
     if (!m) return reply.send({ ok: true });
     const token = m[1].toLowerCase();
-    if (!db) return reply.send({ ok: true });
-    // find token
-    const rows = await db.select().from(telegramLinkTokens).where(eq(telegramLinkTokens.token, token)).limit(1);
+    if (!ownerDb) return reply.send({ ok: true });
+    // find token (owner-side trust root)
+    const rows = await ownerDb.select().from(telegramLinkTokens).where(eq(telegramLinkTokens.token, token)).limit(1);
     const link = rows[0];
     if (!link) return reply.send({ ok: true }); // expired or invalid — unroutable, stay silent
+    // From here the token's club scopes everything (RLS-attached client).
+    await attachClubClient(req, { clubId: link.clubId });
+    const db: any = reqDb(req);
     const botToken = await clubBotToken(db, link.clubId);
     if (new Date(link.expiresAt) < new Date()) {
       await db.delete(telegramLinkTokens).where(eq(telegramLinkTokens.token, token));

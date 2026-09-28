@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { users } from "../db/schema.js";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { profileSchema, adminCreateUserSchema } from "../types/schemas.js";
-import { requireRequestClub, getClubSettings, clubLocales } from "../services/club.js";
+import { requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
 import bcrypt from "bcryptjs";
 
 const live = () => isNull(users.deletedAt);
@@ -24,11 +24,14 @@ async function liveSelf(db: any, authUser: any) {
 
 export default async function userRoutes(fastify: FastifyInstance) {
   fastify.get("/api/users/me", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (req as any).server.db ?? (req as any).server;
+    const poolDb: any = (req as any).server.db ?? (req as any).server;
     const maybeDb = (req as any).server.db ?? (req as any).server["db"];
     const authUser = (req as any).user;
     if (maybeDb) {
-      const me = await liveSelf(maybeDb, authUser);
+      const club = await requireRequestClub(req, reply, poolDb);
+      if (!club) return;
+      const db = reqDb(req);
+      const me = await liveSelf(db, authUser);
       if (me) return safeUser(me);
       return reply.status(401).send({ error: "User not found" });
     }
@@ -36,12 +39,15 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.patch("/api/users/me", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (req as any).server.db;
-    if (!db) return reply.send({ updated: true });
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.send({ updated: true });
     const parsed = profileSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const body = parsed.data as any;
     const user = (req as any).user;
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    let db: any = reqDb(req);
     const me = await liveSelf(db, user);
     if (!me) return reply.status(401).send({ error: "User not found" });
     if (body.preferred_language) {
@@ -83,10 +89,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/api/users", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (req as any).server.db;
+    let db: any = (req as any).server.db;
     if (!db) return reply.send([]);
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { q, role, search, include_deleted } = (req.query as any) || {};
     const term = (q || search || "").toLowerCase();
     const conds: any[] = [eq(users.clubId, club.id)];
@@ -102,10 +109,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.patch("/api/users/:id/role", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).server.db ?? (fastify as any).db;
+    let db: any = (fastify as any).server.db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const { role } = (req as any).body as any;
     if (!["visitor", "associate", "admin"].includes(role)) return reply.status(400).send({ error: "Invalid role" });
@@ -126,10 +134,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   fastify.post("/api/users", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = adminCreateUserSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { password, ...data } = parsed.data as any;
     const role = (req.body as any).role && ["visitor","associate","admin"].includes((req.body as any).role) ? (req.body as any).role : "visitor";
     const passwordHash = await bcrypt.hash(password, 10);
@@ -159,10 +168,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.patch("/api/users/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).server.db ?? (fastify as any).db ?? (fastify as any).db;
+    let db: any = (fastify as any).server.db ?? (fastify as any).db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const parsed = profileSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
@@ -219,10 +229,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.delete("/api/users/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).server.db ?? (fastify as any).db;
+    let db: any = (fastify as any).server.db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const user = (req as any).user;
     if (String(id) === String(user.id)) return reply.status(400).send({ error: "Cannot delete yourself" });
@@ -240,10 +251,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/api/users/:id/restore", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).server.db ?? (fastify as any).db;
+    let db: any = (fastify as any).server.db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const targetRows = await db.select().from(users)
       .where(and(eq(users.id, id), eq(users.clubId, club.id), isNotNull(users.deletedAt))).limit(1);

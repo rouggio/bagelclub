@@ -34,6 +34,28 @@ export async function getClubNotifyContext(db: Db, clubId: string) {
   return { settings, club };
 }
 
+// Fire-and-forget safety (Phase 4 RLS): notifications outlive the request
+// transaction, so they check out their own club-scoped client. Pool drizzles
+// (createDb flag) get a scoped client; anything else passes through
+// (tests run owner-side and bypass RLS by design).
+async function scopedDb(poolDb: any, clubId: string | null | undefined) {
+  if (!poolDb?.__isPool || !clubId) return { cx: poolDb, done: async () => {} };
+  const pool = poolDb.__pool;
+  const client = await pool.connect();
+  await client.query("BEGIN");
+  await client.query(`SET LOCAL app.club_id = '${String(clubId).replace(/'/g, "''")}'`);
+  const { drizzle } = await import("drizzle-orm/node-postgres");
+  const schema = await import("../db/schema.js");
+  const cx = drizzle(client, { schema });
+  return {
+    cx,
+    done: async () => {
+      try { await client.query("COMMIT"); } catch { try { await client.query("ROLLBACK"); } catch {} }
+      try { client.release(); } catch {}
+    },
+  };
+}
+
 export async function sendTelegramMessage(botToken: string, chatId: string, text: string): Promise<boolean> {
   if (!botToken || !chatId) return false;
   try {
@@ -229,10 +251,12 @@ function buildUserDecisionMessage(b: any, court: any, clubName: string, decision
   return `${icon} <b>${clubName}</b> ${T.dash} ${T.yourBookingWas} ${verb}\n${T.court}: ${courtLabel}\n${T.when}: ${when}\n${T.status}: ${verb}`;
 }
 
-export async function notifyAdminPendingBooking(db: Db, booking: any, opts?: { autoApproved?: boolean }) {
+export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?: { autoApproved?: boolean }) {
   const autoApproved = !!opts?.autoApproved;
   try {
     if (!booking?.clubId) return;
+    const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
+    try {
     const { settings, club } = await getClubNotifyContext(db, booking.clubId);
     if (!settings || !settings.notificationsEnabled) return;
     // respect channel toggles
@@ -309,14 +333,19 @@ export async function notifyAdminPendingBooking(db: Db, booking: any, opts?: { a
         : buildAdminPendingPlain(booking, user, court, clubName, settings, lang, slug);
       sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, whatsappAdminPhone, waText).catch(() => {});
     }
+    } finally {
+      await done();
+    }
   } catch (e) {
     console.warn("[notify] notifyAdminPendingBooking error", e);
   }
 }
 
-export async function notifyUserBookingDecision(db: Db, booking: any, decision: "approved" | "rejected") {
+export async function notifyUserBookingDecision(poolDb: Db, booking: any, decision: "approved" | "rejected") {
   try {
     if (!booking?.clubId) return;
+    const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
+    try {
     const { settings, club } = await getClubNotifyContext(db, booking.clubId);
     if (!settings || !settings.notificationsEnabled) return;
     if (decision === "approved" && (settings as any).notifyOnApproval === false) return;
@@ -355,6 +384,9 @@ export async function notifyUserBookingDecision(db: Db, booking: any, decision: 
       return;
     }
     await Promise.allSettled(promises);
+    } finally {
+      await done();
+    }
   } catch (e) {
     console.warn("[notify] notifyUserBookingDecision error", e);
   }

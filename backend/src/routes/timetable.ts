@@ -2,17 +2,18 @@ import type { FastifyInstance } from "fastify";
 import { timetableBulkSchema } from "../types/schemas.js";
 import { timetables, courts } from "../db/schema.js";
 import { eq, and, asc } from "drizzle-orm";
-import { resolveClubSlug, requireClub, requireRequestClub } from "../services/club.js";
+import { resolveClubSlug, requireClub, requireRequestClub, reqDb } from "../services/club.js";
 
 export default async function timetableRoutes(fastify: FastifyInstance) {
   fastify.get("/api/timetable", async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send([]);
     const { court_id } = (req.query as any) || {};
     // Public read — scoped to the requested club. courtId-null rows are legacy
     // shared fallbacks (read-only); writes are always per-court (see PUT).
     const club = await requireClub(req, reply, db, resolveClubSlug(req));
     if (!club) return;
+    db = reqDb(req) as any;
     const clubCourts = await db.select({ id: courts.id }).from(courts).where(eq(courts.clubId, club.id));
     const ids = new Set(clubCourts.map((c: any) => String(c.id)));
     const rows = await db.select().from(timetables).orderBy(asc(timetables.dayOfWeek));
@@ -24,10 +25,11 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
   fastify.put("/api/timetable", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = timetableBulkSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const force = (req.query as any)?.force === "true";
     const tz = club.timezone;
     // Every entry must target a court of this club — global (null) writes are

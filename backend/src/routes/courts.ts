@@ -2,11 +2,11 @@ import type { FastifyInstance } from "fastify";
 import { courtSchema } from "../types/schemas.js";
 import { courts } from "../db/schema.js";
 import { eq, and, asc } from "drizzle-orm";
-import { resolveClubSlug, requireClub, requireRequestClub } from "../services/club.js";
+import { resolveClubSlug, requireClub, requireRequestClub, reqDb } from "../services/club.js";
 
 export default async function courtRoutes(fastify: FastifyInstance) {
   fastify.get("/api/courts", async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     const { type, active } = (req.query as any) || {};
     if (!db) {
       // Fallback demo when no DB
@@ -19,6 +19,7 @@ export default async function courtRoutes(fastify: FastifyInstance) {
     }
     const club = await requireClub(req, reply, db, resolveClubSlug(req));
     if (!club) return;
+    db = reqDb(req) as any;
     let rows = await db.select().from(courts).where(eq(courts.clubId, club.id)).orderBy(asc(courts.number));
     if (type) rows = rows.filter((r: any) => r.type === type);
     if (active !== undefined) {
@@ -32,10 +33,11 @@ export default async function courtRoutes(fastify: FastifyInstance) {
   fastify.post("/api/courts", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = courtSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { number, type, name, surface, base_price_cents, is_active } = parsed.data;
     try {
       const [row] = await db
@@ -50,10 +52,11 @@ export default async function courtRoutes(fastify: FastifyInstance) {
   });
 
   fastify.patch("/api/courts/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const body = (req as any).body as any;
     const updates: any = {};
@@ -74,10 +77,11 @@ export default async function courtRoutes(fastify: FastifyInstance) {
   });
 
   fastify.delete("/api/courts/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     // Soft-disable: set isActive false instead of delete to keep history
     await db.update(courts).set({ isActive: false }).where(and(eq(courts.id, id), eq(courts.clubId, club.id)));

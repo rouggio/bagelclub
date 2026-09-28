@@ -3,7 +3,7 @@ import { settingsSchema } from "../types/schemas.js";
 import { appSettings } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { maskSettingsForAdminResponse } from "../services/notifications.js";
-import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales } from "../services/club.js";
+import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
 
 const FALLBACK_INFO = { club_name: "Green Village", club_phone: "3923047417", club_address: "" };
 const FALLBACK_SETTINGS = {
@@ -27,11 +27,12 @@ const FALLBACK_SETTINGS = {
 export default async function settingsRoutes(fastify: FastifyInstance) {
   // Public club info for footer (no auth) — scoped by slug.
   fastify.get("/api/club-info", async (req, reply) => {
-    const db: any = (req as any).server.db ?? (req as any).db;
-    if (!db) return reply.send(FALLBACK_INFO);
+    const poolDb: any = (req as any).server.db ?? (req as any).db;
+    if (!poolDb) return reply.send(FALLBACK_INFO);
     try {
-      const club = await requireClub(req, reply, db, resolveClubSlug(req));
+      const club = await requireClub(req, reply, poolDb, resolveClubSlug(req));
       if (!club) return;
+      const db = reqDb(req);
       const s = await getClubSettings(db, club.id);
       const { enabled, def } = clubLocales(s);
       return reply.send({
@@ -50,10 +51,11 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/api/settings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (req as any).server.db;
-    if (!db) return reply.send(FALLBACK_SETTINGS);
-    const club = await requireRequestClub(req, reply, db);
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.send(FALLBACK_SETTINGS);
+    const club = await requireRequestClub(req, reply, poolDb);
     if (!club) return;
+    const db = reqDb(req);
     const s = await getClubSettings(db, club.id);
     if (!s) return reply.send(FALLBACK_SETTINGS);
     return reply.send(maskSettingsForAdminResponse(s));
@@ -66,6 +68,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    const qdb: any = reqDb(req);
     const updates: any = {};
     if (parsed.data.default_slot_duration_minutes !== undefined) updates.defaultSlotDurationMinutes = parsed.data.default_slot_duration_minutes;
     if (parsed.data.booking_hold_minutes !== undefined) updates.bookingHoldMinutes = parsed.data.booking_hold_minutes;
@@ -101,7 +104,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     }
     // Locales: default must stay inside the enabled set.
     if (parsed.data.enabled_locales !== undefined || parsed.data.default_locale !== undefined) {
-      const current = await getClubSettings(db, club.id);
+      const current = await getClubSettings(qdb, club.id);
       const enabled = parsed.data.enabled_locales ?? current?.enabledLocales ?? ["it", "en", "fr", "de", "es"];
       let def = parsed.data.default_locale ?? current?.defaultLocale ?? enabled[0];
       if (!enabled.includes(def)) def = enabled[0];
@@ -109,10 +112,10 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       updates.defaultLocale = def;
     }
     updates.updatedAt = new Date();
-    const existing = await getClubSettings(db, club.id);
+    const existing = await getClubSettings(qdb, club.id);
     const row = existing
-      ? (await db.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
-      : (await db.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
+      ? (await qdb.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
+      : (await qdb.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
     return reply.send(maskSettingsForAdminResponse(row));
   });
 }

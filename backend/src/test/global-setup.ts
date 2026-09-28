@@ -21,8 +21,17 @@ export async function ensureTestDatabase() {
   const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL });
   const db = drizzle(pool);
   await migrate(db, { migrationsFolder: path.join(__dirname, "../db/migrations") });
+  // Least-privilege runtime role for RLS tests (mirrors prod app role).
+  await pool.query("CREATE ROLE app_test LOGIN PASSWORD 'app_test'").catch((e: any) => {
+    if (!String(e.code).includes("42710")) throw e; // duplicate_object → exists
+  });
+  await pool.query("GRANT CONNECT ON DATABASE empanadel_test TO app_test");
+  await pool.query("GRANT USAGE ON SCHEMA public TO app_test");
+  await pool.query("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_test");
   await pool.end();
 }
+
+export const TEST_APP_URL = "postgres://app_test:app_test@localhost:5432/empanadel_test";
 
 export default async function globalSetup() {
   await ensureTestDatabase();

@@ -2,14 +2,14 @@ import type { FastifyInstance } from "fastify";
 import { splitIntoSlots, overlaps } from "../services/availability.js";
 import { timetables, bookings, blocks, blockingRules, courts, users } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
-import { resolveClubSlug, requireClub, getClubSettings } from "../services/club.js";
+import { resolveClubSlug, requireClub, getClubSettings, reqDb } from "../services/club.js";
 
 export default async function availabilityRoutes(fastify: FastifyInstance) {
   fastify.get("/api/availability", async (req, reply) => {
     const { court_id, date } = (req.query as any) || {};
     if (!court_id || !date) return reply.status(400).send({ error: "court_id and date required (YYYY-MM-DD)" });
 
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) {
       // Demo without DB
       const demoSlots = splitIntoSlots("08:00", "22:00", 60).map((s) => ({ ...s, status: "available" as const }));
@@ -19,6 +19,7 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
     // Public read — club slug is mandatory (never leak another club's slots).
     const club = await requireClub(req, reply, db, resolveClubSlug(req));
     if (!club) return;
+    db = reqDb(req) as any;
     const courtRows = await db.select().from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
     if (!courtRows[0]) return reply.status(404).send({ error: "Court not found" });
 

@@ -1,15 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { bookings, users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { requireRequestClub } from "../services/club.js";
+import { requireRequestClub, reqDb } from "../services/club.js";
 
 export default async function reportsRoutes(fastify: FastifyInstance) {
   fastify.get("/api/reports/bookings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db ?? (fastify as any).server?.db;
+    let db: any = (fastify as any).db ?? (fastify as any).server?.db;
     if (!db) return reply.send({ period: "weekly", overall: 0, byUser: [], cancellationsByUser: [], timeline: [] });
 
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { period, date } = (req.query as any) || {};
     const p = ["weekly", "monthly", "yearly"].includes(period) ? period : "weekly";
     const tz = club.timezone;

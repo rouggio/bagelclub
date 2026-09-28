@@ -37,12 +37,33 @@ export async function buildApp() {
   });
 
   // DB — attach to fastify instance if DATABASE_URL present (Render PG or local docker)
+  // Runtime pool (RLS-enforced app role in prod) + owner pool for trust-root
+  // paths (auth credential checks, webhook token bootstrap). AUTH_DATABASE_URL
+  // falls back to DATABASE_URL for single-role dev setups.
   if (process.env.DATABASE_URL) {
     const { db, pool } = createDb(process.env.DATABASE_URL);
     (app as any).db = db;
     (app as any).pool = pool;
+    const { db: dbOwner } = createDb(process.env.AUTH_DATABASE_URL || process.env.DATABASE_URL);
+    (app as any).dbOwner = dbOwner;
+    if (!process.env.AUTH_DATABASE_URL && process.env.NODE_ENV === "production") {
+      app.log.warn("AUTH_DATABASE_URL unset — trust-root paths share the runtime pool");
+    }
     app.addHook("onClose", async () => {
       await pool.end();
+    });
+    // Phase 4 RLS: commit + release the per-request scoped client.
+    app.addHook("onResponse", async (req) => {
+      const client = (req as any).clubClient;
+      if (!client) return;
+      try {
+        await client.query("COMMIT");
+      } catch {
+        try { await client.query("ROLLBACK"); } catch {}
+      }
+      try { client.release(); } catch {}
+      (req as any).clubDb = null;
+      (req as any).clubClient = null;
     });
   }
 
@@ -121,8 +142,9 @@ export async function buildApp() {
       cron.default.schedule("0 3 * * *", async () => {
         if (!process.env.DATABASE_URL) return;
         try {
+          const { withSuperadminScope } = await import("./services/club.js");
           const { deleteExpiredDemoRuns } = await import("./services/demo.js");
-          const gone = await deleteExpiredDemoRuns((app as any).db);
+          const gone = await withSuperadminScope((app as any).db, async (cx: any) => deleteExpiredDemoRuns(cx));
           if (gone.length) app.log.info({ gone }, "expired demo runs cleaned");
         } catch (e) {
           app.log.error(e, "demo cleanup cron failed");

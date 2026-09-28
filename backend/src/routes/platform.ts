@@ -4,6 +4,7 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { slugify, validateSlug, validTimezone } from "../services/club.js";
+import { attachSuperadmin, reqDb } from "../services/club.js";
 import { resetDemoShowcase, deleteExpiredDemoRuns, clubCounts } from "../services/demo.js";
 import { auditLog } from "../db/schema.js";
 
@@ -35,10 +36,10 @@ async function audit(db: any, actorId: string, action: string, target: string, m
 }
 
 export default async function platformRoutes(fastify: FastifyInstance) {
-  const pre = [fastify.authenticate, fastify.requireSuperadmin] as any;
+  const pre = [fastify.authenticate, fastify.requireSuperadmin, async (req: any, _reply: any) => { await attachSuperadmin(req); }] as any;
 
   fastify.get("/api/platform/clubs", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const rows = await db.select().from(clubs);
     const out: any[] = [];
@@ -51,7 +52,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   fastify.post("/api/platform/clubs", { preHandler: pre }, async (req, reply) => {
     const parsed = createClubSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const d = parsed.data;
     if (!validTimezone(d.timezone)) return reply.status(400).send({ error: "Invalid IANA timezone" });
@@ -81,7 +82,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   fastify.patch("/api/platform/clubs/:slug", { preHandler: pre }, async (req, reply) => {
     const parsed = patchClubSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const { slug } = req.params as any;
     const rows = await db.select().from(clubs).where(eq(clubs.slug, slug)).limit(1);
@@ -108,7 +109,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/api/platform/clubs/:slug/seed", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const { slug } = req.params as any;
     const rows = await db.select().from(clubs).where(eq(clubs.slug, slug)).limit(1);
@@ -120,7 +121,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
 
   // Provision the public showcase (/club/demo/) if missing, then reset its content.
   fastify.post("/api/platform/demo/ensure", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const existing = await db.select().from(clubs).where(eq(clubs.slug, "demo")).limit(1);
     if (!existing[0]) {
@@ -131,7 +132,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true, slug: club.slug });
   });
 
-  fastify.post("/api/platform/clubs/demo/reset", { preHandler: pre }, async (req, reply) => {    const db: any = (fastify as any).db;
+  fastify.post("/api/platform/clubs/demo/reset", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const countAll = async () => {
       const out: Record<string, number> = {};
@@ -148,7 +149,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/api/platform/demo/cleanup", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const deleted = await deleteExpiredDemoRuns(db);
     await audit(db, (req as any).user.id, "platform.demo.cleanup", "-", { deleted });
@@ -158,7 +159,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   // Platform-wide reporting: totals + per-club breakdown (revenue from
   // approved-booking price snapshots).
   fastify.get("/api/platform/reports", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const { bookings, users } = await import("../db/schema.js");
     const allClubs = await db.select().from(clubs);
@@ -187,7 +188,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ totals, perClub });
   });
 
-  fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    const db: any = (fastify as any).db;
+  fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
     if (!db) return reply.send([]);
     const rows = await db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(100);
     const clubRows = await db.select().from(clubs);
@@ -199,7 +200,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   // Reset a club admin's password (support). Scoped: target must be a live
   // admin of the named club; new password returned once.
   fastify.post("/api/platform/clubs/:slug/reset-admin", { preHandler: pre }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const { slug } = req.params as any;
     const { user_id, new_password } = (req as any).body as any;

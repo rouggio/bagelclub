@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { announcements, announcementTranslations } from "../db/schema.js";
 import { announcementSchema, announcementPatchSchema } from "../types/schemas.js";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales } from "../services/club.js";
+import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
 
 function normalizeLang(v: any, enabled: string[], fallback: string): string {
   const s = String(v || fallback).toLowerCase();
@@ -85,10 +85,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
   // Public feed: optional auth — members-only items included when logged in.
   // ?lang= resolves title/body within the club's enabled locales.
   fastify.get("/api/announcements", async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send([]);
     const club = await requireClub(req, reply, db, resolveClubSlug(req));
     if (!club) return;
+    db = reqDb(req) as any;
     let authed = false;
     try {
       await (req as any).jwtVerify();
@@ -109,10 +110,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
 
   // Admin: full list (including scheduled/expired) with all translations for the CRUD UI.
   fastify.get("/api/announcements/all", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send([]);
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const rows = await db.select().from(announcements).where(eq(announcements.clubId, club.id)).orderBy(asc(announcements.position), desc(announcements.createdAt));
     const map = await translationMap(db, new Set(rows.map((a: any) => String(a.id))));
     return reply.send(rows.map((a: any) => ({ ...resolveItem(a, map, "it"), translations: map[String(a.id)] || {} })));
@@ -121,10 +123,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
   fastify.post("/api/announcements", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = announcementSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const settings = await getClubSettings(db, club.id);
     const { enabled } = clubLocales(settings);
     const d = parsed.data as any;
@@ -152,10 +155,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
   fastify.patch("/api/announcements/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = announcementPatchSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const settings = await getClubSettings(db, club.id);
     const { enabled } = clubLocales(settings);
     const d = parsed.data as any;
@@ -177,10 +181,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
     if (!Array.isArray(ids) || ids.length === 0 || ids.some((id: any) => typeof id !== "string")) {
       return reply.status(400).send({ error: "ordered_ids must be a non-empty string array" });
     }
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     for (let i = 0; i < ids.length; i++) {
       await db.update(announcements).set({ position: i, updatedAt: new Date() }).where(and(eq(announcements.id, ids[i]), eq(announcements.clubId, club.id)));
     }
@@ -189,10 +194,11 @@ export default async function announcementRoutes(fastify: FastifyInstance) {
   });
 
   fastify.delete("/api/announcements/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const rows = await db.delete(announcements).where(and(eq(announcements.id, (req.params as any).id), eq(announcements.clubId, club.id))).returning();
     if (!rows[0]) return reply.status(404).send({ error: "Not found" });
     return reply.status(204).send();

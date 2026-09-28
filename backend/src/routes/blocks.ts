@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { blockSchema, blockingRuleSchema } from "../types/schemas.js";
 import { blocks, blockingRules, bookings, courts } from "../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
-import { requireRequestClub } from "../services/club.js";
+import { requireRequestClub, reqDb } from "../services/club.js";
 
 /** Live bookings of this club, optionally restricted to one court. */
 async function clubBookings(db: any, clubId: string, courtId?: string | null) {
@@ -20,20 +20,22 @@ async function courtInClub(db: any, clubId: string, courtId: string | null | und
 
 export default async function blockRoutes(fastify: FastifyInstance) {
   fastify.get("/api/blocks", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (req as any).server.db;
+    let db: any = (req as any).server.db;
     if (!db) return reply.send([]);
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const rows = await db.select().from(blocks).where(eq(blocks.clubId, club.id)).orderBy(desc(blocks.startAt));
     return reply.send(rows);
   });
   fastify.post("/api/blocks", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = blockSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { court_id, start_at, end_at, reason } = parsed.data;
     if (!(await courtInClub(db, club.id, court_id))) return reply.status(404).send({ error: "Court not found" });
     const force = (req.query as any)?.force === "true";
@@ -80,19 +82,21 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(row);
   });
   fastify.delete("/api/blocks/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     await db.delete(blocks).where(and(eq(blocks.id, id), eq(blocks.clubId, club.id)));
     return reply.status(204).send();
   });
   fastify.patch("/api/blocks/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const body = (req as any).body as any;
     const force = (req.query as any)?.force === "true";
@@ -139,20 +143,22 @@ export default async function blockRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/api/blocking-rules", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (req as any).server.db;
+    let db: any = (req as any).server.db;
     if (!db) return reply.send([]);
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const rows = await db.select().from(blockingRules).where(eq(blockingRules.clubId, club.id));
     return reply.send(rows);
   });
   fastify.post("/api/blocking-rules", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     const parsed = blockingRuleSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { court_id, day_of_week, start_time, end_time, reason, valid_from, valid_until, is_active } = parsed.data;
     if (!(await courtInClub(db, club.id, court_id))) return reply.status(404).send({ error: "Court not found" });
     const force = (req.query as any)?.force === "true";
@@ -178,10 +184,11 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(row);
   });
   fastify.patch("/api/blocking-rules/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const body = (req as any).body as any;
     const force = (req.query as any)?.force === "true";
@@ -228,10 +235,11 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     return reply.send(row);
   });
   fastify.delete("/api/blocking-rules/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     await db.delete(blockingRules).where(and(eq(blockingRules.id, id), eq(blockingRules.clubId, club.id)));
     return reply.status(204).send();

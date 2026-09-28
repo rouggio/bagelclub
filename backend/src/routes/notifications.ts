@@ -1,14 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { sendTelegramMessage, sendWhatsAppMessage } from "../services/notifications.js";
 import { BRAND_NAME } from "../config/brand.js";
-import { requireRequestClub, getClubSettings } from "../services/club.js";
+import { requireRequestClub, getClubSettings, reqDb } from "../services/club.js";
 
 export default async function notificationRoutes(fastify: FastifyInstance) {
   fastify.post("/api/notifications/test", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     const { channel, to } = (req as any).body as any; // channel: 'telegram' | 'whatsapp', to optional override
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const s = db ? await getClubSettings(db, club.id) : null;
     // Strictly per-club credentials — no env fallbacks.
     const telegramBotToken = s?.telegramBotToken || "";

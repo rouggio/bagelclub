@@ -281,7 +281,17 @@ private club data.
 2. Auth: club-scoped login/JWT/roles + superadmin.
 3. Route-by-route scoping + Telegram routing.
 4. Hardening: Postgres RLS (`current_setting('app.club_id')`) + per-endpoint
-   cross-club tests.
+   cross-club tests. Done 2026-09-28 (`0016_rls`, 29/29 tests):
+   non-owner app role + per-request `SET LOCAL` txn client (`attachClubClient`,
+   committed/released onResponse) + `WITH CHECK` policies on all tenant tables
+   (timetables/translations inherit via parent, clubs public-read). Trust-root
+   owner-pool exceptions (reviewed): auth credential checks, webhook token
+   bootstrap, demo provisioning (demo-only, asserted). No `FORCE` — owners
+   (migrate/seed/dashboard) bypass by design.
+   Runbook — local: `CREATE ROLE app_user LOGIN PASSWORD '…'` + CONNECT/USAGE/
+   CRUD grants + `ALTER DEFAULT PRIVILEGES FOR ROLE postgres …` (same on Neon
+   via SQL editor); runtime `DATABASE_URL`= app role, `AUTH_`/`OWNER_` vars =
+   owner (migrate/seed/CLIs). Verified: dev server runs fully as app_user.
 5. Frontend club context (`/club/:slug/` + `X-Club-Slug`) + per-club branding/links.
 6. Platform frontend: `/` landing + `/clubs` directory + `GET /api/clubs` +
    `/club/:slug/` enforcement + slug deep links.

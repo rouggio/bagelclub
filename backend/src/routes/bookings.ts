@@ -3,7 +3,7 @@ import { bookingIntentSchema } from "../types/schemas.js";
 import { randomUUID } from "crypto";
 import { bookings, timetables, courts } from "../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
-import { requireRequestClub, getClubSettings } from "../services/club.js";
+import { requireRequestClub, getClubSettings, reqDb } from "../services/club.js";
 
 function computeEnd(startTime: string, durationMin: number): string {
   const [h, m] = startTime.split(":").map(Number);
@@ -21,11 +21,12 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     const parsed = bookingIntentSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
     const { court_id, date, start_time, notes, rent_racquets, players } = parsed.data as any;
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     const user = (req as any).user;
     if (!db) return reply.status(201).send({ id: randomUUID(), status: "pending_approval", ...parsed.data, players: players ?? 2 });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     // Court must belong to the caller's club.
     const courtRows = await db.select().from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
     const court = courtRows[0];
@@ -80,21 +81,21 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     if (status === "pending_approval") {
       try {
         const { notifyAdminPendingBooking } = await import("../services/notifications.js");
-        notifyAdminPendingBooking(db, row).catch(() => {});
+        notifyAdminPendingBooking((fastify as any).db, row).catch(() => {});
       } catch {}
     } else if (status === "approved") {
       const s = settings as any;
       if (s?.notifyOnAutoApproved) {
         try {
           const { notifyAdminPendingBooking } = await import("../services/notifications.js");
-          notifyAdminPendingBooking(db, row, { autoApproved: true }).catch(() => {});
+          notifyAdminPendingBooking((fastify as any).db, row, { autoApproved: true }).catch(() => {});
         } catch {}
       }
       // User auto-approved — localized to user's language (skip admin self-bookings)
       if (user.role !== "admin") {
         try {
           const { notifyUserBookingDecision } = await import("../services/notifications.js");
-          notifyUserBookingDecision(db, row, "approved").catch(() => {});
+          notifyUserBookingDecision((fastify as any).db, row, "approved").catch(() => {});
         } catch {}
       }
     }
@@ -102,11 +103,12 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.get("/api/bookings", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     const user = (req as any).user;
     if (!db) return reply.send([]);
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { mine, status, court_id, date_from, date_to } = (req.query as any) || {};
     let rows = await db.select().from(bookings).where(eq(bookings.clubId, club.id)).orderBy(desc(bookings.createdAt));
     if (user.role !== "admin" || mine === "true") {
@@ -134,10 +136,11 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   }
 
   fastify.get("/api/bookings/:id", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const booking = await scopedBooking(db, club.id, id);
     if (!booking) return reply.status(404).send({ error: "Not found" });
@@ -147,40 +150,43 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/api/bookings/:id/approve", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id, status: "approved" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const [row] = await db.update(bookings).set({ status: "approved" as any, reviewedBy: (req as any).user.id }).where(and(eq(bookings.id, id), eq(bookings.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
-      notifyUserBookingDecision(db, row, "approved").catch(() => {});
+      notifyUserBookingDecision((fastify as any).db, row, "approved").catch(() => {});
     } catch {}
     return reply.send(row);
   });
 
   fastify.post("/api/bookings/:id/reject", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id, status: "rejected" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const [row] = await db.update(bookings).set({ status: "rejected" as any, reviewedBy: (req as any).user.id }).where(and(eq(bookings.id, id), eq(bookings.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
-      notifyUserBookingDecision(db, row, "rejected").catch(() => {});
+      notifyUserBookingDecision((fastify as any).db, row, "rejected").catch(() => {});
     } catch {}
     return reply.send(row);
   });
 
   fastify.patch("/api/bookings/:id", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const user = (req as any).user;
     const booking = await scopedBooking(db, club.id, id);
@@ -210,10 +216,11 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/api/bookings/:id/cancel", { preHandler: [fastify.authenticate] }, async (req, reply) => {
-    const db: any = (fastify as any).db;
+    let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id, status: "cancelled" });
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
+    db = reqDb(req) as any;
     const { id } = req.params as any;
     const booking = await scopedBooking(db, club.id, id);
     if (!booking) return reply.status(404).send({ error: "Not found" });
