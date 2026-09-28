@@ -28,9 +28,17 @@ const patchClubSchema = z.object({
   max_courts: z.number().int().min(0).nullable().optional(),
 });
 
-async function audit(db: any, actorId: string, action: string, target: string, meta?: any) {
+async function audit(db: any, actorId: string, action: string, target: string, meta?: any, clubSlug?: string) {
   try {
-    await db.insert(auditLog).values({ actorId, action, target, meta: meta ? JSON.stringify(meta) : null });
+    // Store clubId so the audit UI can show/filter by club; resolve from
+    // target (usually a club slug) unless an explicit slug is given.
+    let clubId: string | null = null;
+    const slug = clubSlug || (/^[a-z0-9-]{3,50}$/.test(target || "") ? target : null);
+    if (slug) {
+      const rows: any[] = await db.select({ id: clubs.id }).from(clubs).where(eq(clubs.slug, slug));
+      if (rows[0]) clubId = rows[0].id;
+    }
+    await db.insert(auditLog).values({ actorId, clubId, action, target, meta: meta ? JSON.stringify(meta) : null });
   } catch {}
 }
 

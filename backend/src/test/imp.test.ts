@@ -73,12 +73,14 @@ describe("impersonation grants", () => {
     expect(r.statusCode).toBe(403);
   });
 
-  it("grant creation is audited", async () => {
+  it("grant creation is audited with its club", async () => {
     await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
     const audit = await app.inject({ method: "GET", url: "/api/platform/audit", headers: H() });
     expect(audit.statusCode).toBe(200);
     expect(audit.json().total).toBeGreaterThan(0);
-    expect((audit.json().rows as any[]).some((a: any) => a.action === "platform.impersonate.grant")).toBe(true);
+    const grants = (audit.json().rows as any[]).filter((a: any) => a.action === "platform.impersonate.grant");
+    expect(grants.length).toBeGreaterThan(0);
+    expect(grants[0].club_slug).toBe("green-village");
   });
 
   it("audit supports club + time filters and paging", async () => {
