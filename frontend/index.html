@@ -11,7 +11,7 @@
  <div x-data="app()" x-init="init()" class="flex min-h-screen flex-col">
  <header class="site-header sticky top-0 z-30 backdrop-blur">
  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-  <a href="#" @click.prevent="isPlatform ? (view = platformUser ? 'platform-clubs' : 'platform-login') : (clubSlug ? (view='home', location.hash='home') : (view='clubs', window.scrollTo(0, 0)))" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="(clubSlug && clubInfo?.club_name) || t('app.name')">Bagel Club</span></a>
+  <a href="#" @click.prevent="isPlatform ? (view = platformUser ? 'platform-clubs' : 'platform-login') : (clubSlug ? (view='home', location.hash='home') : (location.pathname === '/clubs' ? (location.href='/') : (view='clubs', window.scrollTo(0, 0))))" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="(clubSlug && clubInfo?.club_name) || t('app.name')">Bagel Club</span></a>
   <nav class="hidden gap-6 text-sm md:flex">
   <template x-if="clubSlug">
   <a href="#courts" class="hover:text-black" x-text="t('nav.courts')"></a>
@@ -103,6 +103,7 @@
   <p class="mt-2 max-w-xl/90" x-text="t('landing.sub')"></p>
   <div class="mt-4 flex flex-wrap gap-2">
   <a href="#demo" @click.prevent="view='demo'" class="inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('landing.tryDemo')"></a>
+  <a href="/clubs" class="inline-block rounded-lg border border-white px-6 py-2 text-sm font-semibold text-white" x-text="t('landing.viewClubs')"></a>
   </div>
   </div>
   <div class="grid gap-3 md:grid-cols-3">
@@ -119,6 +120,19 @@
   <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.pStarter')"></div><div class="text-sm text-zinc-600" x-text="t('landing.pStarterD')"></div></div>
   <div class="rounded-xl border bg-white p-4"><div class="font-semibold" x-text="t('landing.pPro')"></div><div class="text-sm text-zinc-600" x-text="t('landing.pProD')"></div></div>
   </div>
+  </section>
+  <section x-show="view==='directory'" class="space-y-4">
+  <h2 class="text-xl font-bold" x-text="t('landing.dir')"></h2>
+  <div x-show="clubsLoading" class="text-sm text-zinc-500">…</div>
+  <div class="space-y-3">
+  <template x-for="c in clubsList" :key="c.slug">
+  <a :href="`/club/${c.slug}/`" class="block rounded-xl border bg-white p-4 hover:border-emerald-300">
+  <div class="font-semibold" x-text="c.name"></div>
+  <div class="text-xs text-zinc-500" x-text="`/club/${c.slug}/`"></div>
+  </a>
+  </template>
+  </div>
+  <div x-show="!clubsLoading && !clubsList.length" class="text-sm text-zinc-500">No clubs yet.</div>
   </section>
   <section x-show="view==='demo'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
   <h2 class="text-lg font-bold" x-text="t('demo.title')"></h2>
