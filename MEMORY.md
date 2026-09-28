@@ -69,6 +69,7 @@
 ## 10. Tooling & Verification — HABITS
 - Prefer specialized tools: `read` over `cat`, `edit/write` over `sed`, `glob/grep` over `ls/grep`, `bash` only for terminal ops (`git`, `npm`, `docker`, `python3 -c`).
 - Verify via execution: `npm run build --prefix backend` (`tsc`), `npm run build --prefix frontend` (`vite build 25-26kB css 109-115kB js`), `docker ps`, `npm run migrate/seed`, `curl http://localhost:3000/health` etc.; never guess URLs.
+- Root `npm run build` = backend ci + tsc + frontend ci (with dev) + frontend vitest + vite. Backend suite needs PG (`empanadel_test`), runs locally only — never in build. npm quirk: global `~/.npmrc allow-scripts` breaks chained `npm ci --prefix` (EALLOWSCRIPTS, local only); verify composed builds with `NPM_CONFIG_USERCONFIG=NUL`. Render unaffected.
 - File ops: use `C:\Users\dario\AppData\Local\Temp\opencode` for temp, `workdir` param instead of `cd`.
 - `frontend/index.html.test` exists (`Test-Path True`) — test fixture, keep.
 - Untacked ` .agents/ .claude/ frontend/index.html.test skills-lock.json` — ignore unless needed.
