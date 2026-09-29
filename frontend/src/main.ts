@@ -550,6 +550,7 @@ function app() {
       if (data.two_factor_required) {
         this.loginChallenge = { challenge_id: data.challenge_id, expires_at: data.expires_at };
         this.loginCode = "";
+        setTimeout(() => (document.querySelector("[data-code-input]") as any)?.focus?.(), 50);
         return;
       }
       this.afterLogin(data);
@@ -1644,6 +1645,7 @@ function app() {
         if (data.two_factor_required) {
           this.platformChallenge = { challenge_id: data.challenge_id, expires_at: data.expires_at };
           this.platformCode = "";
+          setTimeout(() => (document.querySelector("[data-code-input]") as any)?.focus?.(), 50);
           return;
         }
         localStorage.setItem("platform_token", data.token);
