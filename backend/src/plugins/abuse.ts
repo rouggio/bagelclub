@@ -45,6 +45,12 @@ function prune(list: number[], windowMs: number, now: number): number[] {
   return list.filter((t) => now - t < windowMs);
 }
 
+/** Test-only: clear in-memory windows/blocks (DB blocks are truncated by resetDb). */
+export function resetAbuseForTests() {
+  windows.clear();
+  memoryBlocks.clear();
+}
+
 /** Pure: given event timestamps, is the limit hit? (unit-tested) */
 export function shouldBlock(events: number[], max: number, windowMs: number, now = Date.now()): boolean {
   return prune(events, windowMs, now).length >= max;

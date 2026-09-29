@@ -90,21 +90,21 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     if (status === "pending_approval") {
       try {
         const { notifyAdminPendingBooking } = await import("../services/notifications.js");
-        notifyAdminPendingBooking((fastify as any).db, row).catch(() => {});
+        await settleNotify(notifyAdminPendingBooking((fastify as any).db, row));
       } catch {}
     } else if (status === "approved") {
       const s = settings as any;
       if (s?.notifyOnAutoApproved) {
         try {
           const { notifyAdminPendingBooking } = await import("../services/notifications.js");
-          notifyAdminPendingBooking((fastify as any).db, row, { autoApproved: true }).catch(() => {});
+          await settleNotify(notifyAdminPendingBooking((fastify as any).db, row, { autoApproved: true }));
         } catch {}
       }
       // User auto-approved — localized to user's language (skip admin self-bookings)
       if (user.role !== "admin") {
         try {
           const { notifyUserBookingDecision } = await import("../services/notifications.js");
-          notifyUserBookingDecision((fastify as any).db, row, "approved").catch(() => {});
+          await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "approved"));
         } catch {}
       }
     }
@@ -144,6 +144,13 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     return rows[0] ?? null;
   }
 
+  // Notifications stay fire-and-forget in prod, but tests await them so no
+  // notify txn outlives the request and deadlocks the next test's TRUNCATE.
+  async function settleNotify(p: Promise<any>) {
+    if (process.env.NODE_ENV === "test") await p.catch(() => {});
+    else p.catch(() => {});
+  }
+
   fastify.get("/api/bookings/:id", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id });
@@ -169,7 +176,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
-      notifyUserBookingDecision((fastify as any).db, row, "approved").catch(() => {});
+      await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "approved"));
     } catch {}
     return reply.send(row);
   });
@@ -185,7 +192,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
-      notifyUserBookingDecision((fastify as any).db, row, "rejected").catch(() => {});
+      await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "rejected"));
     } catch {}
     return reply.send(row);
   });

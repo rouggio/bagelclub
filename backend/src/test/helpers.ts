@@ -100,6 +100,8 @@ export async function loginSuperadmin(app: any, email: string, password = "Test1
 /** Every suite starts from a clean seeded DB. */
 export function cleanSlate() {
   beforeEach(async () => {
+    const { resetAbuseForTests } = await import("../plugins/abuse.js");
+    resetAbuseForTests();
     await resetDb();
   });
 }

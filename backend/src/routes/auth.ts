@@ -177,7 +177,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     const token = signAccess(fastify, user, clubSlug);
-    void touchLastLogin(db, user.id);
+    await touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
   });
@@ -207,7 +207,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       clubSlug = crows[0].slug;
     }
     const token = signAccess(fastify, user, clubSlug);
-    void touchLastLogin(db, user.id);
+    await touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ token, user: publicUser(user, clubSlug) });
   });
@@ -250,7 +250,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid or expired code" });
     }
     const token = signAccess(fastify, user, clubSlug);
-    void touchLastLogin(db, user.id);
+    await touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
   });
