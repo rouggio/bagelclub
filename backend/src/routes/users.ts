@@ -93,6 +93,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, poolDb);
     if (!club) return;
     let db: any = reqDb(req);
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "me")) return;
     const me = await liveSelf(db, user);
     if (!me) return reply.status(401).send({ error: "User not found" });
     if (body.preferred_language) {
@@ -144,6 +146,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, poolDb);
     if (!club) return;
     const db: any = reqDb(req);
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "me/contact-challenge")) return;
     const me = await liveSelf(db, (req as any).user);
     if (!me) return reply.status(401).send({ error: "User not found" });
     if (me.role !== "admin") return reply.status(400).send({ error: "Only club admins use 2FA" });

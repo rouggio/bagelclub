@@ -114,6 +114,30 @@ export async function assertClubAccess(req: FastifyRequest, reply: FastifyReply,
 }
 
 /**
+ * Impersonation self-write choke point: an imp JWT carries the superadmin's
+ * id, so any "edit myself" handler would write the boss's real row (profile,
+ * telegram link). Impersonated sessions may manage the CLUB but never an
+ * identity — block with 403 and audit the attempt (a hit means a bug or a
+ * crafted request probing the session). Returns true when blocked.
+ */
+export async function rejectImpSelfWrite(req: any, reply: any, db: any, club: any, target: string): Promise<boolean> {
+  const user = req?.user;
+  if (!user?.imp) return false;
+  try {
+    const { auditLog } = await import("../db/schema.js");
+    await db.insert(auditLog).values({
+      actorId: user.id,
+      clubId: club?.id ?? null,
+      action: "platform.impersonate.blocked-write",
+      target,
+      meta: JSON.stringify({ path: String(req?.url || target).slice(0, 100) }),
+    });
+  } catch {}
+  reply.status(403).send({ error: "Not available while impersonating" });
+  return true;
+}
+
+/**
  * Authed-route club resolution: explicit slug (header/query) wins and is
  * cross-checked against the JWT; without a slug the JWT's own club is used
  * (transitional path until the frontend always sends X-Club-Slug).

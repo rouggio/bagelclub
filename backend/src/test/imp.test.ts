@@ -48,6 +48,24 @@ describe("impersonation grants", () => {
     expect(me.json()).toMatchObject({ role: "admin", club_slug: "green-village", imp: true });
   });
 
+  it("impersonated sessions cannot write self identity (profile/telegram), attempts are audited", async () => {
+    const g = await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
+    const IH = { Authorization: `Bearer ${g.json().token}`, "X-Club-Slug": "green-village" };
+    const patch = await app.inject({ method: "PATCH", url: "/api/users/me", headers: IH, payload: { first_name: "Pwned" } });
+    expect(patch.statusCode).toBe(403);
+    const unlink = await app.inject({ method: "POST", url: "/api/telegram/unlink", headers: IH });
+    expect(unlink.statusCode).toBe(403);
+    const link = await app.inject({ method: "POST", url: "/api/telegram/link", headers: IH });
+    expect(link.statusCode).toBe(403);
+    const audit = await app.inject({ method: "GET", url: "/api/platform/audit?limit=50", headers: H() });
+    const blocked = (audit.json().rows as any[]).filter((a: any) => a.action === "platform.impersonate.blocked-write");
+    expect(blocked.length).toBeGreaterThanOrEqual(3);
+    const { db, pool } = await testDb();
+    const rows = await db.select().from(users).where(eq(users.email, "boss@t.local"));
+    await pool.end();
+    expect(rows[0].firstName).toBe("B");
+  });
+
   it("second grant revokes the first; explicit revoke ends the session", async () => {
     const g1 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();
     const g2 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();

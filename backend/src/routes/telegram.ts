@@ -35,6 +35,8 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
     if (!club) return;
     db = reqDb(req);
     const user = (req as any).user;
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "telegram-link")) return;
     const botToken = await clubBotToken(db, club.id);
     const username = await getBotUsername(botToken);
     const token = randomBytes(16).toString("hex"); // 32 chars
@@ -71,6 +73,8 @@ export default async function telegramRoutes(fastify: FastifyInstance) {
     if (!club) return;
     db = reqDb(req);
     const user = (req as any).user;
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "telegram-unlink")) return;
     await db.update(users).set({ telegramChatId: null } as any).where(eq(users.id, user.id));
     return reply.send({ ok: true, linked: false });
   });
