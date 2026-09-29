@@ -605,7 +605,7 @@
   <template x-for="c in adminCourts" :key="c.id"><option :value="c.id" x-text="`${c.name || `#${c.number}`} · ${c.type}`"></option></template>
   </select>
   <button @click="loadAdminTimetable()" class="rounded border px-3 py-2 text-xs" x-text="t('btn.refresh')"></button>
-  <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="!!adminSettings?.flexible_slots" @change="toggleFlexibleSlots()" /> <span x-text="t('admin.timetable.flexible')"></span></label>
+  <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="flexOn()" @change="toggleFlexibleSlots()" /> <span x-text="t('admin.timetable.flexible')"></span></label>
   </div>
   <div class="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs">
   <span x-text="t('admin.timetable.copyFrom')"></span>
@@ -626,7 +626,7 @@
   <div class="flex flex-wrap items-center gap-2">
   <span class="w-20 font-medium" x-text="t('weekday.'+['sun','mon','tue','wed','thu','fri','sat'][row.dayOfWeek])"></span>
   <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="!row.windows.length" @change="$event.target.checked ? row.windows.splice(0) : row.windows.push({open:'08:00',close:'22:00',dur:60})" /> <span x-text="t('admin.timetable.closed')"></span></label>
-  <button x-show="adminSettings?.flexible_slots" @click="addTimetableWindow(row)" class="ml-auto rounded border px-2 py-1 text-xs" x-text="t('admin.timetable.addWindow')"></button>
+  <button x-show="flexOn()" @click="addTimetableWindow(row)" class="ml-auto rounded border px-2 py-1 text-xs" x-text="t('admin.timetable.addWindow')"></button>
   </div>
   <template x-for="(w, i) in row.windows" :key="i">
   <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -636,7 +636,7 @@
   <select x-model.number="w.dur" class="rounded border px-2 py-1 text-sm">
   <option value="30">30m</option><option value="60">60m</option><option value="90">90m</option><option value="120">120m</option>
   </select>
-  <button x-show="adminSettings?.flexible_slots && row.windows.length > 1" @click="removeTimetableWindow(row, i)" class="rounded border px-2 py-1 text-xs">×</button>
+  <button x-show="row.windows.length > 1" @click="removeTimetableWindow(row, i)" class="rounded border px-2 py-1 text-xs">×</button>
   </div>
   </template>
   </div>

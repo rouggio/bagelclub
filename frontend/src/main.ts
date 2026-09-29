@@ -1041,6 +1041,12 @@ function app() {
         await this.loadAdminSettings();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
     },
+    flexOn(): boolean {
+      // Truthful state: the setting OR multi-window data already present
+      // (e.g. set via API before the flag existed).
+      return !!((this.adminSettings as any)?.flexible_slots ||
+        (this.adminTimetableRows || []).some((r: any) => (r.windows || []).length > 1));
+    },
     async copyAdminTimetable() {
       if (!this.adminTimetableCourtId) return;
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
@@ -1085,6 +1091,13 @@ function app() {
           for (const s of j.stubs_dropped || []) stubs.push(`${s.open}-${s.close}: −${s.dropped_minutes}m`);
         }
         this.adminTimetableSuccess = this.t('admin.timetable.saved') + (stubs.length ? ` (${this.t('admin.timetable.stubDropped')}: ${stubs.join(", ")})` : "");
+        // Persist what the data already says: multi-window grids imply the flag.
+        if (!(this.adminSettings as any)?.flexible_slots && this.adminTimetableRows.some((r) => r.windows.length > 1)) {
+          try {
+            await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ flexible_slots: true }) });
+            await this.loadAdminSettings();
+          } catch {}
+        }
         await this.loadAvailability();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }
