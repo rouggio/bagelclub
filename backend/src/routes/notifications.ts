@@ -43,6 +43,31 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
         result.whatsapp = { to: whatsappAdminPhone, ok };
       }
     }
+    if (!channel || channel === "email") {
+      // Test recipient: explicit override, else the requesting admin's email.
+      const user = (req as any).user;
+      let dest = to || "";
+      if (!dest) {
+        try {
+          const { users } = await import("../db/schema.js");
+          const { eq } = await import("drizzle-orm");
+          const rows = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+          dest = rows[0]?.email || "";
+        } catch {}
+      }
+      if (!dest) {
+        result.email = { ok: false, error: "No recipient: pass { to } or set your profile email" };
+      } else {
+        try {
+          const { sendEmail } = await import("../services/email.js");
+          const sender = (s as any)?.notifyEmailSender || undefined;
+          await sendEmail({ to: dest, subject: `${clubName} — Test notification`, text, html: `<p>${text}</p>`, senderEmail: sender });
+          result.email = { to: dest, ok: true };
+        } catch (e: any) {
+          result.email = { ok: false, error: e.message || "send failed" };
+        }
+      }
+    }
     return reply.send(result);
   });
 }

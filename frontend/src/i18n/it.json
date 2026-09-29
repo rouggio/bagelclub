@@ -399,5 +399,18 @@
   "admin.users.welcome": "Invia mail di benvenuto",
   "admin.users.welcomeConfirm": "Inviare la mail di benvenuto?",
   "admin.users.welcomeSent": "Email inviata.",
-  "admin.users.welcomeNoEmail": "Utente senza email."
+  "admin.users.welcomeNoEmail": "Utente senza email.",
+  "admin.notifications.channels": "Canali",
+  "admin.notifications.pushTitle": "Push (sotto-canali)",
+  "admin.notifications.viaEmail": "Email",
+  "admin.notifications.adminEvents": "Eventi admin",
+  "admin.notifications.notifyAdminOnRequest": "Nuova richiesta da approvare",
+  "admin.notifications.userEvents": "Eventi utente",
+  "admin.notifications.email.title": "Email",
+  "admin.notifications.email.senderPlaceholder": "Mittente (default verificato Brevo)",
+  "admin.notifications.email.test": "Invia test",
+  "profile.notifyTitle": "Le mie notifiche",
+  "profile.notifyEmail": "Email",
+  "profile.notifyWhatsapp": "WhatsApp",
+  "profile.notifyTelegram": "Telegram"
 }

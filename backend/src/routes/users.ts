@@ -14,6 +14,7 @@ function safeUser(r: any) {
     preferred_language: r.preferredLanguage, preferred_sport: r.preferredSport,
     first_name: r.firstName, last_name: r.lastName, mobile: r.mobile,
     telegram_chat_id: r.telegramChatId, gender: r.gender, birthdate: r.birthdate,
+    notify_email: r.notifyEmail ?? true, notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
   };
 }
 
@@ -113,6 +114,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (body.preferred_sport !== undefined) updates.preferredSport = body.preferred_sport || null;
     if (body.mobile !== undefined) updates.mobile = body.mobile || null;
     if (body.telegram_chat_id !== undefined) updates.telegramChatId = body.telegram_chat_id || null;
+    if (body.notify_email !== undefined) updates.notifyEmail = body.notify_email;
+    if (body.notify_whatsapp !== undefined) updates.notifyWhatsapp = body.notify_whatsapp;
+    if (body.notify_telegram !== undefined) updates.notifyTelegram = body.notify_telegram;
     if (body.gender !== undefined) updates.gender = body.gender;
     if (body.birthdate !== undefined) updates.birthdate = body.birthdate || null;
     if (Object.keys(updates).length === 0) return reply.status(400).send({ error: "No fields to update" });

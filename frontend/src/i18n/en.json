@@ -399,5 +399,18 @@
   "admin.users.welcome": "Send welcome mail",
   "admin.users.welcomeConfirm": "Send the welcome mail?",
   "admin.users.welcomeSent": "Email sent.",
-  "admin.users.welcomeNoEmail": "User has no email."
+  "admin.users.welcomeNoEmail": "User has no email.",
+  "admin.notifications.channels": "Channels",
+  "admin.notifications.pushTitle": "Push (sub-channels)",
+  "admin.notifications.viaEmail": "Email",
+  "admin.notifications.adminEvents": "Admin events",
+  "admin.notifications.notifyAdminOnRequest": "New request to approve",
+  "admin.notifications.userEvents": "User events",
+  "admin.notifications.email.title": "Email",
+  "admin.notifications.email.senderPlaceholder": "Sender (Brevo verified default)",
+  "admin.notifications.email.test": "Send test",
+  "profile.notifyTitle": "My notifications",
+  "profile.notifyEmail": "Email",
+  "profile.notifyWhatsapp": "WhatsApp",
+  "profile.notifyTelegram": "Telegram"
 }

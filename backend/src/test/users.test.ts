@@ -13,6 +13,20 @@ describe("users (soft delete)", () => {
   afterAll(async () => { await app.close(); });
   const H = () => authHeaders(admin.token, "green-village");
 
+  it("profile channel prefs round-trip via PATCH /me", async () => {
+    const member = await loginAs(app, "green-village", "member");
+    const Hm = authHeaders(member.token, "green-village");
+    const me1 = await app.inject({ method: "GET", url: "/api/users/me", headers: Hm });
+    expect(me1.json().notify_email).toBe(true);
+    const patch = await app.inject({ method: "PATCH", url: "/api/users/me", headers: Hm, payload: { notify_email: false, notify_telegram: false } });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().notify_email).toBe(false);
+    const me2 = await app.inject({ method: "GET", url: "/api/users/me", headers: Hm });
+    expect(me2.json().notify_email).toBe(false);
+    expect(me2.json().notify_telegram).toBe(false);
+    expect(me2.json().notify_whatsapp).toBe(true);
+  });
+
   it("welcome email validates target, needs email, fails closed without delivery", async () => {
     const member = await loginAs(app, "green-village", "member");
     // Cross-club target → 404.

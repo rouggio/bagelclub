@@ -574,6 +574,12 @@
   <button @click="saveProfile()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('profile.save')"></button>
   </div>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-medium text-sm" x-text="t('profile.notifyTitle')"></div>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_email" /> <span x-text="t('profile.notifyEmail')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_whatsapp" /> <span x-text="t('profile.notifyWhatsapp')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_telegram" /> <span x-text="t('profile.notifyTelegram')"></span></label>
+  </div>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-medium text-sm" x-text="t('profile.passwordTitle')"></div>
   <input x-model="pwForm.cur" type="password" :placeholder="t('profile.currentPassword')" autocomplete="current-password" class="w-full rounded-lg border px-3 py-2 text-sm bg-white" />
   <input x-model="pwForm.new1" type="password" :placeholder="t('auth.newPassword')" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2 text-sm bg-white" />
@@ -1033,12 +1039,29 @@
   <h2 class="text-xl font-bold" x-text="t('admin.notifications.title')"></h2>
   <p class="text-xs text-zinc-500" x-text="t('admin.notifications.desc')"></p>
   <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.enable')"></span></label>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-semibold text-sm" x-text="t('admin.notifications.channels')"></div>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
+  <div class="pl-6 text-xs font-medium text-zinc-500" x-text="t('admin.notifications.pushTitle')"></div>
+  <label class="flex items-center gap-2 text-sm pl-6"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
+  <label class="flex items-center gap-2 text-sm pl-6"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
+  </div>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-semibold text-sm" x-text="t('admin.notifications.adminEvents')"></div>
+  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_admin_on_request" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyAdminOnRequest')"></span></label>
   <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_auto_approved" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnAutoApproved')"></span></label>
+  </div>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-semibold text-sm" x-text="t('admin.notifications.userEvents')"></div>
   <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_approval" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnApproval')"></span></label>
   <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_rejection" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnRejection')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
-  <div class="space-y-3 border-t pt-4">
+  </div>
+  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_email">
+  <h3 class="font-semibold text-sm" x-text="t('admin.notifications.email.title')"></h3>
+  <input x-model="notificationForm.notify_email_sender" :placeholder="t('admin.notifications.email.senderPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" />
+  <button @click="testNotification('email')" class="rounded-lg border bg-white px-3 py-1 text-xs" x-text="t('admin.notifications.email.test')"></button>
+  </div>
+  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_telegram">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.telegram.title')"></h3>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="flex items-center justify-between text-sm"><span class="font-medium" x-text="t('admin.notifications.telegram.subscribeTitle')"></span><span class="text-xs" :class="telegramLinked ? 'text-emerald-600' : 'text-zinc-500'" x-text="telegramLinked ? t('telegram.connected') : t('telegram.notConnected')"></span></div>
@@ -1052,7 +1075,7 @@
   <input x-model="notificationForm.telegram_admin_chat_id" :placeholder="t('admin.notifications.telegram.chatIdPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <button @click="testNotification('telegram')" class="rounded-lg border bg-white px-3 py-1 text-xs" x-text="t('admin.notifications.telegram.test')"></button>
   </div>
-  <div class="space-y-3 border-t pt-4">
+  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_whatsapp">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.whatsapp.title')"></h3>
   <p class="text-xs text-zinc-500" x-text="t('admin.notifications.whatsapp.desc')"></p>
   <input x-model="notificationForm.whatsapp_token" :placeholder="t('admin.notifications.whatsapp.tokenPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" />

@@ -89,7 +89,7 @@ function app() {
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
     adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
-    notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
+    notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_admin_on_request: true, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, notify_via_email: true, notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_admin_on_request: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; notify_via_email: boolean; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notificationTestResult: "" as string,
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
     reportsDate: new Date().toISOString().slice(0, 10) as string,
@@ -802,10 +802,13 @@ function app() {
           this.notificationForm = {
             notifications_enabled: !!this.adminSettings.notifications_enabled,
             notify_on_auto_approved: !!this.adminSettings.notify_on_auto_approved,
+            notify_admin_on_request: (this.adminSettings as any).notify_admin_on_request ?? true,
             notify_on_approval: this.adminSettings.notify_on_approval ?? true,
             notify_on_rejection: this.adminSettings.notify_on_rejection ?? true,
             notify_via_telegram: this.adminSettings.notify_via_telegram ?? true,
             notify_via_whatsapp: this.adminSettings.notify_via_whatsapp ?? true,
+            notify_via_email: (this.adminSettings as any).notify_via_email ?? true,
+            notify_email_sender: (this.adminSettings as any).notify_email_sender || "",
             telegram_bot_token: "",
             telegram_admin_chat_id: this.adminSettings.telegram_admin_chat_id || "",
             whatsapp_token: "",
@@ -820,10 +823,13 @@ function app() {
       const payload: any = {
         notifications_enabled: this.notificationForm.notifications_enabled,
         notify_on_auto_approved: this.notificationForm.notify_on_auto_approved,
+        notify_admin_on_request: (this.notificationForm as any).notify_admin_on_request,
         notify_on_approval: this.notificationForm.notify_on_approval,
         notify_on_rejection: this.notificationForm.notify_on_rejection,
         notify_via_telegram: this.notificationForm.notify_via_telegram,
         notify_via_whatsapp: this.notificationForm.notify_via_whatsapp,
+        notify_via_email: (this.notificationForm as any).notify_via_email,
+        notify_email_sender: (this.notificationForm as any).notify_email_sender || null,
         telegram_admin_chat_id: this.notificationForm.telegram_admin_chat_id || null,
         whatsapp_phone_number_id: this.notificationForm.whatsapp_phone_number_id || null,
         whatsapp_admin_phone: this.notificationForm.whatsapp_admin_phone || null,
@@ -1633,6 +1639,9 @@ function app() {
           telegram_chat_id: me.telegram_chat_id || me.telegramChatId || "",
           preferred_language: me.preferred_language || me.preferredLanguage || this.lang,
           preferred_sport: me.preferred_sport || me.preferredSport || "",
+          notify_email: me.notify_email ?? me.notifyEmail ?? true,
+          notify_whatsapp: me.notify_whatsapp ?? me.notifyWhatsapp ?? true,
+          notify_telegram: me.notify_telegram ?? me.notifyTelegram ?? true,
         };
         this.user = me;
         await this.checkTelegramStatus();
@@ -1651,6 +1660,9 @@ function app() {
       payload.mobile = this.fullMobile(this.profileForm.mobile_code, this.profileForm.mobile_number) || null;
       if (this.profileForm.preferred_language) payload.preferred_language = this.profileForm.preferred_language;
       if (this.profileForm.preferred_sport !== undefined) payload.preferred_sport = this.profileForm.preferred_sport || null;
+      payload.notify_email = !!(this.profileForm as any).notify_email;
+      payload.notify_whatsapp = !!(this.profileForm as any).notify_whatsapp;
+      payload.notify_telegram = !!(this.profileForm as any).notify_telegram;
       const res = await apiFetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.profileError = await res.text(); return; }
       const updated = await res.json();

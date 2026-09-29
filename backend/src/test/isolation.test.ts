@@ -114,12 +114,18 @@ describe("cross-club isolation", () => {
       const { db: db2, pool: pool2 } = await testDb();
       await notifyAdminPendingBooking(db2, booking);
       await pool2.end();
-      // All sends go through club A's bot…
-      expect(sent.length).toBeGreaterThan(0);
-      expect(sent.every((s) => s.url.includes("bottok-A"))).toBe(true);
+      // Telegram sends go through club A's bot…
+      const tg = sent.filter((s) => !String(s.url).includes("api.brevo.com"));
+      expect(tg.length).toBeGreaterThan(0);
+      expect(tg.every((s) => s.url.includes("bottok-A"))).toBe(true);
       // …to the manual list (111) + club A linked admin (222), never club B (333).
-      const chatIds = sent.map((s) => String(s.body.chat_id)).sort();
+      const chatIds = tg.map((s) => String(s.body.chat_id)).sort();
       expect(chatIds).toEqual(["111", "222"]);
+      // …and the email leg stays inside club A too (a@x.io present, b@x.io absent).
+      const mails = sent.filter((s) => String(s.url).includes("api.brevo.com"));
+      const addrs = mails.flatMap((m: any) => (m.body.to || []).map((t: any) => t.email));
+      expect(addrs).toContain("a@x.io");
+      expect(addrs).not.toContain("b@x.io");
     } finally {
       vi.unstubAllGlobals();
     }

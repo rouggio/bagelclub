@@ -257,6 +257,22 @@ function buildUserDecisionMessage(b: any, court: any, clubName: string, decision
   return `${icon} <b>${clubName}</b> ${T.dash} ${T.yourBookingWas} ${verb}\n${T.court}: ${courtLabel}\n${T.when}: ${when}\n${T.status}: ${verb}`;
 }
 
+// Email variants (#23): subjects + html/text reusing the localized builders.
+export function buildAdminPendingEmail(b: any, user: any, court: any, clubName: string, platformBase: string | null, lang: Lang, slug?: string | null, autoApproved = false) {
+  const T = NOTIF[normalizeLang(lang)];
+  const title = autoApproved ? T.adminAutoTitle : T.adminPendingTitle;
+  const html = autoApproved ? buildAdminAutoMessage(b, user, court, clubName, lang) : buildAdminPendingMessage(b, user, court, clubName, platformBase, lang, slug);
+  const text = autoApproved ? buildAdminAutoPlain(b, user, court, clubName, lang) : buildAdminPendingPlain(b, user, court, clubName, platformBase, lang, slug);
+  return { subject: `${clubName} — ${title}`, html: `<div>${html.replace(/\n/g, "<br/>")}</div>`, text };
+}
+
+export function buildUserDecisionEmail(b: any, court: any, clubName: string, decision: "approved" | "rejected", lang: Lang) {
+  const T = NOTIF[normalizeLang(lang)];
+  const verb = decision === "approved" ? T.approved : T.rejected;
+  const html = buildUserDecisionMessage(b, court, clubName, decision, lang);
+  return { subject: `${clubName} — ${T.yourBookingWas} ${verb}`, html: `<div>${html.replace(/\n/g, "<br/>")}</div>`, text: html.replace(/<[^>]*>/g, "") };
+}
+
 export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?: { autoApproved?: boolean }) {
   const autoApproved = !!opts?.autoApproved;
   try {
@@ -265,9 +281,12 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings || !settings.notificationsEnabled) return;
+    if ((settings as any).notifyAdminOnRequest === false) return;
     // respect channel toggles
     const viaTelegram = (settings as any).notifyViaTelegram ?? true;
     const viaWhatsapp = (settings as any).notifyViaWhatsapp ?? true;
+    const viaEmail = (settings as any).notifyViaEmail ?? true;
+    const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const slug = club?.slug ?? null;
     const { users, courts } = await import("../db/schema.js");
@@ -298,10 +317,10 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
       let linkedAdminIds: string[] = [];
       try {
         const adminRows = await db.select().from(users).where(and(eq(users.clubId, booking.clubId), eq(users.role, "admin"), isNull(users.deletedAt)));
-        linkedAdminIds = (adminRows as any[])
-          .filter((u: any) => u.telegramChatId)
-          .map((u: any) => String(u.telegramChatId).trim())
-          .filter(Boolean);
+      linkedAdminIds = (adminRows as any[])
+        .filter((u: any) => u.telegramChatId && u.notifyTelegram !== false)
+        .map((u: any) => String(u.telegramChatId).trim())
+        .filter(Boolean);
       } catch {}
       const chatIds = [...new Set([...manualIds, ...linkedAdminIds])];
       if (chatIds.length === 0) console.warn("[notify] no telegram admin recipients (manual list empty + no linked admins)");
@@ -339,6 +358,24 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
         : buildAdminPendingPlain(booking, user, court, clubName, platformBase, lang, slug);
       sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, whatsappAdminPhone, waText).catch(() => {});
     }
+    // Email to admin users with an address (opt-out respected) — per-recipient language.
+    if (viaEmail) {
+      let adminRows: any[] = [];
+      try {
+        adminRows = await db.select().from(users).where(and(eq(users.clubId, booking.clubId), eq(users.role, "admin"), isNull(users.deletedAt)));
+      } catch {}
+      const seen = new Set<string>();
+      const { sendEmail } = await import("./email.js");
+      for (const a of adminRows as any[]) {
+        if (!a.email || a.notifyEmail === false) continue;
+        const key = String(a.email).toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const alang: Lang = normalizeLang(a.preferredLanguage);
+        const mail = buildAdminPendingEmail(booking, user, court, clubName, platformBase, alang, slug, autoApproved);
+        sendEmail({ to: a.email, subject: mail.subject, html: mail.html, text: mail.text, senderEmail: emailSender }).catch(() => {});
+      }
+    }
     } finally {
       await done();
     }
@@ -358,6 +395,8 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     if (decision === "rejected" && (settings as any).notifyOnRejection === false) return;
     const viaTelegram = (settings as any).notifyViaTelegram ?? true;
     const viaWhatsapp = (settings as any).notifyViaWhatsapp ?? true;
+    const viaEmail = (settings as any).notifyViaEmail ?? true;
+    const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const { users, courts } = await import("../db/schema.js");
     const { eq } = await import("drizzle-orm");
@@ -379,11 +418,16 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     const whatsappPhoneNumberId = settings.whatsappPhoneNumberId || "";
 
     const promises: Promise<boolean>[] = [];
-    if (viaTelegram && user?.telegramChatId && telegramBotToken) {
+    if (viaTelegram && user?.telegramChatId && (user?.notifyTelegram ?? true) && telegramBotToken) {
       promises.push(sendTelegramMessage(telegramBotToken, user.telegramChatId, text));
     }
-    if (viaWhatsapp && user?.mobile && whatsappToken && whatsappPhoneNumberId) {
+    if (viaWhatsapp && user?.mobile && (user?.notifyWhatsapp ?? true) && whatsappToken && whatsappPhoneNumberId) {
       promises.push(sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, user.mobile, waText));
+    }
+    if (viaEmail && user?.email && (user?.notifyEmail ?? true)) {
+      const { sendEmail } = await import("./email.js");
+      const mail = buildUserDecisionEmail(booking, court, clubName, decision, lang);
+      promises.push(sendEmail({ to: user.email, subject: mail.subject, html: mail.html, text: mail.text, senderEmail: emailSender }));
     }
     if (promises.length === 0) {
       console.warn(`[notify] user ${booking.userId} has no telegramChatId/mobile or channels disabled — no channel to notify for ${decision}`);
@@ -415,6 +459,9 @@ export function maskSettingsForAdminResponse(s: any) {
     notify_on_rejection: s.notifyOnRejection ?? true,
     notify_via_telegram: s.notifyViaTelegram ?? true,
     notify_via_whatsapp: s.notifyViaWhatsapp ?? true,
+    notify_via_email: (s as any).notifyViaEmail ?? true,
+    notify_email_sender: (s as any).notifyEmailSender ?? null,
+    notify_admin_on_request: (s as any).notifyAdminOnRequest ?? true,
     telegram_bot_token: s.telegramBotToken ? maskToken(s.telegramBotToken) : null,
     telegram_bot_token_present: !!s.telegramBotToken,
     telegram_admin_chat_id: s.telegramAdminChatId,

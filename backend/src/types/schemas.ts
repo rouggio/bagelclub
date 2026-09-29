@@ -104,6 +104,9 @@ export const profileSchema = z.object({
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   first_name: z.string().min(1).max(100).optional(),
   last_name: z.string().min(1).max(100).optional(),
+  notify_email: z.boolean().optional(),
+  notify_whatsapp: z.boolean().optional(),
+  notify_telegram: z.boolean().optional(),
 });
 
 export const settingsSchema = z.object({
@@ -121,6 +124,9 @@ export const settingsSchema = z.object({
   notify_on_rejection: z.boolean().optional(),
   notify_via_telegram: z.boolean().optional(),
   notify_via_whatsapp: z.boolean().optional(),
+  notify_via_email: z.boolean().optional(),
+  notify_email_sender: z.string().max(255).optional().nullable(),
+  notify_admin_on_request: z.boolean().optional(),
   telegram_bot_token: z.string().max(500).optional().nullable(),
   telegram_admin_chat_id: z.string().max(255).optional().nullable(),
   whatsapp_token: z.string().max(2000).optional().nullable(),

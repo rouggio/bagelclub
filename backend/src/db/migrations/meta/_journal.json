@@ -197,6 +197,13 @@
       "when": 1790686800000,
       "tag": "0027_drop_visitor_role",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790690400000,
+      "tag": "0028_notify_email_prefs",
+      "breakpoints": true
     }
   ]
 }
