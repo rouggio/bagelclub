@@ -9,6 +9,16 @@ describe("auth (club-scoped)", () => {
   beforeAll(async () => { app = await buildTestApp(); });
   afterAll(async () => { await app.close(); });
 
+  it("login stamps last_login_at", async () => {
+    const { token, user } = await loginAs(app, "green-village", "member");
+    expect(token).toBeTruthy();
+    const { db, pool } = await testDb();
+    const rows = await db.select().from(users).where(eq(users.id, user.id));
+    await pool.end();
+    expect(rows[0].lastLoginAt).toBeTruthy();
+    expect(new Date(rows[0].lastLoginAt).getTime()).toBeGreaterThan(Date.now() - 60000);
+  });
+
   it("register requires a club slug", async () => {
     const res = await app.inject({ method: "POST", url: "/api/auth/register", payload: { username: "n1", email: "n1@x.io", mobile: "393331234567", password: "Test1234!", first_name: "N", last_name: "One" } });
     expect(res.statusCode).toBe(400);

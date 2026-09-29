@@ -91,10 +91,14 @@ export async function seedShowcaseExtras(db: any, clubId: string) {
     "Benvenuti! Gioca con questo club o crea la tua demo dalla home.",
     "Questa demo si azzera ogni 3 ore — tutto qui è pubblico.",
   ].join("\n");
+  // Idempotent standalone (no wipe required): exactly one creds card per club.
+  await db.delete(announcements).where(
+    and(eq(announcements.clubId, clubId), eq(announcements.title, "Demo access / Accesso demo"))
+  );
   await db.insert(announcements).values({
     clubId, title: "Demo access / Accesso demo", body,
     visibility: "public", position: 0,
-  }).onConflictDoNothing();
+  });
 }
 
 /** Delete expired personal demo runs (never the showcase). Returns deleted slugs. */
@@ -114,15 +118,15 @@ export async function deleteExpiredDemoRuns(db: any): Promise<string[]> {
 
 /**
  * Idle sweeper for user-created demos: deletes personal demo runs whose last
- * activity (newest member, newest booking, or club creation) is older than
- * `idleDays`. Never touches the showcase. Expired runs are included
- * regardless of activity (they are garbage by definition).
+ * activity (latest login of any member, newest member, newest booking, or
+ * club creation) is older than `idleDays`. Never touches the showcase.
+ * Expired runs are included regardless of activity (garbage by definition).
  */
 export async function deleteIdleDemoRuns(db: any, idleDays = 60): Promise<string[]> {
   const now = new Date();
   const cutoff = new Date(now.getTime() - idleDays * 86400000);
-  const latestIn = async (table: any, clubId: string): Promise<Date | null> => {
-    const r: any[] = await db.select({ m: sql`max(${table.createdAt})` }).from(table).where(eq(table.clubId, clubId));
+  const latestIn = async (table: any, col: "createdAt" | "lastLoginAt", clubId: string): Promise<Date | null> => {
+    const r: any[] = await db.select({ m: sql`max(${table[col]})` }).from(table).where(eq(table.clubId, clubId));
     return r[0]?.m ? new Date(r[0].m) : null;
   };
   const rows = await db.select().from(clubs).where(eq(clubs.isDemo, true));
@@ -131,8 +135,8 @@ export async function deleteIdleDemoRuns(db: any, idleDays = 60): Promise<string
     if (c.slug === "demo") continue;
     const expired = c.demoExpiresAt && new Date(c.demoExpiresAt) <= now;
     let last: Date = new Date(c.createdAt);
-    for (const t of [users, bookings]) {
-      const m = await latestIn(t, c.id);
+    for (const [t, col] of [[users, "createdAt"], [bookings, "createdAt"], [users, "lastLoginAt"]] as any) {
+      const m = await latestIn(t, col, c.id);
       if (m && m > last) last = m;
     }
     if (!expired && last > cutoff) continue;

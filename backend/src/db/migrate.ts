@@ -37,6 +37,7 @@ const requiredTables = ["users", "clubs", "audit_log", "club_impersonation_grant
 const requiredColumns: Array<[string, string]> = [
   ["login_challenges", "purpose"],
   ["app_settings", "two_fa_enabled"],
+  ["users", "last_login_at"],
 ];
 const missing: string[] = [];
 for (const t of requiredTables) {

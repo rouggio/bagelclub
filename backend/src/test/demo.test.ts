@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { cleanSlate, buildTestApp, authHeaders, testDb, loginSuperadmin } from "./helpers.js";
-import { resetDemoShowcase, startDemoRun } from "../services/demo.js";
+import { resetDemoShowcase, startDemoRun, seedShowcaseExtras } from "../services/demo.js";
 import { clubs, users, announcements } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -20,6 +20,18 @@ describe("demo showcase", () => {
     expect(anns.length).toBe(1);
     expect(anns[0].body).toContain("demo-admin / demo1234!");
     expect(anns[0].body).toContain("demo1 / demo1234!");
+    await pool.end();
+  });
+
+  it("creds announcement is idempotent without a wipe (exactly one card)", async () => {
+    const { db, pool } = await testDb();
+    const [c] = await db.insert(clubs).values({ slug: "demo-solo1", name: "Solo", timezone: "Europe/Rome", isDemo: true }).returning();
+    await seedShowcaseExtras(db, c.id);
+    await seedShowcaseExtras(db, c.id);
+    const anns = await db.select().from(announcements).where(eq(announcements.clubId, c.id));
+    expect(anns.length).toBe(1);
+    expect(anns[0].visibility).toBe("public");
+    expect(anns[0].body).toContain("demo-admin / demo1234!");
     await pool.end();
   });
 
@@ -69,15 +81,19 @@ describe("platform demo hygiene endpoints", () => {
     const old = new Date(Date.now() - 61 * 86400000);
     await db.insert(clubs).values({ slug: "demo-old1", name: "Old", timezone: "Europe/Rome", isDemo: true, createdAt: old, updatedAt: old });
     await db.insert(clubs).values({ slug: "demo-fresh1", name: "Fresh", timezone: "Europe/Rome", isDemo: true });
+    const [lc] = await db.insert(clubs).values({ slug: "demo-oldlogin1", name: "OldLogin", timezone: "Europe/Rome", isDemo: true, createdAt: old, updatedAt: old }).returning();
+    await db.insert(users).values({ clubId: lc.id, username: "returning", passwordHash: "x", firstName: "R", lastName: "E", role: "visitor", isVerified: true, createdAt: old, lastLoginAt: new Date() });
     await pool.end();
     const r = await app.inject({ method: "POST", url: "/api/platform/demo/cleanup", headers: H() });
     expect(r.statusCode).toBe(200);
     expect(r.json().deleted).toContain("demo-old1");
     expect(r.json().deleted).not.toContain("demo-fresh1");
+    expect(r.json().deleted).not.toContain("demo-oldlogin1");
     expect(r.json().deleted).not.toContain("demo");
     const { db: db2, pool: pool2 } = await testDb();
     expect((await db2.select().from(clubs).where(eq(clubs.slug, "demo-old1"))).length).toBe(0);
     expect((await db2.select().from(clubs).where(eq(clubs.slug, "demo-fresh1"))).length).toBe(1);
+    expect((await db2.select().from(clubs).where(eq(clubs.slug, "demo-oldlogin1"))).length).toBe(1);
     await pool2.end();
   });
 

@@ -39,6 +39,13 @@ function publicUser(user: any, clubSlug: string | null) {
   };
 }
 
+/** Stamp last-login (idle detection). Fire-and-forget: never fail a login. */
+async function touchLastLogin(db: any, userId: string) {
+  try {
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
+  } catch {}
+}
+
 export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post("/api/auth/register", async (req, reply) => {
     const parsed = registerSchema.safeParse((req as any).body);
@@ -166,6 +173,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
 
     const token = signAccess(fastify, user, clubSlug);
+    void touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
   });
@@ -195,6 +203,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       clubSlug = crows[0].slug;
     }
     const token = signAccess(fastify, user, clubSlug);
+    void touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ token, user: publicUser(user, clubSlug) });
   });
@@ -237,6 +246,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid or expired code" });
     }
     const token = signAccess(fastify, user, clubSlug);
+    void touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
   });
