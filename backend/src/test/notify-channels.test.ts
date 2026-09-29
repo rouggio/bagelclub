@@ -62,6 +62,36 @@ describe("notification channels (#23)", () => {
     }
   });
 
+  it("push master off silences Telegram but email still flows", async () => {
+    const { club, booking } = await seed();
+    const sent: any[] = [];
+    vi.stubGlobal("fetch", (async (url: string, init: any) => {
+      sent.push({ url: String(url), body: JSON.parse(init?.body || "{}") });
+      return { ok: true, text: async () => "", json: async () => ({}) };
+    }) as any);
+    try {
+      const { notifyAdminPendingBooking } = await import("../services/notifications.js");
+      const { db, pool } = await testDb();
+      await db.update(appSettings).set({ notificationsEnabled: false, telegramBotToken: "tok", telegramAdminChatId: "111" }).where(eq(appSettings.clubId, club.id));
+      await pool.end();
+      const { db: db2, pool: pool2 } = await testDb();
+      await notifyAdminPendingBooking(db2, booking);
+      await pool2.end();
+      const tg = sent.filter((s) => !String(s.url).includes("api.brevo.com"));
+      expect(tg.length).toBe(0);
+      expect(sent.filter((s) => String(s.url).includes("api.brevo.com")).length).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllGlobals();
+      const { db, pool } = await testDb();
+      await db.delete(bookings).where(eq(bookings.clubId, club.id));
+      await db.delete(users).where(eq(users.clubId, club.id));
+      await db.delete(courts).where(eq(courts.clubId, club.id));
+      await db.delete(appSettings).where(eq(appSettings.clubId, club.id));
+      await db.delete(clubs).where(eq(clubs.id, club.id));
+      await pool.end();
+    }
+  });
+
   it("club email channel off silences mail; admin event flag off silences all", async () => {
     const { club, booking } = await seed();
     const sent: any[] = [];

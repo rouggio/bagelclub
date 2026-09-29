@@ -1041,19 +1041,19 @@
   <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.enable')"></span></label>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.channels')"></div>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
+  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
+  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
   </div>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.adminEvents')"></div>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_admin_on_request" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyAdminOnRequest')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_auto_approved" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnAutoApproved')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_admin_on_request" /> <span x-text="t('admin.notifications.notifyAdminOnRequest')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_auto_approved" /> <span x-text="t('admin.notifications.notifyOnAutoApproved')"></span></label>
   </div>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.userEvents')"></div>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_approval" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnApproval')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_on_rejection" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.notifyOnRejection')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_approval" /> <span x-text="t('admin.notifications.notifyOnApproval')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_rejection" /> <span x-text="t('admin.notifications.notifyOnRejection')"></span></label>
   </div>
   <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_email">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.email.title')"></h3>

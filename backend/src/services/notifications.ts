@@ -280,11 +280,13 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
-    if (!settings || !settings.notificationsEnabled) return;
+    if (!settings) return;
+    // Master switch is push-only: it parents WhatsApp/Telegram, never email.
+    const pushOn = (settings as any).notificationsEnabled !== false;
     if ((settings as any).notifyAdminOnRequest === false) return;
     // respect channel toggles
-    const viaTelegram = (settings as any).notifyViaTelegram ?? true;
-    const viaWhatsapp = (settings as any).notifyViaWhatsapp ?? true;
+    const viaTelegram = pushOn && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = pushOn && ((settings as any).notifyViaWhatsapp ?? true);
     const viaEmail = (settings as any).notifyViaEmail ?? true;
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
@@ -390,11 +392,12 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
-    if (!settings || !settings.notificationsEnabled) return;
+    if (!settings) return;
     if (decision === "approved" && (settings as any).notifyOnApproval === false) return;
     if (decision === "rejected" && (settings as any).notifyOnRejection === false) return;
-    const viaTelegram = (settings as any).notifyViaTelegram ?? true;
-    const viaWhatsapp = (settings as any).notifyViaWhatsapp ?? true;
+    const pushOn = (settings as any).notificationsEnabled !== false;
+    const viaTelegram = pushOn && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = pushOn && ((settings as any).notifyViaWhatsapp ?? true);
     const viaEmail = (settings as any).notifyViaEmail ?? true;
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
