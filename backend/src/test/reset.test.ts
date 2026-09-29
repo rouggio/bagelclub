@@ -19,6 +19,32 @@ describe("password reset (#27)", () => {
     expect(r.json()).toMatchObject({ ok: true });
   });
 
+  it("request accepts a username identifier (same path as email)", async () => {
+    const keepKey = process.env.BREVO_API_KEY;
+    const keepFrom = process.env.BREVO_VERIFIED_EMAIL;
+    delete process.env.BREVO_API_KEY;
+    delete process.env.BREVO_VERIFIED_EMAIL;
+    try {
+      const { db, pool } = await testDb();
+      const { platformSettings } = await import("../db/schema.js");
+      await db.insert(platformSettings).values({ key: "base_url", value: "https://example.local" }).onConflictDoNothing();
+      await pool.end();
+      const r = await app.inject({
+        method: "POST", url: "/api/auth/password/request",
+        headers: { "X-Club-Slug": "green-village" },
+        payload: { username: "member" },
+      });
+      expect(r.json()).toMatchObject({ ok: true });
+      const { db: db2, pool: pool2 } = await testDb();
+      const rows = await db2.select().from(loginChallenges);
+      await pool2.end();
+      expect(rows.filter((c: any) => c.purpose === "reset").length).toBe(0);
+    } finally {
+      if (keepKey !== undefined) process.env.BREVO_API_KEY = keepKey;
+      if (keepFrom !== undefined) process.env.BREVO_VERIFIED_EMAIL = keepFrom;
+    }
+  });
+
   it("request without mail config leaves no dangling token", async () => {
     const keepKey = process.env.BREVO_API_KEY;
     const keepFrom = process.env.BREVO_VERIFIED_EMAIL;
