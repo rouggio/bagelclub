@@ -386,5 +386,10 @@
   "auth.resetOk": "Passwort aktualisiert. Bitte anmelden.",
   "auth.resetInvalid": "Ungültiger oder abgelaufener Link.",
   "auth.resetMismatch": "Passwörter stimmen nicht überein.",
-  "auth.resetShort": "Mindestens 8 Zeichen."
+  "auth.resetShort": "Mindestens 8 Zeichen.",
+  "profile.passwordTitle": "Passwort ändern",
+  "profile.currentPassword": "Aktuelles Passwort",
+  "profile.passwordSave": "Aktualisieren",
+  "profile.passwordOk": "Passwort aktualisiert.",
+  "profile.passwordWrong": "Aktuelles Passwort ist falsch."
 }

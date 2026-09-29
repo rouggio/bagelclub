@@ -57,9 +57,11 @@ describe("impersonation grants", () => {
     expect(unlink.statusCode).toBe(403);
     const link = await app.inject({ method: "POST", url: "/api/telegram/link", headers: IH });
     expect(link.statusCode).toBe(403);
+    const pw = await app.inject({ method: "POST", url: "/api/users/me/password", headers: IH, payload: { current_password: "x", new_password: "BrandNew123!" } });
+    expect(pw.statusCode).toBe(403);
     const audit = await app.inject({ method: "GET", url: "/api/platform/audit?limit=50", headers: H() });
     const blocked = (audit.json().rows as any[]).filter((a: any) => a.action === "platform.impersonate.blocked-write");
-    expect(blocked.length).toBeGreaterThanOrEqual(3);
+    expect(blocked.length).toBeGreaterThanOrEqual(4);
     const { db, pool } = await testDb();
     const rows = await db.select().from(users).where(eq(users.email, "boss@t.local"));
     await pool.end();

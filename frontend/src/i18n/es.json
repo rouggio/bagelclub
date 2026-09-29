@@ -386,5 +386,10 @@
   "auth.resetOk": "Contraseña actualizada. Inicia sesión.",
   "auth.resetInvalid": "Enlace inválido o caducado.",
   "auth.resetMismatch": "Las contraseñas no coinciden.",
-  "auth.resetShort": "Mínimo 8 caracteres."
+  "auth.resetShort": "Mínimo 8 caracteres.",
+  "profile.passwordTitle": "Cambiar contraseña",
+  "profile.currentPassword": "Contraseña actual",
+  "profile.passwordSave": "Actualizar",
+  "profile.passwordOk": "Contraseña actualizada.",
+  "profile.passwordWrong": "La contraseña actual es incorrecta."
 }

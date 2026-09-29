@@ -139,6 +139,29 @@ export default async function userRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Self-service password change: current password must verify.
+  // Impersonated sessions are blocked (the row would be the superadmin's).
+  fastify.post("/api/users/me/password", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const { current_password, new_password } = ((req as any).body as any) || {};
+    if (typeof current_password !== "string" || typeof new_password !== "string" || new_password.length < 8 || new_password.length > 128) {
+      return reply.status(400).send({ error: "password_invalid" });
+    }
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "me/password")) return;
+    const me = await liveSelf(db, (req as any).user);
+    if (!me) return reply.status(401).send({ error: "User not found" });
+    const ok = await bcrypt.compare(current_password, me.passwordHash);
+    if (!ok) return reply.status(401).send({ error: "password_current_mismatch" });
+    const passwordHash = await bcrypt.hash(new_password, 10);
+    await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, me.id));
+    return reply.send({ ok: true });
+  });
+
   // Request an OTP on the CURRENT channel (needed to change contact while 2FA is on).
   fastify.post("/api/users/me/contact-challenge", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const poolDb: any = (req as any).server.db;

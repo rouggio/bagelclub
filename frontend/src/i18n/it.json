@@ -386,5 +386,10 @@
   "auth.resetOk": "Password aggiornata. Ora puoi accedere.",
   "auth.resetInvalid": "Link non valido o scaduto.",
   "auth.resetMismatch": "Le password non coincidono.",
-  "auth.resetShort": "Minimo 8 caratteri."
+  "auth.resetShort": "Minimo 8 caratteri.",
+  "profile.passwordTitle": "Cambia password",
+  "profile.currentPassword": "Password attuale",
+  "profile.passwordSave": "Aggiorna password",
+  "profile.passwordOk": "Password aggiornata.",
+  "profile.passwordWrong": "Password attuale errata."
 }

@@ -386,5 +386,10 @@
   "auth.resetOk": "Mot de passe mis à jour. Connectez-vous.",
   "auth.resetInvalid": "Lien invalide ou expiré.",
   "auth.resetMismatch": "Les mots de passe diffèrent.",
-  "auth.resetShort": "8 caractères minimum."
+  "auth.resetShort": "8 caractères minimum.",
+  "profile.passwordTitle": "Changer le mot de passe",
+  "profile.currentPassword": "Mot de passe actuel",
+  "profile.passwordSave": "Mettre à jour",
+  "profile.passwordOk": "Mot de passe mis à jour.",
+  "profile.passwordWrong": "Mot de passe actuel incorrect."
 }

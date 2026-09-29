@@ -566,9 +566,17 @@
  </template>
  </div>
  </div>
- <button @click="saveProfile()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('profile.save')"></button>
- </div>
- </section>
+  <button @click="saveProfile()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('profile.save')"></button>
+  </div>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-medium text-sm" x-text="t('profile.passwordTitle')"></div>
+  <input x-model="pwForm.cur" type="password" :placeholder="t('profile.currentPassword')" autocomplete="current-password" class="w-full rounded-lg border px-3 py-2 text-sm bg-white" />
+  <input x-model="pwForm.new1" type="password" :placeholder="t('auth.newPassword')" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2 text-sm bg-white" />
+  <input x-model="pwForm.new2" type="password" :placeholder="t('auth.confirmPassword')" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2 text-sm bg-white" />
+  <button @click="changePassword()" class="w-full rounded-lg border bg-white py-2 text-sm" x-text="t('profile.passwordSave')"></button>
+  <p x-show="pwMsg" class="text-xs" :class="pwOk ? 'text-emerald-600' : 'text-red-600'" x-text="pwMsg"></p>
+  </div>
+  </section>
 
  <section x-show="view==='admin-courts'" class="space-y-4">
  <div class="flex items-center gap-2">

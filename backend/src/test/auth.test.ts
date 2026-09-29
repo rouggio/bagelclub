@@ -59,6 +59,19 @@ describe("auth (club-scoped)", () => {
     expect(r2.statusCode).toBe(409);
   });
 
+  it("self-service password change rotates, wrong current fails, short rejected", async () => {
+    const { token } = await loginAs(app, "green-village", "member");
+    const H = authHeaders(token, "green-village");
+    const bad = await app.inject({ method: "POST", url: "/api/users/me/password", headers: H, payload: { current_password: "Wrong123!", new_password: "BrandNew123!" } });
+    expect(bad.statusCode).toBe(401);
+    const short = await app.inject({ method: "POST", url: "/api/users/me/password", headers: H, payload: { current_password: "Test1234!", new_password: "short" } });
+    expect(short.statusCode).toBe(400);
+    const ok = await app.inject({ method: "POST", url: "/api/users/me/password", headers: H, payload: { current_password: "Test1234!", new_password: "BrandNew123!" } });
+    expect(ok.json()).toMatchObject({ ok: true });
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", headers: { "X-Club-Slug": "green-village" }, payload: { username: "member", password: "BrandNew123!" } });
+    expect(login.statusCode).toBe(200);
+  });
+
   it("club login without slug fails (superadmin-only path)", async () => {
     const res = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "member", password: "Test1234!" } });
     expect(res.statusCode).toBe(401);

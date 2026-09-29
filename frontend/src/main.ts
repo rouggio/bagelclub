@@ -153,6 +153,9 @@ function app() {
     profileLoading: false as boolean,
     profileError: "" as string,
     profileSuccess: "" as string,
+    pwForm: { cur: "", new1: "", new2: "" } as { cur: string; new1: string; new2: string },
+    pwMsg: "" as string,
+    pwOk: false as boolean,
     telegramLinked: false as boolean,
     telegramLinkUrl: "" as string,
     telegramLinkLoading: false as boolean,
@@ -1630,6 +1633,23 @@ function app() {
         if (this.view === "courts") this.loadAvailability();
       }
       await this.checkTelegramStatus();
+    },
+    async changePassword() {
+      this.pwMsg = ""; this.pwOk = false;
+      if (!this.pwForm.new1 || this.pwForm.new1 !== this.pwForm.new2) { this.pwMsg = this.t("auth.resetMismatch"); return; }
+      if (this.pwForm.new1.length < 8) { this.pwMsg = this.t("auth.resetShort"); return; }
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/users/me/password", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ current_password: this.pwForm.cur, new_password: this.pwForm.new1 }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          this.pwMsg = data.error === "password_current_mismatch" ? this.t("profile.passwordWrong") : this.t("auth.resetInvalid");
+          return;
+        }
+        this.pwOk = true;
+        this.pwMsg = this.t("profile.passwordOk");
+        this.pwForm = { cur: "", new1: "", new2: "" };
+      } catch { this.pwMsg = this.t("auth.resetInvalid"); }
     },
     // Silent session renewal via the httpOnly refresh cookie (7d sliding).
     // Returns true if a fresh access token was stored.
