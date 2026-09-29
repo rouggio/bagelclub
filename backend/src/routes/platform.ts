@@ -313,6 +313,21 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
+  // Email test-send (#28 verification): superadmin-only, audited.
+  fastify.post("/api/platform/email/test", { preHandler: pre }, async (req, reply) => {
+    const db: any = reqDb(req);
+    const to = String((req as any).body?.to || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return reply.status(400).send({ error: "valid 'to' required" });
+    try {
+      const { sendEmail } = await import("../services/email.js");
+      await sendEmail({ to, subject: "Bagel Club email test", text: "If you read this, Brevo delivery works." });
+    } catch (e: any) {
+      return reply.status(e.statusCode || 500).send({ error: e.message || "send failed" });
+    }
+    await audit(db, (req as any).user.id, "platform.email.test", to, {});
+    return reply.send({ ok: true, to });
+  });
+
   // Impersonation grants: brief superadmin-as-club-admin sessions (15 min,
   // one club, single active grant per superadmin). The issued JWT carries
   // role=admin + imp=grantId; club routes re-verify the grant row, so revoke
