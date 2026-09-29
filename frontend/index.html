@@ -331,7 +331,7 @@
  <template x-for="court in filteredCourts()" :key="court.id">
  <div class="rounded-xl border bg-white p-4">
  <div class="flex items-center justify-between">
-  <div><div class="font-semibold" x-text="`${court.name || `Court ${court.number}`} · ${court.type}`"></div><div class="text-xs text-zinc-500" x-text="court.name ? `#${court.number} · ${court.surface || court.type}` : (court.surface || '')"></div><div class="text-xs font-medium text-emerald-700" x-show="fmtPrice(court.base_price_cents)" x-text="fmtPrice(court.base_price_cents) + ' / ' + t('price.slot')"></div></div>
+  <div><div class="font-semibold" x-text="`${court.name || `Court ${court.number}`} · ${court.type}`"></div><div class="text-xs text-zinc-500" x-text="court.name ? `#${court.number} · ${court.surface || court.type}` : (court.surface || '')"></div></div>
  <span class="rounded-lg px-2 py-1 text-xs" :class="court.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100'"> <span x-text="court.is_active ? t('court.active') : t('court.inactive')"></span></span>
  </div>
  <div class="mt-3 grid grid-cols-4 gap-2">
@@ -579,7 +579,6 @@
  <div>
   <span class="font-medium" x-text="c.name || `#${c.number}`"></span>
   <span class="text-zinc-500" x-text="` · ${c.type}` + (c.name ? ` · #${c.number}` : '') + (c.surface ? ` (${c.surface})` : '')"></span>
-  <span class="ml-2 text-xs font-medium text-emerald-700" x-show="fmtPrice(c.base_price_cents)" x-text="fmtPrice(c.base_price_cents)"></span>
  <span class="ml-2 rounded px-1 text-xs" :class="c.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200'" x-text="c.is_active ? t('court.active') : t('court.inactive')"></span>
  </div>
   <div class="flex gap-1">
