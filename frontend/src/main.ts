@@ -88,9 +88,11 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
-    notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_request_email: true, notify_request_push: true, notify_auto_email: false, notify_auto_push: false, notify_approval_email: true, notify_approval_push: true, notify_rejection_email: true, notify_rejection_push: true, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, notify_via_email: true, notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_request_email: boolean; notify_request_push: boolean; notify_auto_email: boolean; notify_auto_push: boolean; notify_approval_email: boolean; notify_approval_push: boolean; notify_rejection_email: boolean; notify_rejection_push: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; notify_via_email: boolean; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
+    notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
+    notifyPrefs: null as null | { channels: any; usable: any; push_master: boolean; prefs: Array<{ event: string; push: boolean }> },
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
     reportsDate: new Date().toISOString().slice(0, 10) as string,
     reportsLoading: false as boolean,
@@ -800,22 +802,10 @@ function app() {
         const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           this.adminSettings = await res.json();
+          const pol = (this.adminSettings as any).notify_policy;
+          const blank = (event: string) => ({ event, to_users_email: true, to_users_push: true, to_admins_email: true, to_admins_push: true });
           this.notificationForm = {
-            notifications_enabled: !!this.adminSettings.notifications_enabled,
-            notify_on_auto_approved: !!this.adminSettings.notify_on_auto_approved,
-            notify_request_email: (this.adminSettings as any).notify_request_email ?? true,
-            notify_request_push: (this.adminSettings as any).notify_request_push ?? true,
-            notify_auto_email: (this.adminSettings as any).notify_auto_email ?? false,
-            notify_auto_push: (this.adminSettings as any).notify_auto_push ?? false,
-            notify_approval_email: (this.adminSettings as any).notify_approval_email ?? true,
-            notify_approval_push: (this.adminSettings as any).notify_approval_push ?? true,
-            notify_rejection_email: (this.adminSettings as any).notify_rejection_email ?? true,
-            notify_rejection_push: (this.adminSettings as any).notify_rejection_push ?? true,
-            notify_on_approval: this.adminSettings.notify_on_approval ?? true,
-            notify_on_rejection: this.adminSettings.notify_on_rejection ?? true,
-            notify_via_telegram: this.adminSettings.notify_via_telegram ?? true,
-            notify_via_whatsapp: this.adminSettings.notify_via_whatsapp ?? true,
-            notify_via_email: (this.adminSettings as any).notify_via_email ?? true,
+            policy: ["request", "auto", "approval", "rejection"].map((event) => ({ ...blank(event), ...((pol || []).find((p: any) => p.event === event) || {}) })),
             notify_email_sender: (this.adminSettings as any).notify_email_sender || "",
             telegram_bot_token: "",
             telegram_admin_chat_id: this.adminSettings.telegram_admin_chat_id || "",
@@ -829,21 +819,7 @@ function app() {
     async saveNotificationSettings() {
       const token = storedToken();
       const payload: any = {
-        notifications_enabled: this.notificationForm.notifications_enabled,
-        notify_on_auto_approved: this.notificationForm.notify_on_auto_approved,
-        notify_request_email: (this.notificationForm as any).notify_request_email,
-        notify_request_push: (this.notificationForm as any).notify_request_push,
-        notify_auto_email: (this.notificationForm as any).notify_auto_email,
-        notify_auto_push: (this.notificationForm as any).notify_auto_push,
-        notify_approval_email: (this.notificationForm as any).notify_approval_email,
-        notify_approval_push: (this.notificationForm as any).notify_approval_push,
-        notify_rejection_email: (this.notificationForm as any).notify_rejection_email,
-        notify_rejection_push: (this.notificationForm as any).notify_rejection_push,
-        notify_on_approval: this.notificationForm.notify_on_approval,
-        notify_on_rejection: this.notificationForm.notify_on_rejection,
-        notify_via_telegram: this.notificationForm.notify_via_telegram,
-        notify_via_whatsapp: this.notificationForm.notify_via_whatsapp,
-        notify_via_email: (this.notificationForm as any).notify_via_email,
+        notify_policy: this.notificationForm.policy,
         notify_email_sender: (this.notificationForm as any).notify_email_sender || null,
         telegram_admin_chat_id: this.notificationForm.telegram_admin_chat_id || null,
         whatsapp_phone_number_id: this.notificationForm.whatsapp_phone_number_id || null,
@@ -853,9 +829,7 @@ function app() {
       if (this.notificationForm.whatsapp_token) payload.whatsapp_token = this.notificationForm.whatsapp_token;
       const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.notificationTestResult = "Save failed: " + await res.text(); return; }
-      this.adminSettings = await res.json();
-      this.notificationForm.telegram_bot_token = "";
-      this.notificationForm.whatsapp_token = "";
+      await this.loadAdminSettings();
       this.notificationTestResult = "Saved.";
     },
     async testNotification(channel: string) {
@@ -885,6 +859,22 @@ function app() {
       const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ auto_approve_bookings: next }) });
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       this.adminSettings.auto_approve_bookings = next;
+    },
+    policyRow(event: string) {
+      const p = (this.notificationForm.policy || []).find((r: any) => r.event === event);
+      return p || { event, to_users_email: true, to_users_push: true, to_admins_email: true, to_admins_push: true };
+    },
+    async loadNotifyPrefs() {
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/users/me/notify-prefs", { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) this.notifyPrefs = await res.json();
+      } catch {}
+    },
+    async saveNotifyPref(event: string, push: boolean) {
+      const token = storedToken();
+      const res = await apiFetch("/api/users/me/notify-prefs", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ event, push }) });
+      if (res.ok) await this.loadNotifyPrefs();
     },
     showPrices(): boolean {
       const v = (this.clubInfo as any)?.show_prices ?? (this.adminSettings as any)?.show_prices;
@@ -1654,12 +1644,13 @@ function app() {
           telegram_chat_id: me.telegram_chat_id || me.telegramChatId || "",
           preferred_language: me.preferred_language || me.preferredLanguage || this.lang,
           preferred_sport: me.preferred_sport || me.preferredSport || "",
-          notify_email: me.notify_email ?? me.notifyEmail ?? true,
+          notify_push_master: me.notify_push_master ?? me.notifyPushMaster ?? true,
           notify_whatsapp: me.notify_whatsapp ?? me.notifyWhatsapp ?? true,
           notify_telegram: me.notify_telegram ?? me.notifyTelegram ?? true,
         };
         this.user = me;
         await this.checkTelegramStatus();
+        await this.loadNotifyPrefs();
       } catch (e: any) { this.profileError = e.message || String(e); }
       finally { this.profileLoading = false; }
     },
@@ -1675,7 +1666,7 @@ function app() {
       payload.mobile = this.fullMobile(this.profileForm.mobile_code, this.profileForm.mobile_number) || null;
       if (this.profileForm.preferred_language) payload.preferred_language = this.profileForm.preferred_language;
       if (this.profileForm.preferred_sport !== undefined) payload.preferred_sport = this.profileForm.preferred_sport || null;
-      payload.notify_email = !!(this.profileForm as any).notify_email;
+      payload.notify_push_master = !!(this.profileForm as any).notify_push_master;
       payload.notify_whatsapp = !!(this.profileForm as any).notify_whatsapp;
       payload.notify_telegram = !!(this.profileForm as any).notify_telegram;
       const res = await apiFetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
@@ -1690,6 +1681,7 @@ function app() {
         if (this.view === "courts") this.loadAvailability();
       }
       await this.checkTelegramStatus();
+      await this.loadNotifyPrefs();
     },
     async changePassword() {
       this.pwMsg = ""; this.pwOk = false;

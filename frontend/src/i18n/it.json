@@ -416,5 +416,19 @@
   "admin.notifications.push": "Push",
   "profile.tabData": "Dati",
   "profile.tabNotify": "Notifiche",
-  "profile.tabPassword": "Password"
+  "profile.tabPassword": "Password",
+  "profile.notifyChannels": "Come ti raggiungiamo",
+  "profile.pushMaster": "Notifiche push",
+  "profile.emailLocked": "Email (sempre attiva)",
+  "profile.notifyEvents": "Per cosa vuoi essere avvisato",
+  "profile.ev_auto": "Approvazioni automatiche",
+  "profile.ev_approval": "Approvazioni",
+  "profile.ev_rejection": "Rifiuti",
+  "profile.connectFirst": "Collega WhatsApp o Telegram per attivare il push",
+  "profile.waNotSet": "imposta il cellulare nei Dati profilo",
+  "profile.pushRule": "Il push arriva solo se è attivo qui, hai collegato WhatsApp o Telegram e il club lo prevede per quell’evento.",
+  "admin.notify.tabUsers": "Avvisa utenti",
+  "admin.notify.tabAlerts": "Avvisi admin",
+  "admin.notify.usersDesc": "Cosa ricevono gli utenti del club per ogni evento, via email e/o push.",
+  "admin.notify.alertsDesc": "Cosa riceve tutto il team admin per ogni evento. Il push segue i canali collegati di ciascun admin."
 }

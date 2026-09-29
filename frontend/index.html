@@ -580,14 +580,36 @@
   <button @click="saveProfile()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('profile.save')"></button>
   </div>
   </div>
-  <div x-show="profileTab==='notify'" class="space-y-3">
+  <div x-show="profileTab==='notify'" class="space-y-3" x-init="loadNotifyPrefs()">
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
-  <div class="font-medium text-sm" x-text="t('profile.notifyTitle')"></div>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_email" /> <span x-text="t('profile.notifyEmail')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_whatsapp" /> <span x-text="t('profile.notifyWhatsapp')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_telegram" /> <span x-text="t('profile.notifyTelegram')"></span></label>
+  <div class="font-medium text-sm" x-text="t('profile.notifyChannels')"></div>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="profileForm.notify_push_master" @change="saveProfile()" /> <span x-text="t('profile.pushMaster')"></span></label>
+  <div class="flex items-center justify-between text-sm"><span>✉️ <span x-text="notifyPrefs?.channels?.email?.address || ''"></span></span><span class="text-xs text-zinc-500" x-text="t('profile.emailLocked')"></span></div>
+  <div class="flex items-center justify-between text-sm">
+  <span>🟢 WhatsApp <span class="text-xs text-zinc-500" x-text="notifyPrefs?.channels?.whatsapp?.connected ? notifyPrefs.channels.whatsapp.number : t('profile.waNotSet')"></span></span>
+  <input type="checkbox" x-model="profileForm.notify_whatsapp" @change="saveProfile()" :disabled="!notifyPrefs?.channels?.whatsapp?.connected" />
   </div>
-  <button @click="saveProfile()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('profile.save')"></button>
+  <div class="flex items-center justify-between text-sm">
+  <span>✈️ Telegram <span class="text-xs" :class="notifyPrefs?.channels?.telegram?.connected ? 'text-emerald-600' : 'text-zinc-500'" x-text="notifyPrefs?.channels?.telegram?.connected ? t('telegram.connected') : t('telegram.notConnected')"></span></span>
+  <input type="checkbox" x-model="profileForm.notify_telegram" @change="saveProfile()" :disabled="!notifyPrefs?.channels?.telegram?.connected" />
+  </div>
+  </div>
+  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+  <div class="font-medium text-sm" x-text="t('profile.notifyEvents')"></div>
+  <table class="w-full text-sm">
+  <thead><tr class="text-left text-xs text-zinc-500"><th class="py-1 font-medium"></th><th class="py-1 font-medium">✉️</th><th class="py-1 font-medium" x-text="t('admin.notifications.push')"></th></tr></thead>
+  <tbody>
+  <template x-for="ev in ['auto','approval','rejection']" :key="ev">
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('profile.ev_'+ev)"></td>
+  <td><input type="checkbox" checked disabled :title="t('profile.emailLocked')" /></td>
+  <td><input type="checkbox" :checked="(notifyPrefs?.prefs?.find(p=>p.event===ev)?.push ?? true)" @change="saveNotifyPref(ev, $event.target.checked)" :disabled="!(notifyPrefs?.push_master && (notifyPrefs?.usable?.telegram || notifyPrefs?.usable?.whatsapp))" :title="t('profile.connectFirst')" /></td>
+  </tr>
+  </template>
+  </tbody>
+  </table>
+  <p class="text-[11px] text-zinc-500" x-text="t('profile.pushRule')"></p>
+  </div>
   </div>
   <div x-show="profileTab==='password'" class="space-y-3">
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
@@ -1050,51 +1072,54 @@
   <section x-show="view==='admin-notifications'" class="mx-auto max-w-2xl space-y-4 rounded-xl border bg-white p-6" x-init="if(user?.role==='admin') loadAdminSettings()">
   <h2 class="text-xl font-bold" x-text="t('admin.notifications.title')"></h2>
   <p class="text-xs text-zinc-500" x-text="t('admin.notifications.desc')"></p>
-  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
-  <div class="font-semibold text-sm" x-text="t('admin.notifications.channels')"></div>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
-  <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
+  <div class="flex gap-2">
+  <button @click="notifyAdminTab='users'" class="flex-1 rounded-lg px-3 py-1 text-xs" :class="notifyAdminTab==='users' ? 'bg-emerald-200 border border-emerald-300 text-emerald-900' : 'border bg-white'" x-text="t('admin.notify.tabUsers')"></button>
+  <button @click="notifyAdminTab='alerts'" class="flex-1 rounded-lg px-3 py-1 text-xs" :class="notifyAdminTab==='alerts' ? 'bg-emerald-200 border border-emerald-300 text-emerald-900' : 'border bg-white'" x-text="t('admin.notify.tabAlerts')"></button>
   </div>
-  <div class="rounded-lg border bg-white p-3 space-y-2">
+  <div x-show="notifyAdminTab==='users'" class="rounded-lg border bg-white p-3 space-y-2">
+  <p class="text-xs text-zinc-500" x-text="t('admin.notify.usersDesc')"></p>
   <table class="w-full text-sm">
   <thead><tr class="text-left text-xs text-zinc-500">
   <th class="py-1 font-medium"></th>
-  <th class="py-1 font-medium" x-text="t('admin.notifications.viaEmail')"></th>
+  <th class="py-1 font-medium">✉️</th>
   <th class="py-1 font-medium" x-text="t('admin.notifications.push')"></th>
   </tr></thead>
   <tbody>
-  <tr><td colspan="3" class="pt-1 text-xs font-semibold text-zinc-500" x-text="t('admin.notifications.adminEvents')"></td></tr>
+  <template x-for="ev in ['auto','approval','rejection']" :key="ev">
   <tr class="border-t">
-  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyAdminOnRequest')"></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_request_email" /></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_request_push" /></td>
+  <td class="py-2 pr-2" x-text="t('admin.notifications.'+(ev==='auto' ? 'notifyOnAutoApproved' : ev==='approval' ? 'notifyOnApproval' : 'notifyOnRejection'))"></td>
+  <td><input type="checkbox" x-model="policyRow(ev).to_users_email" /></td>
+  <td><input type="checkbox" x-model="policyRow(ev).to_users_push" /></td>
   </tr>
-  <tr class="border-t">
-  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnAutoApproved')"></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_auto_email" /></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_auto_push" /></td>
-  </tr>
-  <tr><td colspan="3" class="pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.notifications.userEvents')"></td></tr>
-  <tr class="border-t">
-  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnApproval')"></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_approval_email" /></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_approval_push" /></td>
-  </tr>
-  <tr class="border-t">
-  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnRejection')"></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_rejection_email" /></td>
-  <td><input type="checkbox" x-model="notificationForm.notify_rejection_push" /></td>
-  </tr>
+  </template>
   </tbody>
   </table>
   </div>
-  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_email">
+  <div x-show="notifyAdminTab==='alerts'" class="rounded-lg border bg-white p-3 space-y-2">
+  <p class="text-xs text-zinc-500" x-text="t('admin.notify.alertsDesc')"></p>
+  <table class="w-full text-sm">
+  <thead><tr class="text-left text-xs text-zinc-500">
+  <th class="py-1 font-medium"></th>
+  <th class="py-1 font-medium">✉️</th>
+  <th class="py-1 font-medium" x-text="t('admin.notifications.push')"></th>
+  </tr></thead>
+  <tbody>
+  <template x-for="ev in ['request','auto']" :key="ev">
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('admin.notifications.'+(ev==='request' ? 'notifyAdminOnRequest' : 'notifyOnAutoApproved'))"></td>
+  <td><input type="checkbox" x-model="policyRow(ev).to_admins_email" /></td>
+  <td><input type="checkbox" x-model="policyRow(ev).to_admins_push" /></td>
+  </tr>
+  </template>
+  </tbody>
+  </table>
+  </div>
+  <div class="space-y-3 border-t pt-4">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.email.title')"></h3>
   <input x-model="notificationForm.notify_email_sender" :placeholder="t('admin.notifications.email.senderPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" />
   <button @click="testNotification('email')" class="rounded-lg border bg-white px-3 py-1 text-xs" x-text="t('admin.notifications.email.test')"></button>
   </div>
-  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_telegram">
+  <div class="space-y-3 border-t pt-4">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.telegram.title')"></h3>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="flex items-center justify-between text-sm"><span class="font-medium" x-text="t('admin.notifications.telegram.subscribeTitle')"></span><span class="text-xs" :class="telegramLinked ? 'text-emerald-600' : 'text-zinc-500'" x-text="telegramLinked ? t('telegram.connected') : t('telegram.notConnected')"></span></div>
@@ -1108,7 +1133,7 @@
   <input x-model="notificationForm.telegram_admin_chat_id" :placeholder="t('admin.notifications.telegram.chatIdPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <button @click="testNotification('telegram')" class="rounded-lg border bg-white px-3 py-1 text-xs" x-text="t('admin.notifications.telegram.test')"></button>
   </div>
-  <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_whatsapp">
+  <div class="space-y-3 border-t pt-4">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.whatsapp.title')"></h3>
   <p class="text-xs text-zinc-500" x-text="t('admin.notifications.whatsapp.desc')"></p>
   <input x-model="notificationForm.whatsapp_token" :placeholder="t('admin.notifications.whatsapp.tokenPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" />
