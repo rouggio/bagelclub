@@ -375,5 +375,16 @@
   "price.defaultPerSlot": "Euro pro Slot (Standard)",
   "admin.showPrices": "Preise anzeigen",
   "admin.showPrices.on": "Preise für alle sichtbar",
-  "admin.showPrices.off": "Keine Preise angezeigt"
+  "admin.showPrices.off": "Keine Preise angezeigt",
+  "auth.forgot": "Passwort vergessen?",
+  "auth.resetTitle": "Passwort zurücksetzen",
+  "auth.resetSend": "Link senden",
+  "auth.resetSent": "Falls ein Konto existiert, erhalten Sie eine E-Mail.",
+  "auth.newPassword": "Neues Passwort",
+  "auth.confirmPassword": "Passwort wiederholen",
+  "auth.resetConfirm": "Speichern",
+  "auth.resetOk": "Passwort aktualisiert. Bitte anmelden.",
+  "auth.resetInvalid": "Ungültiger oder abgelaufener Link.",
+  "auth.resetMismatch": "Passwörter stimmen nicht überein.",
+  "auth.resetShort": "Mindestens 8 Zeichen."
 }

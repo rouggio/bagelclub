@@ -375,5 +375,16 @@
   "price.defaultPerSlot": "Euro por turno (defecto)",
   "admin.showPrices": "Mostrar precios",
   "admin.showPrices.on": "Precios visibles para todos",
-  "admin.showPrices.off": "Sin precios visibles"
+  "admin.showPrices.off": "Sin precios visibles",
+  "auth.forgot": "¿Olvidaste tu contraseña?",
+  "auth.resetTitle": "Restablecer contraseña",
+  "auth.resetSend": "Enviar enlace",
+  "auth.resetSent": "Si existe una cuenta, recibirás un email.",
+  "auth.newPassword": "Nueva contraseña",
+  "auth.confirmPassword": "Repite la contraseña",
+  "auth.resetConfirm": "Guardar",
+  "auth.resetOk": "Contraseña actualizada. Inicia sesión.",
+  "auth.resetInvalid": "Enlace inválido o caducado.",
+  "auth.resetMismatch": "Las contraseñas no coinciden.",
+  "auth.resetShort": "Mínimo 8 caracteres."
 }

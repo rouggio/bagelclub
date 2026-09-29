@@ -375,5 +375,16 @@
   "price.defaultPerSlot": "Euro par créneau (défaut)",
   "admin.showPrices": "Afficher les prix",
   "admin.showPrices.on": "Prix visibles par tous",
-  "admin.showPrices.off": "Aucun prix affiché"
+  "admin.showPrices.off": "Aucun prix affiché",
+  "auth.forgot": "Mot de passe oublié?",
+  "auth.resetTitle": "Réinitialiser",
+  "auth.resetSend": "Envoyer le lien",
+  "auth.resetSent": "Si un compte existe, vous recevrez un email.",
+  "auth.newPassword": "Nouveau mot de passe",
+  "auth.confirmPassword": "Repeter le mot de passe",
+  "auth.resetConfirm": "Enregistrer",
+  "auth.resetOk": "Mot de passe mis à jour. Connectez-vous.",
+  "auth.resetInvalid": "Lien invalide ou expiré.",
+  "auth.resetMismatch": "Les mots de passe diffèrent.",
+  "auth.resetShort": "8 caractères minimum."
 }

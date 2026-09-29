@@ -170,6 +170,7 @@
   <input x-model="platformForm.password" type="password" autocomplete="current-password" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 font-medium" x-text="t('platform.login')"></button>
   </form>
+  <button @click="view='reset-request'; resetRequestSent=false; resetError=''" class="w-full text-sm text-zinc-600" x-text="t('auth.forgot')"></button>
   <form @submit.prevent="platformVerify2fa()" x-show="platformChallenge" class="space-y-4">
   <p class="text-sm text-zinc-600" x-text="t('platform.codeHint')"></p>
   <input x-model="platformCode" data-code-input inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" class="w-full rounded-lg border px-3 py-2 text-center text-lg tracking-widest font-mono" />
@@ -405,7 +406,31 @@
   <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('platform.verify')"></button>
   </form>
   <button @click="view='register'" class="w-full text-sm text-zinc-600" x-text="t('auth.needAccount')"></button>
+  <button @click="view='reset-request'; resetRequestSent=false; resetError=''" class="w-full text-sm text-zinc-600" x-text="t('auth.forgot')"></button>
   <div x-show="authError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="authError"></div>
+  </section>
+
+  <section x-show="view==='reset-request'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
+  <h2 class="text-lg font-bold" x-text="t('auth.resetTitle')"></h2>
+  <form @submit.prevent="requestPasswordReset()" class="space-y-4" x-show="!resetRequestSent">
+  <input x-model="resetRequestEmail" type="email" :placeholder="t('auth.usernameOrEmail')" autocomplete="email" class="w-full rounded-lg border px-3 py-2" />
+  <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('auth.resetSend')"></button>
+  </form>
+  <p x-show="resetRequestSent" class="text-sm text-emerald-700" x-text="t('auth.resetSent')"></p>
+  <div x-show="resetError" class="text-sm text-red-600" x-text="resetError"></div>
+  <button @click="view='login'" class="w-full text-sm text-zinc-600" x-text="t('auth.haveAccount')"></button>
+  </section>
+
+  <section x-show="view==='reset-password'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
+  <h2 class="text-lg font-bold" x-text="t('auth.resetTitle')"></h2>
+  <form @submit.prevent="confirmPasswordReset()" class="space-y-4" x-show="!resetDone">
+  <input x-model="resetPw1" type="password" :placeholder="t('auth.newPassword')" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2" />
+  <input x-model="resetPw2" type="password" :placeholder="t('auth.confirmPassword')" autocomplete="new-password" class="w-full rounded-lg border px-3 py-2" />
+  <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('auth.resetConfirm')"></button>
+  </form>
+  <p x-show="resetDone" class="text-sm text-emerald-700" x-text="t('auth.resetOk')"></p>
+  <div x-show="resetError" class="text-sm text-red-600" x-text="resetError"></div>
+  <button @click="view='login'" class="w-full text-sm text-zinc-600" x-text="t('auth.haveAccount')"></button>
   </section>
 
   <section x-show="view==='register'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">

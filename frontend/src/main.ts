@@ -53,6 +53,13 @@ function app() {
     authForm: { username: "", password: "" },
     loginChallenge: null as null | { challenge_id: string; expires_at: string },
     loginCode: "" as string,
+    resetRequestEmail: "" as string,
+    resetRequestSent: false as boolean,
+    resetToken: "" as string,
+    resetPw1: "" as string,
+    resetPw2: "" as string,
+    resetDone: false as boolean,
+    resetError: "" as string,
     twoFa: { pendingAction: "" as "" | "enable" | "disable", code: "" as string, msg: "" as string },
     regForm: { username: "", email: "", mobile_code: defaultDialCode(), mobile_number: "", first_name: "", last_name: "", password: "" },
     countryCodes: DIAL_CODES,
@@ -557,8 +564,7 @@ function app() {
       }
       this.afterLogin(data);
     },
-    async verifyLogin2fa() {      this.authError = "";
-      if (!this.loginChallenge) return;
+    async verifyLogin2fa() {      this.authError = "";      if (!this.loginChallenge) return;
       try {
         const res = await apiFetch("/api/auth/verify-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ challenge_id: this.loginChallenge.challenge_id, code: this.loginCode.trim() }) });
         const data = await res.json().catch(() => ({}));
@@ -568,6 +574,28 @@ function app() {
         this.loginCode = "";
         this.afterLogin(data);
       } catch (e: any) { this.authError = `• ${this.t("error.loginFailed")}`; }
+    },
+    async requestPasswordReset() {
+      this.resetError = ""; this.resetRequestSent = false;
+      try {
+        const slug = getClubSlug();
+        const res = await apiFetch("/api/auth/password/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: this.resetRequestEmail.trim(), ...(slug ? { club_slug: slug } : {}) }) });
+        if (!res.ok) throw new Error(await res.text());
+        this.resetRequestSent = true;
+      } catch (e: any) { this.resetError = e.message || String(e); }
+    },
+    async confirmPasswordReset() {
+      this.resetError = ""; this.resetDone = false;
+      if (!this.resetToken) { this.resetError = this.t("auth.resetInvalid"); return; }
+      if (!this.resetPw1 || this.resetPw1 !== this.resetPw2) { this.resetError = this.t("auth.resetMismatch"); return; }
+      if (this.resetPw1.length < 8) { this.resetError = this.t("auth.resetShort"); return; }
+      try {
+        const res = await apiFetch("/api/auth/password/confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: this.resetToken, new_password: this.resetPw1 }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.resetError = this.t("auth.resetInvalid"); return; }
+        this.resetDone = true;
+        this.resetPw1 = ""; this.resetPw2 = "";
+      } catch (e: any) { this.resetError = this.t("auth.resetInvalid"); }
     },
     afterLogin(data: any) {      this.user = data.user || null;
       this.startTokenRefresh();
@@ -816,6 +844,7 @@ function app() {
       const q = hash.includes("?") ? hash.split("?")[1] : "";
       const h = new URLSearchParams(q).get("highlight");
       this.adminHighlightId = h || null;
+      this.resetToken = new URLSearchParams(q).get("token") || "";
       if (h && this.view === "admin-bookings" && this.adminFilter !== "") {
         // ensure highlighted booking visible even if filter is pending_approval
         this.adminFilter = "";

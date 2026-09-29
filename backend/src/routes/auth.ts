@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { registerSchema, loginSchema } from "../types/schemas.js";
 import bcrypt from "bcryptjs";
+import { randomBytes, createHash } from "crypto";
 import { users } from "../db/schema.js";
 import { eq, or, and, isNull } from "drizzle-orm";
 import { resolveClubSlug, requireClub, getClubSettings, clubLocales } from "../services/club.js";
@@ -249,5 +250,102 @@ export default async function authRoutes(fastify: FastifyInstance) {
     void touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());
     return reply.send({ user: publicUser(user, clubSlug), token });
+  });
+
+  // Password reset (#27): email link, single-use, 60 minutes.
+  // Both endpoints are enumeration-safe: request always returns ok,
+  // confirm uses one generic error for every failure mode.
+  const RESET_TTL_MS = 60 * 60 * 1000;
+  const resetSubject: Record<string, string> = {
+    it: "Reimposta la tua password",
+    en: "Reset your password",
+    fr: "Réinitialisez votre mot de passe",
+    de: "Setzen Sie Ihr Passwort zurück",
+    es: "Restablece tu contraseña",
+  };
+
+  fastify.post("/api/auth/password/request", async (req, reply) => {
+    const body: any = (req as any).body || {};
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db;
+    if (!db) return reply.send({ ok: true });
+    const slug = resolveClubSlug(req) ?? (body.club_slug ? String(body.club_slug).toLowerCase() : null);
+    const identifier = String(body.email || body.username || "").toLowerCase();
+    let user: any = null;
+    let clubSlug: string | null = null;
+    try {
+      if (slug) {
+        const club = await requireClub(req, reply, db, slug);
+        if (!club) return reply.send({ ok: true });
+        const idMatch = or(eq(users.email, identifier), eq(users.username, identifier));
+        const rows = await db.select().from(users).where(and(eq(users.clubId, club.id), idMatch, live())).limit(1);
+        user = rows[0] || null;
+        clubSlug = club.slug;
+      } else if (identifier) {
+        const rows = await db.select().from(users)
+          .where(and(eq(users.role, "superadmin" as any), or(eq(users.email, identifier), eq(users.username, identifier)), live())).limit(1);
+        user = rows[0] || null;
+      }
+    } catch { user = null; }
+    if (user?.email) {
+      try {
+        const { getPlatformSetting } = await import("../services/club.js");
+        const base = ((await getPlatformSetting(db, "base_url")) || "").replace(/\/$/, "");
+        if (!base) {
+          req.log.error("password reset requested but platform base_url is unset");
+          return reply.send({ ok: true });
+        }
+        const { loginChallenges } = await import("../db/schema.js");
+        await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, user.id), eq(loginChallenges.purpose, "reset")));
+        const token = randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+        await db.insert(loginChallenges).values({
+          userId: user.id, codeHash: createHash("sha256").update(token).digest("hex"),
+          purpose: "reset", expiresAt,
+        });
+        const path = clubSlug ? `/club/${clubSlug}/#reset-password?token=${token}` : `/platform#reset-password?token=${token}`;
+        const lang = ["it", "en", "fr", "de", "es"].includes(user.preferredLanguage) ? user.preferredLanguage : "en";
+        const { sendEmail } = await import("../services/email.js");
+        await sendEmail({
+          to: user.email,
+          subject: resetSubject[lang],
+          text: `${resetSubject[lang]}: ${base}${path} (valid 60 minutes)`,
+          html: `<p><a href="${base}${path}">${resetSubject[lang]}</a> (valid 60 minutes)</p>`,
+        });
+      } catch (e: any) {
+        // Never leak delivery state; drop the token so nothing dangles.
+        try {
+          const { loginChallenges } = await import("../db/schema.js");
+          await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, user.id), eq(loginChallenges.purpose, "reset")));
+        } catch {}
+        req.log.error(e, "password reset email failed");
+      }
+    }
+    return reply.send({ ok: true });
+  });
+
+  fastify.post("/api/auth/password/confirm", async (req, reply) => {
+    const { token, new_password } = ((req as any).body as any) || {};
+    if (typeof token !== "string" || typeof new_password !== "string" || new_password.length < 8 || new_password.length > 128) {
+      return reply.status(400).send({ error: "Invalid or expired link" });
+    }
+    const db: any = (fastify as any).dbOwner ?? (fastify as any).db;
+    if (!db) return reply.status(400).send({ error: "Invalid or expired link" });
+    try {
+      const { loginChallenges } = await import("../db/schema.js");
+      const hash = createHash("sha256").update(token).digest("hex");
+      const rows = await db.select().from(loginChallenges).where(
+        and(eq(loginChallenges.codeHash, hash), eq(loginChallenges.purpose, "reset"), isNull(loginChallenges.consumedAt))
+      ).limit(1);
+      const ch = rows[0];
+      if (!ch || new Date(ch.expiresAt).getTime() < Date.now()) {
+        return reply.status(400).send({ error: "Invalid or expired link" });
+      }
+      const passwordHash = await bcrypt.hash(new_password, 10);
+      await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, ch.userId));
+      await db.update(loginChallenges).set({ consumedAt: new Date() }).where(eq(loginChallenges.id, ch.id));
+      return reply.send({ ok: true });
+    } catch {
+      return reply.status(400).send({ error: "Invalid or expired link" });
+    }
   });
 }

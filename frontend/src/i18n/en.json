@@ -375,5 +375,16 @@
   "price.defaultPerSlot": "Euro per slot (default)",
   "admin.showPrices": "Show prices",
   "admin.showPrices.on": "Prices visible to everyone",
-  "admin.showPrices.off": "No prices shown"
+  "admin.showPrices.off": "No prices shown",
+  "auth.forgot": "Forgot password?",
+  "auth.resetTitle": "Reset password",
+  "auth.resetSend": "Send link",
+  "auth.resetSent": "If an account exists, you will receive an email.",
+  "auth.newPassword": "New password",
+  "auth.confirmPassword": "Repeat password",
+  "auth.resetConfirm": "Save password",
+  "auth.resetOk": "Password updated. You can log in now.",
+  "auth.resetInvalid": "Invalid or expired link.",
+  "auth.resetMismatch": "Passwords do not match.",
+  "auth.resetShort": "Minimum 8 characters."
 }
