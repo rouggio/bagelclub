@@ -14,7 +14,8 @@ function safeUser(r: any) {
     preferred_language: r.preferredLanguage, preferred_sport: r.preferredSport,
     first_name: r.firstName, last_name: r.lastName, mobile: r.mobile,
     telegram_chat_id: r.telegramChatId, gender: r.gender, birthdate: r.birthdate,
-    notify_email: r.notifyEmail ?? true, notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
+    notify_email: true, notify_push_master: r.notifyPushMaster ?? true,
+    notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
   };
 }
 
@@ -114,7 +115,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (body.preferred_sport !== undefined) updates.preferredSport = body.preferred_sport || null;
     if (body.mobile !== undefined) updates.mobile = body.mobile || null;
     if (body.telegram_chat_id !== undefined) updates.telegramChatId = body.telegram_chat_id || null;
-    if (body.notify_email !== undefined) updates.notifyEmail = body.notify_email;
+    if (body.notify_push_master !== undefined) updates.notifyPushMaster = body.notify_push_master;
     if (body.notify_whatsapp !== undefined) updates.notifyWhatsapp = body.notify_whatsapp;
     if (body.notify_telegram !== undefined) updates.notifyTelegram = body.notify_telegram;
     if (body.gender !== undefined) updates.gender = body.gender;
@@ -186,6 +187,68 @@ export default async function userRoutes(fastify: FastifyInstance) {
     } catch (e: any) {
       return reply.status(e.statusCode || 500).send({ error: e.message || "OTP failed" });
     }
+  });
+
+  // Notifications v2 (#23a–b): own channel state + per-event push prefs.
+  // GET returns channels (connected/enabled), push master, and per-event prefs.
+  fastify.get("/api/users/me/notify-prefs", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.send({ channels: {}, push_master: true, prefs: [] });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const me = await liveSelf(db, (req as any).user);
+    if (!me) return reply.status(401).send({ error: "User not found" });
+    const { userPushChannels, NOTIFY_EVENTS } = await import("../services/notifications.js");
+    const { notifyEventPrefs } = await import("../db/schema.js");
+    let rows: any[] = [];
+    try { rows = await db.select().from(notifyEventPrefs).where(eq(notifyEventPrefs.userId, me.id)); } catch {}
+    const prefs = (NOTIFY_EVENTS as readonly string[]).map((event) => ({
+      event,
+      push: rows.find((r: any) => String(r.event) === event)?.push ?? true,
+    }));
+    return reply.send({
+      channels: {
+        email: { connected: !!me.email, enabled: true, locked: true, address: me.email ?? null },
+        whatsapp: { connected: !!me.mobile, enabled: me.notifyWhatsapp !== false, number: me.mobile ?? null },
+        telegram: { connected: !!me.telegramChatId, enabled: me.notifyTelegram !== false },
+      },
+      usable: userPushChannels(me),
+      push_master: me.notifyPushMaster !== false,
+      prefs,
+    });
+  });
+
+  // PUT one per-event push pref (upsert). Email has no pref (mandatory).
+  fastify.put("/api/users/me/notify-prefs", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    const { notifyPrefSchema } = await import("../types/schemas.js");
+    const parsed = notifyPrefSchema.safeParse((req as any).body);
+    if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
+    const poolDb: any = (req as any).server.db;
+    if (!poolDb) return reply.send({ ok: true });
+    const club = await requireRequestClub(req, reply, poolDb);
+    if (!club) return;
+    const db: any = reqDb(req);
+    const { rejectImpSelfWrite } = await import("../services/club.js");
+    if (await rejectImpSelfWrite(req, reply, db, club, "me/notify-prefs")) return;
+    const me = await liveSelf(db, (req as any).user);
+    if (!me) return reply.status(401).send({ error: "User not found" });
+    const { notifyEventPrefs } = await import("../db/schema.js");
+    const { and } = await import("drizzle-orm");
+    const { event, push } = parsed.data;
+    try {
+      const existing = await db.select().from(notifyEventPrefs)
+        .where(and(eq(notifyEventPrefs.userId, me.id), eq(notifyEventPrefs.event, event))).limit(1);
+      if (existing[0]) {
+        await db.update(notifyEventPrefs).set({ push })
+          .where(and(eq(notifyEventPrefs.userId, me.id), eq(notifyEventPrefs.event, event)));
+      } else {
+        await db.insert(notifyEventPrefs).values({ userId: me.id, clubId: me.clubId, event, push });
+      }
+    } catch (e: any) {
+      return reply.status(500).send({ error: "prefs_unavailable" });
+    }
+    return reply.send({ ok: true, event, push });
   });
 
   fastify.get("/api/users", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {

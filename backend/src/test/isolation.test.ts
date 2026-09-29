@@ -102,7 +102,7 @@ describe("cross-club isolation", () => {
       const clubRows = await db.select().from((await import("../db/schema.js")).clubs);
       const clubA = clubRows.find((c: any) => c.slug === "green-village")!;
       const clubB = clubRows.find((c: any) => c.slug === "beta")!;
-      await db.update(appSettings).set({ notificationsEnabled: true, telegramBotToken: "tok-A", telegramAdminChatId: "111" }).where(eq(appSettings.clubId, clubA.id));
+      await db.update(appSettings).set({ telegramBotToken: "tok-A", telegramAdminChatId: "111" }).where(eq(appSettings.clubId, clubA.id));
       // Linked admins in both clubs.
       await db.insert(users).values({ clubId: clubA.id, username: "admA", email: "a@x.io", passwordHash: hash, firstName: "A", lastName: "A", role: "admin", telegramChatId: "222", isVerified: true });
       await db.insert(users).values({ clubId: clubB.id, username: "admB", email: "b@x.io", passwordHash: hash, firstName: "B", lastName: "B", role: "admin", telegramChatId: "333", isVerified: true });

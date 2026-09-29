@@ -104,9 +104,24 @@ export const profileSchema = z.object({
   birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   first_name: z.string().min(1).max(100).optional(),
   last_name: z.string().min(1).max(100).optional(),
-  notify_email: z.boolean().optional(),
+  notify_push_master: z.boolean().optional(),
   notify_whatsapp: z.boolean().optional(),
   notify_telegram: z.boolean().optional(),
+});
+
+// Notifications v2: per-user per-event push pref (email mandatory, no email pref).
+export const notifyPrefSchema = z.object({
+  event: z.enum(["request", "auto", "approval", "rejection"]),
+  push: z.boolean(),
+});
+
+// Notifications v2: admin policy row (per event, users vs admins legs).
+export const notifyPolicySchema = z.object({
+  event: z.enum(["request", "auto", "approval", "rejection"]),
+  to_users_email: z.boolean(),
+  to_users_push: z.boolean(),
+  to_admins_email: z.boolean(),
+  to_admins_push: z.boolean(),
 });
 
 export const settingsSchema = z.object({
@@ -118,22 +133,8 @@ export const settingsSchema = z.object({
   club_name: z.string().max(100).optional().nullable(),
   club_phone: z.string().max(30).optional().nullable(),
   club_address: z.string().max(200).optional().nullable(),
-  notifications_enabled: z.boolean().optional(),
-  notify_on_auto_approved: z.boolean().optional(),
-  notify_on_approval: z.boolean().optional(),
-  notify_on_rejection: z.boolean().optional(),
-  notify_via_telegram: z.boolean().optional(),
-  notify_via_whatsapp: z.boolean().optional(),
-  notify_via_email: z.boolean().optional(),
   notify_email_sender: z.string().max(255).optional().nullable(),
-  notify_request_email: z.boolean().optional(),
-  notify_request_push: z.boolean().optional(),
-  notify_auto_email: z.boolean().optional(),
-  notify_auto_push: z.boolean().optional(),
-  notify_approval_email: z.boolean().optional(),
-  notify_approval_push: z.boolean().optional(),
-  notify_rejection_email: z.boolean().optional(),
-  notify_rejection_push: z.boolean().optional(),
+  notify_policy: z.array(notifyPolicySchema).max(4).optional(),
   telegram_bot_token: z.string().max(500).optional().nullable(),
   telegram_admin_chat_id: z.string().max(255).optional().nullable(),
   whatsapp_token: z.string().max(2000).optional().nullable(),

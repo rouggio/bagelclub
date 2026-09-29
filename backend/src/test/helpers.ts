@@ -13,7 +13,7 @@ export async function testDb() {
 export async function resetDb() {
   const { db, pool } = createDb(TEST_DATABASE_URL);
   await pool.query(
-    "TRUNCATE telegram_link_tokens, announcement_translations, bookings, blocks, blocking_rules, timetable_windows, timetables, announcements, audit_log, users, courts, app_settings, clubs, ip_blocks CASCADE"
+    "TRUNCATE telegram_link_tokens, announcement_translations, bookings, blocks, blocking_rules, timetable_windows, timetables, announcements, audit_log, notify_event_prefs, notify_policy, users, courts, app_settings, clubs, ip_blocks CASCADE"
   );
   const clubId = await seedClub(db, "green-village", "Green Village", "Europe/Rome");
   await pool.end();

@@ -273,6 +273,101 @@ export function buildUserDecisionEmail(b: any, court: any, clubName: string, dec
   return { subject: `${clubName} — ${T.yourBookingWas} ${verb}`, html: `<div>${html.replace(/\n/g, "<br/>")}</div>`, text: html.replace(/<[^>]*>/g, "") };
 }
 
+// ---- Notifications v2: policy + prefs ------------------------------------
+// Events: request (booking needs approval → admins), auto (auto-approved →
+// admins info + user decision), approval/rejection (manual decision → user).
+// Send iff admin policy AND recipient subscription AND channel connected.
+export const NOTIFY_EVENTS = ["request", "auto", "approval", "rejection"] as const;
+export type NotifyEvent = (typeof NOTIFY_EVENTS)[number];
+
+const POLICY_DEFAULTS: Record<NotifyEvent, { toUsersEmail: boolean; toUsersPush: boolean; toAdminsEmail: boolean; toAdminsPush: boolean }> = {
+  request: { toUsersEmail: false, toUsersPush: false, toAdminsEmail: true, toAdminsPush: true },
+  auto: { toUsersEmail: true, toUsersPush: true, toAdminsEmail: false, toAdminsPush: false },
+  approval: { toUsersEmail: true, toUsersPush: true, toAdminsEmail: false, toAdminsPush: false },
+  rejection: { toUsersEmail: true, toUsersPush: true, toAdminsEmail: false, toAdminsPush: false },
+};
+
+function normalizeEvent(v: any): NotifyEvent | null {
+  const s = String(v || "");
+  return (NOTIFY_EVENTS as readonly string[]).includes(s) ? (s as NotifyEvent) : null;
+}
+
+/** Ensure the 4 policy rows exist for a club (idempotent; covers new clubs). */
+export async function ensureNotifyPolicy(db: Db, clubId: string) {
+  try {
+    const { notifyPolicy } = await import("../db/schema.js");
+    const rows = (NOTIFY_EVENTS as readonly NotifyEvent[]).map((event) => ({ clubId, event, ...POLICY_DEFAULTS[event] }));
+    await db.insert(notifyPolicy).values(rows as any).onConflictDoNothing();
+  } catch {}
+}
+
+export async function getNotifyPolicy(db: Db, clubId: string): Promise<Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>> {
+  await ensureNotifyPolicy(db, clubId);
+  try {
+    const { notifyPolicy } = await import("../db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    const rows = await db.select().from(notifyPolicy).where(eq(notifyPolicy.clubId, clubId));
+    const byEvent = new Map((rows as any[]).map((r: any) => [r.event, r]));
+    return (NOTIFY_EVENTS as readonly NotifyEvent[]).map((event) => {
+      const r: any = byEvent.get(event);
+      const d = POLICY_DEFAULTS[event];
+      return {
+        event,
+        to_users_email: r?.toUsersEmail ?? d.toUsersEmail,
+        to_users_push: r?.toUsersPush ?? d.toUsersPush,
+        to_admins_email: r?.toAdminsEmail ?? d.toAdminsEmail,
+        to_admins_push: r?.toAdminsPush ?? d.toAdminsPush,
+      };
+    });
+  } catch {
+    return (NOTIFY_EVENTS as readonly NotifyEvent[]).map((event) => {
+      const d = POLICY_DEFAULTS[event];
+      return { event, to_users_email: d.toUsersEmail, to_users_push: d.toUsersPush, to_admins_email: d.toAdminsEmail, to_admins_push: d.toAdminsPush };
+    });
+  }
+}
+
+function policyFor(policy: Array<{ event: string; [k: string]: any }>, event: NotifyEvent) {
+  const d = POLICY_DEFAULTS[event];
+  const found = policy.find((p) => p.event === event);
+  if (!found) return { event, to_users_email: d.toUsersEmail, to_users_push: d.toUsersPush, to_admins_email: d.toAdminsEmail, to_admins_push: d.toAdminsPush };
+  return {
+    event,
+    to_users_email: found.to_users_email ?? found.toUsersEmail ?? d.toUsersEmail,
+    to_users_push: found.to_users_push ?? found.toUsersPush ?? d.toUsersPush,
+    to_admins_email: found.to_admins_email ?? found.toAdminsEmail ?? d.toAdminsEmail,
+    to_admins_push: found.to_admins_push ?? found.toAdminsPush ?? d.toAdminsPush,
+  };
+}
+
+/** Per-user push prefs as a map (absent = on). */
+async function getUserPushPrefs(db: Db, userId: string): Promise<Map<string, boolean>> {
+  const m = new Map<string, boolean>();
+  try {
+    const { notifyEventPrefs } = await import("../db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    const rows = await db.select().from(notifyEventPrefs).where(eq(notifyEventPrefs.userId, userId));
+    for (const r of rows as any[]) m.set(String(r.event), r.push !== false);
+  } catch {}
+  return m;
+}
+
+/** User push leg: master AND per-event pref AND ≥1 usable channel (checked by caller). */
+function userPushSubscribed(user: any, event: NotifyEvent, prefs: Map<string, boolean>) {
+  if (!user) return false;
+  if (user.notifyPushMaster === false) return false;
+  if (prefs.get(event) === false) return false;
+  return true;
+}
+
+/** Push channel usability: connected (chatId/mobile) AND enabled (opt-out flag). */
+export function userPushChannels(user: any): { telegram: boolean; whatsapp: boolean } {
+  return {
+    telegram: !!user?.telegramChatId && user?.notifyTelegram !== false,
+    whatsapp: !!user?.mobile && user?.notifyWhatsapp !== false,
+  };
+}
+
 export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?: { autoApproved?: boolean }) {
   const autoApproved = !!opts?.autoApproved;
   try {
@@ -281,15 +376,11 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings) return;
-    // No master switch: push legs are governed by the event matrix +
-    // WhatsApp/Telegram checkboxes only (notifications_enabled retired).
-    // Per-event matrix (admin side): email vs push legs.
-    const evEmail = autoApproved ? ((settings as any).notifyAutoEmail ?? false) : ((settings as any).notifyRequestEmail ?? true);
-    const evPush = autoApproved ? ((settings as any).notifyAutoPush ?? false) : ((settings as any).notifyRequestPush ?? true);
-    // respect channel toggles
-    const viaTelegram = evPush && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = evPush && ((settings as any).notifyViaWhatsapp ?? true);
-    const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
+    // v2 policy legs for this event (request | auto).
+    const event: NotifyEvent = autoApproved ? "auto" : "request";
+    const policy = policyFor(await getNotifyPolicy(db, booking.clubId), event);
+    const pushOn = !!policy.to_admins_push;
+    const emailOn = !!policy.to_admins_email;
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const slug = club?.slug ?? null;
@@ -316,13 +407,15 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     // Union: manual telegramAdminChatId list + all linked admin users of THIS club
     // (role=admin AND telegramChatId set AND live) so admin can subscribe via
     // Admin → Notifications → Connect Telegram just like regular users in Profile.
-    if (viaTelegram && telegramBotToken && (telegramAdminChatId || true)) {
+    // Admin alerts go to ALL admins: only the channel master + connected state
+    // gate delivery (no per-event personal prefs on the admin side).
+    if (pushOn && telegramBotToken && (telegramAdminChatId || true)) {
       const manualIds = telegramAdminChatId ? String(telegramAdminChatId).split(",").map((s: string) => s.trim()).filter(Boolean) : [];
       let linkedAdminIds: string[] = [];
       try {
         const adminRows = await db.select().from(users).where(and(eq(users.clubId, booking.clubId), eq(users.role, "admin"), isNull(users.deletedAt)));
       linkedAdminIds = (adminRows as any[])
-        .filter((u: any) => u.telegramChatId && u.notifyTelegram !== false)
+        .filter((u: any) => u.telegramChatId && u.notifyTelegram !== false && u.notifyPushMaster !== false)
         .map((u: any) => String(u.telegramChatId).trim())
         .filter(Boolean);
       } catch {}
@@ -341,7 +434,7 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
       }
     }
     // WhatsApp to admin phone (single) — per-recipient language via mobile lookup (this club)
-    if (viaWhatsapp && whatsappToken && whatsappPhoneNumberId && whatsappAdminPhone) {
+    if (pushOn && whatsappToken && whatsappPhoneNumberId && whatsappAdminPhone) {
       let lang: Lang = "it";
       try {
         let norm = whatsappAdminPhone.replace(/[^\d]/g,"");
@@ -362,8 +455,8 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
         : buildAdminPendingPlain(booking, user, court, clubName, platformBase, lang, slug);
       sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, whatsappAdminPhone, waText).catch(() => {});
     }
-    // Email to admin users with an address (opt-out respected) — per-recipient language.
-    if (viaEmail) {
+    // Email to admin users with an address (email is mandatory — opt-out not offered).
+    if (emailOn) {
       let adminRows: any[] = [];
       try {
         adminRows = await db.select().from(users).where(and(eq(users.clubId, booking.clubId), eq(users.role, "admin"), isNull(users.deletedAt)));
@@ -388,19 +481,20 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
   }
 }
 
-export async function notifyUserBookingDecision(poolDb: Db, booking: any, decision: "approved" | "rejected") {
+export async function notifyUserBookingDecision(poolDb: Db, booking: any, decision: "approved" | "rejected", opts?: { event?: string }) {
   try {
     if (!booking?.clubId) return;
     const { cx: db, done } = await scopedDb(poolDb, booking.clubId);
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings) return;
-    // Per-event matrix (user side): email vs push legs.
-    const evEmail = decision === "approved" ? ((settings as any).notifyApprovalEmail ?? true) : ((settings as any).notifyRejectionEmail ?? true);
-    const evPush = decision === "approved" ? ((settings as any).notifyApprovalPush ?? true) : ((settings as any).notifyRejectionPush ?? true);
-    const viaTelegram = evPush && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = evPush && ((settings as any).notifyViaWhatsapp ?? true);
-    const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
+    // v2 policy legs: manual approve/reject use their own event; the
+    // auto-approve path passes event "auto" (its to_users legs were backfilled
+    // from the approval matrix, preserving behaviour).
+    const event: NotifyEvent = normalizeEvent(opts?.event) ?? (decision === "approved" ? "approval" : "rejection");
+    const policy = policyFor(await getNotifyPolicy(db, booking.clubId), event);
+    const emailOn = !!policy.to_users_email;
+    const pushOn = !!policy.to_users_push;
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const { users, courts } = await import("../db/schema.js");
@@ -423,13 +517,16 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     const whatsappPhoneNumberId = settings.whatsappPhoneNumberId || "";
 
     const promises: Promise<boolean>[] = [];
-    if (viaTelegram && user?.telegramChatId && (user?.notifyTelegram ?? true) && telegramBotToken) {
+    const prefs = await getUserPushPrefs(db, booking.userId);
+    const subscribed = userPushSubscribed(user, event, prefs);
+    const channels = userPushChannels(user);
+    if (pushOn && subscribed && channels.telegram && telegramBotToken) {
       promises.push(sendTelegramMessage(telegramBotToken, user.telegramChatId, text));
     }
-    if (viaWhatsapp && user?.mobile && (user?.notifyWhatsapp ?? true) && whatsappToken && whatsappPhoneNumberId) {
+    if (pushOn && subscribed && channels.whatsapp && whatsappToken && whatsappPhoneNumberId) {
       promises.push(sendWhatsAppMessage(whatsappPhoneNumberId, whatsappToken, user.mobile, waText));
     }
-    if (viaEmail && user?.email && (user?.notifyEmail ?? true)) {
+    if (emailOn && user?.email) {
       const { sendEmail } = await import("./email.js");
       const mail = buildUserDecisionEmail(booking, court, clubName, decision, lang);
       promises.push(sendEmail({ to: user.email, subject: mail.subject, html: mail.html, text: mail.text, senderEmail: emailSender }));
@@ -447,7 +544,7 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
   }
 }
 
-export function maskSettingsForAdminResponse(s: any) {
+export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null) {
   if (!s) return s;
   return {
     default_slot_duration_minutes: s.defaultSlotDurationMinutes,
@@ -458,22 +555,8 @@ export function maskSettingsForAdminResponse(s: any) {
     club_name: s.clubName,
     club_phone: s.clubPhone,
     club_address: s.clubAddress,
-    notifications_enabled: s.notificationsEnabled,
-    notify_on_auto_approved: s.notifyOnAutoApproved ?? false,
-    notify_on_approval: s.notifyOnApproval ?? true,
-    notify_on_rejection: s.notifyOnRejection ?? true,
-    notify_via_telegram: s.notifyViaTelegram ?? true,
-    notify_via_whatsapp: s.notifyViaWhatsapp ?? true,
-    notify_via_email: (s as any).notifyViaEmail ?? true,
     notify_email_sender: (s as any).notifyEmailSender ?? null,
-    notify_request_email: (s as any).notifyRequestEmail ?? true,
-    notify_request_push: (s as any).notifyRequestPush ?? true,
-    notify_auto_email: (s as any).notifyAutoEmail ?? false,
-    notify_auto_push: (s as any).notifyAutoPush ?? false,
-    notify_approval_email: (s as any).notifyApprovalEmail ?? true,
-    notify_approval_push: (s as any).notifyApprovalPush ?? true,
-    notify_rejection_email: (s as any).notifyRejectionEmail ?? true,
-    notify_rejection_push: (s as any).notifyRejectionPush ?? true,
+    notify_policy: policy,
     telegram_bot_token: s.telegramBotToken ? maskToken(s.telegramBotToken) : null,
     telegram_bot_token_present: !!s.telegramBotToken,
     telegram_admin_chat_id: s.telegramAdminChatId,

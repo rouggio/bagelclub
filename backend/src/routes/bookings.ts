@@ -93,18 +93,16 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         await settleNotify(notifyAdminPendingBooking((fastify as any).db, row));
       } catch {}
     } else if (status === "approved") {
-      const s = settings as any;
-      if (s?.notifyOnAutoApproved) {
-        try {
-          const { notifyAdminPendingBooking } = await import("../services/notifications.js");
-          await settleNotify(notifyAdminPendingBooking((fastify as any).db, row, { autoApproved: true }));
-        } catch {}
-      }
+      // Auto-approved: the engine gates admin-info on auto.to_admins_* policy.
+      try {
+        const { notifyAdminPendingBooking } = await import("../services/notifications.js");
+        await settleNotify(notifyAdminPendingBooking((fastify as any).db, row, { autoApproved: true }));
+      } catch {}
       // User auto-approved — localized to user's language (skip admin self-bookings)
       if (user.role !== "admin") {
         try {
           const { notifyUserBookingDecision } = await import("../services/notifications.js");
-          await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "approved"));
+          await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "approved", { event: "auto" }));
         } catch {}
       }
     }

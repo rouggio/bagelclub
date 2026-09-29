@@ -51,6 +51,7 @@ export const users = pgTable(
     mobile: varchar("mobile", { length: 20 }),
     telegramChatId: varchar("telegram_chat_id", { length: 100 }),
     notifyEmail: boolean("notify_email").notNull().default(true),
+    notifyPushMaster: boolean("notify_push_master").notNull().default(true),
     notifyWhatsapp: boolean("notify_whatsapp").notNull().default(true),
     notifyTelegram: boolean("notify_telegram").notNull().default(true),
     gender: genderEnum("gender"),
@@ -196,22 +197,7 @@ export const appSettings = pgTable("app_settings", {
   clubName: varchar("club_name", { length: 100 }),
   clubPhone: varchar("club_phone", { length: 30 }),
   clubAddress: varchar("club_address", { length: 200 }),
-  notificationsEnabled: boolean("notifications_enabled").notNull().default(false),
-  notifyOnAutoApproved: boolean("notify_on_auto_approved").notNull().default(false),
-  notifyOnApproval: boolean("notify_on_approval").notNull().default(true),
-  notifyOnRejection: boolean("notify_on_rejection").notNull().default(true),
-  notifyViaTelegram: boolean("notify_via_telegram").notNull().default(true),
-  notifyViaWhatsapp: boolean("notify_via_whatsapp").notNull().default(true),
-  notifyViaEmail: boolean("notify_via_email").notNull().default(true),
   notifyEmailSender: text("notify_email_sender"),
-  notifyRequestEmail: boolean("notify_request_email").notNull().default(true),
-  notifyRequestPush: boolean("notify_request_push").notNull().default(true),
-  notifyAutoEmail: boolean("notify_auto_email").notNull().default(false),
-  notifyAutoPush: boolean("notify_auto_push").notNull().default(false),
-  notifyApprovalEmail: boolean("notify_approval_email").notNull().default(true),
-  notifyApprovalPush: boolean("notify_approval_push").notNull().default(true),
-  notifyRejectionEmail: boolean("notify_rejection_email").notNull().default(true),
-  notifyRejectionPush: boolean("notify_rejection_push").notNull().default(true),
   telegramBotToken: text("telegram_bot_token"),
   telegramAdminChatId: varchar("telegram_admin_chat_id", { length: 255 }),
   whatsappToken: text("whatsapp_token"),
@@ -275,6 +261,38 @@ export const platformSettings = pgTable("platform_settings", {
   value: text("value"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Notifications v2 (#23): per-club per-event policy (admin side).
+// Events: request (→admins), auto (→admins + user), approval/rejection (→user).
+export const notifyPolicy = pgTable(
+  "notify_policy",
+  {
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    event: varchar("event", { length: 20 }).notNull(),
+    toUsersEmail: boolean("to_users_email").notNull().default(true),
+    toUsersPush: boolean("to_users_push").notNull().default(true),
+    toAdminsEmail: boolean("to_admins_email").notNull().default(true),
+    toAdminsPush: boolean("to_admins_push").notNull().default(true),
+  },
+  (t) => [
+    index("notify_policy_club_idx").on(t.clubId),
+  ]
+);
+
+// Notifications v2 (#23): per-user per-event push prefs (opt-out; absent = on).
+// Email is mandatory — no email prefs. club_id denormalized for RLS.
+export const notifyEventPrefs = pgTable(
+  "notify_event_prefs",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    event: varchar("event", { length: 20 }).notNull(),
+    push: boolean("push").notNull().default(true),
+  },
+  (t) => [
+    index("notify_event_prefs_user_idx").on(t.userId),
+  ]
+);
 
 // Impersonation grants: time-boxed superadmin-as-club-admin sessions.
 // Checked in code (assertClubAccess); no RLS, like other platform tables.

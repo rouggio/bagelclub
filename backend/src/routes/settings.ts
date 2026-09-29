@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { settingsSchema } from "../types/schemas.js";
 import { appSettings } from "../db/schema.js";
 import { eq } from "drizzle-orm";
-import { maskSettingsForAdminResponse } from "../services/notifications.js";
+import { maskSettingsForAdminResponse, getNotifyPolicy } from "../services/notifications.js";
 import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
 
 const FALLBACK_INFO = { club_name: "Green Village", club_phone: "3923047417", club_address: "" };
@@ -16,12 +16,7 @@ const FALLBACK_SETTINGS = {
   club_phone: "3923047417",
   club_address: "",
   public_url: "https://empanadel.onrender.com",
-  notifications_enabled: false,
-  notify_on_auto_approved: false,
-  notify_on_approval: true,
-  notify_on_rejection: true,
-  notify_via_telegram: true,
-  notify_via_whatsapp: true,
+  notify_policy: [],
 };
 
 export default async function settingsRoutes(fastify: FastifyInstance) {
@@ -60,7 +55,8 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     const db = reqDb(req);
     const s = await getClubSettings(db, club.id);
     if (!s) return reply.send(FALLBACK_SETTINGS);
-    return reply.send(maskSettingsForAdminResponse(s));
+    const policy = await getNotifyPolicy(db, club.id);
+    return reply.send(maskSettingsForAdminResponse(s, policy));
   });
 
   fastify.put("/api/settings", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
@@ -86,19 +82,19 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.club_name !== undefined) updates.clubName = parsed.data.club_name || null;
     if (parsed.data.club_phone !== undefined) updates.clubPhone = parsed.data.club_phone || null;
     if (parsed.data.club_address !== undefined) updates.clubAddress = parsed.data.club_address || null;
-    if (parsed.data.notifications_enabled !== undefined) updates.notificationsEnabled = parsed.data.notifications_enabled;
-    if (parsed.data.notify_on_auto_approved !== undefined) updates.notifyOnAutoApproved = parsed.data.notify_on_auto_approved;
-    if (parsed.data.notify_on_approval !== undefined) updates.notifyOnApproval = parsed.data.notify_on_approval;
-    if (parsed.data.notify_on_rejection !== undefined) updates.notifyOnRejection = parsed.data.notify_on_rejection;
-    if (parsed.data.notify_via_telegram !== undefined) updates.notifyViaTelegram = parsed.data.notify_via_telegram;
-    if (parsed.data.notify_via_whatsapp !== undefined) updates.notifyViaWhatsapp = parsed.data.notify_via_whatsapp;
-    if (parsed.data.notify_via_email !== undefined) updates.notifyViaEmail = parsed.data.notify_via_email;
     if (parsed.data.notify_email_sender !== undefined) updates.notifyEmailSender = parsed.data.notify_email_sender || null;
-    for (const k of ["request", "auto", "approval", "rejection"] as const) {
-      const em = (parsed.data as any)[`notify_${k}_email`];
-      const pu = (parsed.data as any)[`notify_${k}_push`];
-      if (em !== undefined) (updates as any)[`notify${k[0].toUpperCase()}${k.slice(1)}Email`] = em;
-      if (pu !== undefined) (updates as any)[`notify${k[0].toUpperCase()}${k.slice(1)}Push`] = pu;
+    // v2 policy upsert (per event, users vs admins legs).
+    if (parsed.data.notify_policy !== undefined) {
+      const { notifyPolicy } = await import("../db/schema.js");
+      const { ensureNotifyPolicy } = await import("../services/notifications.js");
+      await ensureNotifyPolicy(qdb, club.id);
+      const { and } = await import("drizzle-orm");
+      for (const p of parsed.data.notify_policy) {
+        await qdb.update(notifyPolicy).set({
+          toUsersEmail: p.to_users_email, toUsersPush: p.to_users_push,
+          toAdminsEmail: p.to_admins_email, toAdminsPush: p.to_admins_push,
+        }).where(and(eq(notifyPolicy.clubId, club.id), eq(notifyPolicy.event, p.event)));
+      }
     }
     // Tokens: if masked value (contains ***) or same as present, ignore to avoid overwriting with masked placeholder
     if (parsed.data.telegram_bot_token !== undefined) {
@@ -131,7 +127,8 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     const row = existing
       ? (await qdb.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
       : (await qdb.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
-    return reply.send(maskSettingsForAdminResponse(row));
+    const policy = await getNotifyPolicy(qdb, club.id);
+    return reply.send(maskSettingsForAdminResponse(row, policy));
   });
 
   // Club-admin 2FA state changes (OTP-gated both ways).
@@ -190,6 +187,6 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     }
     await db.update(appSettings).set({ twoFaEnabled: action === "enable", updatedAt: new Date() }).where(eq(appSettings.clubId, club.id));
     const s = await getClubSettings(db, club.id);
-    return reply.send(maskSettingsForAdminResponse(s));
+    return reply.send(maskSettingsForAdminResponse(s, await getNotifyPolicy(db, club.id)));
   });
 }
