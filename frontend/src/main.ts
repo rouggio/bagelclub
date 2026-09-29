@@ -155,6 +155,7 @@ function app() {
     profileLoading: false as boolean,
     profileError: "" as string,
     profileSuccess: "" as string,
+    profileTab: "data" as "data" | "notify" | "password",
     pwForm: { cur: "", new1: "", new2: "" } as { cur: string; new1: string; new2: string },
     pwMsg: "" as string,
     pwOk: false as boolean,

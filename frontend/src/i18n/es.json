@@ -413,5 +413,8 @@
   "profile.notifyEmail": "Email",
   "profile.notifyWhatsapp": "WhatsApp",
   "profile.notifyTelegram": "Telegram",
-  "admin.notifications.push": "Push"
+  "admin.notifications.push": "Push",
+  "profile.tabData": "Perfil",
+  "profile.tabNotify": "Notificaciones",
+  "profile.tabPassword": "Contraseña"
 }
