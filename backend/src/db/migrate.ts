@@ -24,6 +24,10 @@ if (!url) {
 const pool = new pg.Pool({ connectionString: url });
 const db = drizzle(pool);
 
+let migrateHost = "?";
+try { migrateHost = new URL(url).host; } catch {}
+console.log(`Migrating database at ${migrateHost} ...`);
+
 await migrate(db, { migrationsFolder: path.join(__dirname, "./migrations") });
 console.log("Migrations complete");
 
@@ -47,7 +51,7 @@ for (const [t, c] of requiredColumns) {
 }
 await pool.end();
 if (missing.length) {
-  console.error(`MIGRATION VERIFY FAILED — missing: ${missing.join(", ")}. Run migrations as a DDL-capable owner role.`);
+  console.error(`MIGRATION VERIFY FAILED [${migrateHost}] — missing: ${missing.join(", ")}. Run migrations as a DDL-capable owner role.`);
   process.exit(1);
 }
-console.log("Migration verify ok");
+console.log(`Migration verify ok [${migrateHost}]`);
