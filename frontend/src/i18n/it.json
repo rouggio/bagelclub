@@ -362,5 +362,11 @@
   "platform.auditImpBlocked": "Scrittura bloccata (impersonificazione)",
   "platform.delete": "Elimina",
   "platform.deleteConfirm": "Eliminare questo club e TUTTI i suoi dati? Non si puo annullare.",
-  "platform.cleanupIdle": "Elimina demo inattive (60g)"
+  "platform.cleanupIdle": "Elimina demo inattive (60g)",
+  "admin.timetable.flexible": "Fasce multiple",
+  "admin.timetable.addWindow": "+ Fascia",
+  "admin.timetable.copyFrom": "Copia da",
+  "admin.timetable.copyTo": "a",
+  "admin.timetable.copy": "Copia",
+  "admin.timetable.stubDropped": "minuti scartati"
 }

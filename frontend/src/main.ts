@@ -79,7 +79,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notificationTestResult: "" as string,
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
@@ -136,7 +136,9 @@ function app() {
     adminCourtForm: { number: null as number | null, type: "tennis" as "tennis" | "padel", name: "", surface: "", price_eur: null as number | null } as { number: number | null; type: "tennis" | "padel"; name: string; surface: string; price_eur: number | null },
     editingCourtId: null as string | null,
     adminTimetableCourtId: "" as string,
-    adminTimetableRows: [] as Array<{ dayOfWeek: number; openTime: string; closeTime: string; slotDurationMinutes: number; isClosed: boolean }>,
+    adminTimetableRows: [] as Array<{ dayOfWeek: number; windows: Array<{ open: string; close: string; dur: number }> }>,
+    adminTimetableCopyFrom: 1 as number,
+    adminTimetableCopyTo: [2, 3, 4, 5] as number[],
     adminTimetableLoading: false as boolean,
     adminTimetableError: "" as string,
     adminTimetableSuccess: "" as string,
@@ -1014,19 +1016,40 @@ function app() {
         const token = storedToken();
         const res = await apiFetch(`/api/timetable?court_id=${this.adminTimetableCourtId}`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
-        const rows: any[] = await res.json();
-        const byDay: Record<number, any> = {};
-        for (const r of rows) if (r.courtId) byDay[r.dayOfWeek] = r;
-        this.adminTimetableRows = [1,2,3,4,5,6,0].map((dow) => {
-          const r = byDay[dow];
-          return {
-            dayOfWeek: dow,
-            openTime: r?.openTime ? String(r.openTime).slice(0,5) : "08:00",
-            closeTime: r?.closeTime ? String(r.closeTime).slice(0,5) : "22:00",
-            slotDurationMinutes: r?.slotDurationMinutes || (this.adminCourts.find(c=>c.id===this.adminTimetableCourtId)?.type==='padel' ? 90 : 60),
-            isClosed: !!r?.isClosed,
-          };
-        });
+        const data = await res.json();
+        const flat: any[] = (data.days && data.days[this.adminTimetableCourtId]) || [];
+        const defDur = (this.adminCourts.find((c: any) => c.id === this.adminTimetableCourtId)?.type === "padel") ? 90 : 60;
+        const byDay: Record<number, any[]> = {};
+        for (const w of flat) (byDay[w.day_of_week] ||= []).push({ open: w.open_time, close: w.close_time, dur: w.slot_duration_minutes || defDur });
+        this.adminTimetableRows = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({ dayOfWeek: dow, windows: byDay[dow] || [] }));
+        await this.loadAdminSettings();
+      } catch (e: any) { this.adminTimetableError = e.message || String(e); }
+      finally { this.adminTimetableLoading = false; }
+    },
+    addTimetableWindow(row: any) {
+      row.windows.push({ open: "08:00", close: "22:00", dur: 60 });
+    },
+    removeTimetableWindow(row: any, i: number) {
+      row.windows.splice(i, 1);
+    },
+    async toggleFlexibleSlots() {
+      try {
+        const token = storedToken();
+        const next = !(this.adminSettings as any)?.flexible_slots;
+        const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ flexible_slots: next }) });
+        if (!res.ok) throw new Error(await res.text());
+        await this.loadAdminSettings();
+      } catch (e: any) { this.adminTimetableError = e.message || String(e); }
+    },
+    async copyAdminTimetable() {
+      if (!this.adminTimetableCourtId) return;
+      this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/timetable/copy", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ court_id: this.adminTimetableCourtId, from_dow: this.adminTimetableCopyFrom, to_dows: this.adminTimetableCopyTo }) });
+        if (!res.ok) throw new Error(await res.text());
+        this.adminTimetableSuccess = this.t("admin.timetable.saved");
+        await this.loadAdminTimetable();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }
     },
@@ -1035,32 +1058,33 @@ function app() {
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
         const token = storedToken();
-        const payload = this.adminTimetableRows.map(r => ({
-          court_id: this.adminTimetableCourtId,
-          day_of_week: r.dayOfWeek,
-          open_time: r.isClosed ? null : r.openTime,
-          close_time: r.isClosed ? null : r.closeTime,
-          slot_duration_minutes: r.slotDurationMinutes,
-          is_closed: r.isClosed,
-        }));
-        const url = force ? "/api/timetable?force=true" : "/api/timetable";
-        const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
-        if (!res.ok) {
-          const txt = await res.text();
-          let msg = txt;
-          try {
-            const j = JSON.parse(txt);
-            if (j.conflicts) {
-              const base = this.t('admin.timetable.orphanError');
-              msg = `${base}: ${j.conflicts.map((c:any)=>`${c.date} ${c.startTime}-${c.endTime} ${c.reason}`).join("; ")}`;
-              if (!force) msg += " — " + this.t('admin.timetable.forceHint');
-            } else {
-              msg = j.error || txt;
-            }
-          } catch {}
-          throw new Error(msg);
+        const stubs: string[] = [];
+        for (const row of this.adminTimetableRows) {
+          const url = force ? "/api/timetable?force=true" : "/api/timetable";
+          const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({
+            court_id: this.adminTimetableCourtId,
+            day_of_week: row.dayOfWeek,
+            windows: row.windows.map((w) => ({ open_time: w.open, close_time: w.close, slot_duration_minutes: w.dur })),
+          }) });
+          if (!res.ok) {
+            const txt = await res.text();
+            let msg = txt;
+            try {
+              const j = JSON.parse(txt);
+              if (j.conflicts) {
+                const base = this.t('admin.timetable.orphanError');
+                msg = `${base}: ${j.conflicts.map((c:any)=>`${c.date} ${c.startTime}-${c.endTime} ${c.reason}`).join("; ")}`;
+                if (!force) msg += " — " + this.t('admin.timetable.forceHint');
+              } else {
+                msg = j.error || txt;
+              }
+            } catch {}
+            throw new Error(msg);
+          }
+          const j = await res.json().catch(() => ({}));
+          for (const s of j.stubs_dropped || []) stubs.push(`${s.open}-${s.close}: −${s.dropped_minutes}m`);
         }
-        this.adminTimetableSuccess = this.t('admin.timetable.saved');
+        this.adminTimetableSuccess = this.t('admin.timetable.saved') + (stubs.length ? ` (${this.t('admin.timetable.stubDropped')}: ${stubs.join(", ")})` : "");
         await this.loadAvailability();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }

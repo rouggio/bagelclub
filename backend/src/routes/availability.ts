@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { splitIntoSlots, overlaps } from "../services/availability.js";
-import { timetables, bookings, blocks, blockingRules, courts, users } from "../db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { timetables, timetableWindows, bookings, blocks, blockingRules, courts, users } from "../db/schema.js";
+import { eq, and, asc } from "drizzle-orm";
 import { resolveClubSlug, requireClub, getClubSettings, reqDb } from "../services/club.js";
 
 export default async function availabilityRoutes(fastify: FastifyInstance) {
@@ -24,24 +24,35 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
     if (!courtRows[0]) return reply.status(404).send({ error: "Court not found" });
 
     const dayOfWeek = new Date(date + "T12:00:00Z").getUTCDay();
-    // Load timetable: court-specific override or global
-    let timetableRows = await db.select().from(timetables).where(eq(timetables.courtId, court_id));
-    let tt = timetableRows.find((r: any) => r.dayOfWeek === dayOfWeek);
-    if (!tt) {
-      const globalRows = await db.select().from(timetables).where(eq(timetables.courtId, null as any));
-      // drizzle eq with null needs isNull; fallback query all and filter
-      const all = await db.select().from(timetables);
-      tt = all.find((r: any) => r.courtId === null && r.dayOfWeek === dayOfWeek);
-    }
-    if (!tt || tt.isClosed) return reply.send({ court_id, date, slots: [] });
-
-    let duration = tt.slotDurationMinutes;
-    if (!duration) {
+    // Slot windows for this court+day (ordered). Closed day = zero windows.
+    // Legacy fallback: courts never re-saved since #24 still read `timetables`.
+    const wins = (await db.select().from(timetableWindows)
+      .where(and(eq(timetableWindows.courtId, court_id), eq(timetableWindows.dayOfWeek, dayOfWeek)))
+      .orderBy(asc(timetableWindows.position)) as any[]);
+    let baseSlots: Array<{ start: string; end: string }> = [];
+    if (wins.length) {
       const settings = await getClubSettings(db, club.id);
-      duration = settings?.defaultSlotDurationMinutes ?? 60;
+      const fallbackDur = settings?.defaultSlotDurationMinutes ?? 60;
+      for (const w of wins) {
+        const dur = w.slotDurationMinutes || fallbackDur;
+        baseSlots.push(...splitIntoSlots(String(w.openTime).slice(0, 5), String(w.closeTime).slice(0, 5), dur));
+      }
+    } else {
+      let timetableRows = await db.select().from(timetables).where(eq(timetables.courtId, court_id));
+      let tt = timetableRows.find((r: any) => r.dayOfWeek === dayOfWeek);
+      if (!tt) {
+        const all = await db.select().from(timetables);
+        tt = all.find((r: any) => r.courtId === null && r.dayOfWeek === dayOfWeek);
+      }
+      if (tt && !tt.isClosed && tt.openTime && tt.closeTime) {
+        let duration = tt.slotDurationMinutes;
+        if (!duration) {
+          const settings = await getClubSettings(db, club.id);
+          duration = settings?.defaultSlotDurationMinutes ?? 60;
+        }
+        baseSlots = splitIntoSlots(tt.openTime.slice(0, 5), tt.closeTime.slice(0, 5), duration);
+      }
     }
-    if (!tt.openTime || !tt.closeTime) return reply.send({ court_id, date, slots: [] });
-    const baseSlots = splitIntoSlots(tt.openTime.slice(0, 5), tt.closeTime.slice(0, 5), duration);
 
     // Bookings for that club+court+date (active holds)
     const bookingRows = await db.select().from(bookings).where(and(eq(bookings.clubId, club.id), eq(bookings.courtId, court_id), eq(bookings.date, date)));

@@ -44,13 +44,22 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
 
     let duration = 60;
     const dayOfWeek = new Date(date + "T12:00:00Z").getUTCDay();
-    const allTT = await db.select().from(timetables);
-    let tt = allTT.find((r: any) => String(r.courtId) === String(court_id) && r.dayOfWeek === dayOfWeek);
-    if (!tt) tt = allTT.find((r: any) => r.courtId === null && r.dayOfWeek === dayOfWeek);
-    if (tt?.slotDurationMinutes) duration = tt.slotDurationMinutes;
+    // Duration comes from the window containing the requested start (midday
+    // gaps and per-window durations, #24); legacy fallback for untouched days.
+    const { timetableWindows } = await import("../db/schema.js");
+    const wins: any[] = await db.select().from(timetableWindows)
+      .where(and(eq(timetableWindows.courtId, court_id), eq(timetableWindows.dayOfWeek, dayOfWeek)));
+    const hit = wins.find((w: any) => String(w.openTime).slice(0, 5) <= start_time.slice(0, 5) && start_time.slice(0, 5) < String(w.closeTime).slice(0, 5));
+    if (hit?.slotDurationMinutes) duration = hit.slotDurationMinutes;
     else {
-      const s = await getClubSettings(db, club.id);
-      duration = s?.defaultSlotDurationMinutes ?? 60;
+      const allTT = await db.select().from(timetables);
+      let tt = allTT.find((r: any) => String(r.courtId) === String(court_id) && r.dayOfWeek === dayOfWeek);
+      if (!tt) tt = allTT.find((r: any) => r.courtId === null && r.dayOfWeek === dayOfWeek);
+      if (tt?.slotDurationMinutes) duration = tt.slotDurationMinutes;
+      else {
+        const s = await getClubSettings(db, club.id);
+        duration = s?.defaultSlotDurationMinutes ?? 60;
+      }
     }
     const endTime = computeEnd(start_time, duration);
 

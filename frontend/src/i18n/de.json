@@ -362,5 +362,11 @@
   "platform.auditImpBlocked": "Schreiben blockiert (Impersonierung)",
   "platform.delete": "Loschen",
   "platform.deleteConfirm": "Diesen Club und ALLE seine Daten loschen? Unwiderruflich.",
-  "platform.cleanupIdle": "Inaktive Demos loschen (60T)"
+  "platform.cleanupIdle": "Inaktive Demos loschen (60T)",
+  "admin.timetable.flexible": "Mehrere Fenster",
+  "admin.timetable.addWindow": "+ Fenster",
+  "admin.timetable.copyFrom": "Kopieren von",
+  "admin.timetable.copyTo": "nach",
+  "admin.timetable.copy": "Kopieren",
+  "admin.timetable.stubDropped": "Minuten entfallen"
 }

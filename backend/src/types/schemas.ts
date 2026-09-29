@@ -46,6 +46,25 @@ export const timetableEntrySchema = z.object({
 
 export const timetableBulkSchema = z.array(timetableEntrySchema);
 
+// Flexible windows (#24): full-day replace + copy helper.
+export const timetableWindowSchema = z.object({
+  open_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
+  close_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
+  slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120].includes(v)).default(60),
+});
+
+export const timetableDaySchema = z.object({
+  court_id: z.string().uuid(),
+  day_of_week: z.number().int().min(0).max(6),
+  windows: z.array(timetableWindowSchema).max(8),
+});
+
+export const timetableCopySchema = z.object({
+  court_id: z.string().uuid(),
+  from_dow: z.number().int().min(0).max(6),
+  to_dows: z.array(z.number().int().min(0).max(6)).min(1).max(6),
+});
+
 export const bookingIntentSchema = z.object({
   court_id: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -110,6 +129,7 @@ export const settingsSchema = z.object({
   default_locale: preferredLanguageSchema.optional(),
   // 2FA state changes go through /api/settings/2fa/* (OTP-gated), never PUT.
   two_fa_enabled: z.boolean().optional(),
+  flexible_slots: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

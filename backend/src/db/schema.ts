@@ -98,6 +98,24 @@ export const timetables = pgTable(
   (t) => [unique("timetables_court_day_unique").on(t.courtId, t.dayOfWeek)]
 );
 
+// Flexible slot grids (#24): ordered open windows per court × weekday.
+// Closed day = zero windows. Legacy `timetables` kept read-only as fallback.
+export const timetableWindows = pgTable(
+  "timetable_windows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    courtId: uuid("court_id")
+      .notNull()
+      .references(() => courts.id, { onDelete: "cascade" }),
+    dayOfWeek: smallint("day_of_week").notNull(),
+    openTime: time("open_time").notNull(),
+    closeTime: time("close_time").notNull(),
+    slotDurationMinutes: integer("slot_duration_minutes").notNull().default(60),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [unique("timetable_windows_court_day_pos_unique").on(t.courtId, t.dayOfWeek, t.position)]
+);
+
 export const bookings = pgTable(
   "bookings",
   {
@@ -188,6 +206,7 @@ export const appSettings = pgTable("app_settings", {
   enabledLocales: text("enabled_locales").array().notNull().default(sql`ARRAY['it','en','fr','de','es']`),
   defaultLocale: varchar("default_locale", { length: 5 }).notNull().default("it"),
   twoFaEnabled: boolean("two_fa_enabled").notNull().default(false),
+  flexibleSlots: boolean("flexible_slots").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

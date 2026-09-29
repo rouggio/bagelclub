@@ -599,26 +599,46 @@
   </div>
   <p class="text-sm text-zinc-500" x-text="t('admin.timetable.desc')"></p>
   <div class="rounded-xl border bg-white p-4 space-y-3">
-  <div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
   <label class="text-sm font-medium" x-text="t('admin.timetable.court')"></label>
   <select x-model="adminTimetableCourtId" @change="loadAdminTimetable()" class="rounded border px-3 py-2 text-sm flex-1">
   <template x-for="c in adminCourts" :key="c.id"><option :value="c.id" x-text="`${c.name || `#${c.number}`} · ${c.type}`"></option></template>
   </select>
   <button @click="loadAdminTimetable()" class="rounded border px-3 py-2 text-xs" x-text="t('btn.refresh')"></button>
+  <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="!!adminSettings?.flexible_slots" @change="toggleFlexibleSlots()" /> <span x-text="t('admin.timetable.flexible')"></span></label>
+  </div>
+  <div class="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs">
+  <span x-text="t('admin.timetable.copyFrom')"></span>
+  <select x-model.number="adminTimetableCopyFrom" class="rounded border px-2 py-1">
+  <template x-for="d in [1,2,3,4,5,6,0]" :key="d"><option :value="d" x-text="t('weekday.'+['sun','mon','tue','wed','thu','fri','sat'][d])"></option></template>
+  </select>
+  <span x-text="t('admin.timetable.copyTo')"></span>
+  <template x-for="d in [1,2,3,4,5,6,0]" :key="d">
+  <label class="flex items-center gap-1"><input type="checkbox" :value="d" x-model="adminTimetableCopyTo" :disabled="d===adminTimetableCopyFrom" /> <span x-text="t('weekday.'+['sun','mon','tue','wed','thu','fri','sat'][d]).slice(0,2)"></span></label>
+  </template>
+  <button @click="copyAdminTimetable()" class="rounded border bg-white px-2 py-1" x-text="t('admin.timetable.copy')"></button>
   </div>
   <p x-show="adminTimetableError" class="text-xs text-red-600" x-text="adminTimetableError"></p>
   <p x-show="adminTimetableSuccess" class="text-xs text-emerald-600" x-text="adminTimetableSuccess"></p>
   <div class="space-y-2">
   <template x-for="row in adminTimetableRows" :key="row.dayOfWeek">
-  <div class="flex flex-wrap items-center gap-2 rounded border px-3 py-2 text-sm" :class="row.isClosed ? 'bg-zinc-100 opacity-60' : 'bg-white'">
+  <div class="rounded border px-3 py-2 text-sm" :class="row.windows.length ? 'bg-white' : 'bg-zinc-100 opacity-60'">
+  <div class="flex flex-wrap items-center gap-2">
   <span class="w-20 font-medium" x-text="t('weekday.'+['sun','mon','tue','wed','thu','fri','sat'][row.dayOfWeek])"></span>
-  <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="row.isClosed" @change="row.isClosed = $event.target.checked" /> <span x-text="t('admin.timetable.closed')"></span></label>
-  <input type="time" x-model="row.openTime" :disabled="row.isClosed" class="rounded border px-2 py-1 text-sm" />
-  <span x-show="!row.isClosed">—</span>
-  <input type="time" x-model="row.closeTime" :disabled="row.isClosed" class="rounded border px-2 py-1 text-sm" />
-  <select x-model.number="row.slotDurationMinutes" :disabled="row.isClosed" class="rounded border px-2 py-1 text-sm">
+  <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="!row.windows.length" @change="$event.target.checked ? row.windows.splice(0) : row.windows.push({open:'08:00',close:'22:00',dur:60})" /> <span x-text="t('admin.timetable.closed')"></span></label>
+  <button x-show="adminSettings?.flexible_slots" @click="addTimetableWindow(row)" class="ml-auto rounded border px-2 py-1 text-xs" x-text="t('admin.timetable.addWindow')"></button>
+  </div>
+  <template x-for="(w, i) in row.windows" :key="i">
+  <div class="mt-2 flex flex-wrap items-center gap-2">
+  <input type="time" x-model="w.open" class="rounded border px-2 py-1 text-sm" />
+  <span>—</span>
+  <input type="time" x-model="w.close" class="rounded border px-2 py-1 text-sm" />
+  <select x-model.number="w.dur" class="rounded border px-2 py-1 text-sm">
   <option value="30">30m</option><option value="60">60m</option><option value="90">90m</option><option value="120">120m</option>
   </select>
+  <button x-show="adminSettings?.flexible_slots && row.windows.length > 1" @click="removeTimetableWindow(row, i)" class="rounded border px-2 py-1 text-xs">×</button>
+  </div>
+  </template>
   </div>
   </template>
   </div>

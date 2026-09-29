@@ -362,5 +362,11 @@
   "platform.auditImpBlocked": "Ecriture bloquee (impersonation)",
   "platform.delete": "Supprimer",
   "platform.deleteConfirm": "Supprimer ce club et TOUTES ses donnees ? Irreversible.",
-  "platform.cleanupIdle": "Supprimer demos inactives (60j)"
+  "platform.cleanupIdle": "Supprimer demos inactives (60j)",
+  "admin.timetable.flexible": "Plages multiples",
+  "admin.timetable.addWindow": "+ Plage",
+  "admin.timetable.copyFrom": "Copier de",
+  "admin.timetable.copyTo": "vers",
+  "admin.timetable.copy": "Copier",
+  "admin.timetable.stubDropped": "minutes perdues"
 }

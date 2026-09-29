@@ -1,4 +1,4 @@
-import { clubs, courts, timetables, users, bookings, blocks, blockingRules, announcements, announcementTranslations, telegramLinkTokens, appSettings } from "../db/schema.js";
+import { clubs, courts, timetableWindows, timetables, users, bookings, blocks, blockingRules, announcements, announcementTranslations, telegramLinkTokens, appSettings } from "../db/schema.js";
 import { eq, and, ne, sql } from "drizzle-orm";
 import { withClubScope } from "./club.js";
 import bcrypt from "bcryptjs";
@@ -16,11 +16,11 @@ async function demoClubSeed(db: any, clubId: string, courtSpecs: Array<{ type: "
       created.push(c);
     }
   }
-  // Timetable 08:00-22:00 (padel 90, tennis 60)
+  // Timetable 08:00-22:00 (padel 90, tennis 60) as single windows.
   for (const court of created) {
     const slot = court.type === "padel" ? 90 : 60;
     for (let dow = 0; dow <= 6; dow++) {
-      await db.insert(timetables).values({ courtId: court.id, dayOfWeek: dow, openTime: "08:00", closeTime: "22:00", slotDurationMinutes: slot, isClosed: false }).onConflictDoNothing();
+      await db.insert(timetableWindows).values({ courtId: court.id, dayOfWeek: dow, openTime: "08:00", closeTime: "22:00", slotDurationMinutes: slot, position: 0 }).onConflictDoNothing();
     }
   }
   // Demo admin

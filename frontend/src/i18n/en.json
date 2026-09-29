@@ -362,5 +362,11 @@
   "platform.auditImpBlocked": "Write blocked (impersonation)",
   "platform.delete": "Delete",
   "platform.deleteConfirm": "Delete this club and ALL its data? Cannot be undone.",
-  "platform.cleanupIdle": "Delete idle demos (60d)"
+  "platform.cleanupIdle": "Delete idle demos (60d)",
+  "admin.timetable.flexible": "Multiple windows",
+  "admin.timetable.addWindow": "+ Window",
+  "admin.timetable.copyFrom": "Copy from",
+  "admin.timetable.copyTo": "to",
+  "admin.timetable.copy": "Copy",
+  "admin.timetable.stubDropped": "minutes dropped"
 }
