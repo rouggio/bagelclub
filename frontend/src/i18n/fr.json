@@ -412,5 +412,6 @@
   "profile.notifyTitle": "Mes notifications",
   "profile.notifyEmail": "Email",
   "profile.notifyWhatsapp": "WhatsApp",
-  "profile.notifyTelegram": "Telegram"
+  "profile.notifyTelegram": "Telegram",
+  "admin.notifications.push": "Push"
 }

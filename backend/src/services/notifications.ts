@@ -283,11 +283,13 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     if (!settings) return;
     // Master switch is push-only: it parents WhatsApp/Telegram, never email.
     const pushOn = (settings as any).notificationsEnabled !== false;
-    if ((settings as any).notifyAdminOnRequest === false) return;
+    // Per-event matrix (admin side): email vs push legs.
+    const evEmail = autoApproved ? ((settings as any).notifyAutoEmail ?? false) : ((settings as any).notifyRequestEmail ?? true);
+    const evPush = autoApproved ? ((settings as any).notifyAutoPush ?? false) : ((settings as any).notifyRequestPush ?? true);
     // respect channel toggles
-    const viaTelegram = pushOn && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = pushOn && ((settings as any).notifyViaWhatsapp ?? true);
-    const viaEmail = (settings as any).notifyViaEmail ?? true;
+    const viaTelegram = pushOn && evPush && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = pushOn && evPush && ((settings as any).notifyViaWhatsapp ?? true);
+    const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const slug = club?.slug ?? null;
@@ -393,12 +395,13 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings) return;
-    if (decision === "approved" && (settings as any).notifyOnApproval === false) return;
-    if (decision === "rejected" && (settings as any).notifyOnRejection === false) return;
+    // Per-event matrix (user side): email vs push legs.
+    const evEmail = decision === "approved" ? ((settings as any).notifyApprovalEmail ?? true) : ((settings as any).notifyRejectionEmail ?? true);
+    const evPush = decision === "approved" ? ((settings as any).notifyApprovalPush ?? true) : ((settings as any).notifyRejectionPush ?? true);
     const pushOn = (settings as any).notificationsEnabled !== false;
-    const viaTelegram = pushOn && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = pushOn && ((settings as any).notifyViaWhatsapp ?? true);
-    const viaEmail = (settings as any).notifyViaEmail ?? true;
+    const viaTelegram = pushOn && evPush && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = pushOn && evPush && ((settings as any).notifyViaWhatsapp ?? true);
+    const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
     const { users, courts } = await import("../db/schema.js");
@@ -464,7 +467,14 @@ export function maskSettingsForAdminResponse(s: any) {
     notify_via_whatsapp: s.notifyViaWhatsapp ?? true,
     notify_via_email: (s as any).notifyViaEmail ?? true,
     notify_email_sender: (s as any).notifyEmailSender ?? null,
-    notify_admin_on_request: (s as any).notifyAdminOnRequest ?? true,
+    notify_request_email: (s as any).notifyRequestEmail ?? true,
+    notify_request_push: (s as any).notifyRequestPush ?? true,
+    notify_auto_email: (s as any).notifyAutoEmail ?? false,
+    notify_auto_push: (s as any).notifyAutoPush ?? false,
+    notify_approval_email: (s as any).notifyApprovalEmail ?? true,
+    notify_approval_push: (s as any).notifyApprovalPush ?? true,
+    notify_rejection_email: (s as any).notifyRejectionEmail ?? true,
+    notify_rejection_push: (s as any).notifyRejectionPush ?? true,
     telegram_bot_token: s.telegramBotToken ? maskToken(s.telegramBotToken) : null,
     telegram_bot_token_present: !!s.telegramBotToken,
     telegram_admin_chat_id: s.telegramAdminChatId,

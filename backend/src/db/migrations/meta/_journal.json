@@ -204,6 +204,13 @@
       "when": 1790690400000,
       "tag": "0028_notify_email_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790694000000,
+      "tag": "0029_notify_matrix",
+      "breakpoints": true
     }
   ]
 }

@@ -94,7 +94,12 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.notify_via_whatsapp !== undefined) updates.notifyViaWhatsapp = parsed.data.notify_via_whatsapp;
     if (parsed.data.notify_via_email !== undefined) updates.notifyViaEmail = parsed.data.notify_via_email;
     if (parsed.data.notify_email_sender !== undefined) updates.notifyEmailSender = parsed.data.notify_email_sender || null;
-    if (parsed.data.notify_admin_on_request !== undefined) updates.notifyAdminOnRequest = parsed.data.notify_admin_on_request;
+    for (const k of ["request", "auto", "approval", "rejection"] as const) {
+      const em = (parsed.data as any)[`notify_${k}_email`];
+      const pu = (parsed.data as any)[`notify_${k}_push`];
+      if (em !== undefined) (updates as any)[`notify${k[0].toUpperCase()}${k.slice(1)}Email`] = em;
+      if (pu !== undefined) (updates as any)[`notify${k[0].toUpperCase()}${k.slice(1)}Push`] = pu;
+    }
     // Tokens: if masked value (contains ***) or same as present, ignore to avoid overwriting with masked placeholder
     if (parsed.data.telegram_bot_token !== undefined) {
       const v = parsed.data.telegram_bot_token;

@@ -102,14 +102,14 @@ describe("notification channels (#23)", () => {
     try {
       const { notifyAdminPendingBooking } = await import("../services/notifications.js");
       const { db, pool } = await testDb();
-      await db.update(appSettings).set({ notifyViaEmail: false }).where(eq(appSettings.clubId, club.id));
+      await db.update(appSettings).set({ notifyRequestEmail: false }).where(eq(appSettings.clubId, club.id));
       await pool.end();
       const { db: db2, pool: pool2 } = await testDb();
       await notifyAdminPendingBooking(db2, booking);
       await pool2.end();
       expect(brevoCalls(sent).length).toBe(0);
       const { db: db3, pool: pool3 } = await testDb();
-      await db3.update(appSettings).set({ notifyViaEmail: true, notifyAdminOnRequest: false }).where(eq(appSettings.clubId, club.id));
+      await db3.update(appSettings).set({ notifyRequestEmail: false, notifyRequestPush: false }).where(eq(appSettings.clubId, club.id));
       await pool3.end();
       sent.length = 0;
       const { db: db4, pool: pool4 } = await testDb();

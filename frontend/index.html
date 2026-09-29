@@ -1045,15 +1045,36 @@
   <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
   <label class="flex items-center gap-2 text-sm" :class="!notificationForm.notifications_enabled ? 'opacity-50' : ''"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
   </div>
-  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
-  <div class="font-semibold text-sm" x-text="t('admin.notifications.adminEvents')"></div>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_admin_on_request" /> <span x-text="t('admin.notifications.notifyAdminOnRequest')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_auto_approved" /> <span x-text="t('admin.notifications.notifyOnAutoApproved')"></span></label>
-  </div>
-  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
-  <div class="font-semibold text-sm" x-text="t('admin.notifications.userEvents')"></div>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_approval" /> <span x-text="t('admin.notifications.notifyOnApproval')"></span></label>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_on_rejection" /> <span x-text="t('admin.notifications.notifyOnRejection')"></span></label>
+  <div class="rounded-lg border bg-white p-3 space-y-2">
+  <table class="w-full text-sm">
+  <thead><tr class="text-left text-xs text-zinc-500">
+  <th class="py-1 font-medium"></th>
+  <th class="py-1 font-medium" x-text="t('admin.notifications.viaEmail')"></th>
+  <th class="py-1 font-medium" x-text="t('admin.notifications.push')"></th>
+  </tr></thead>
+  <tbody>
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyAdminOnRequest')"></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_request_email" /></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_request_push" /></td>
+  </tr>
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnAutoApproved')"></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_auto_email" /></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_auto_push" /></td>
+  </tr>
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnApproval')"></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_approval_email" /></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_approval_push" /></td>
+  </tr>
+  <tr class="border-t">
+  <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnRejection')"></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_rejection_email" /></td>
+  <td><input type="checkbox" x-model="notificationForm.notify_rejection_push" /></td>
+  </tr>
+  </tbody>
+  </table>
   </div>
   <div class="space-y-3 border-t pt-4" x-show="notificationForm.notify_via_email">
   <h3 class="font-semibold text-sm" x-text="t('admin.notifications.email.title')"></h3>

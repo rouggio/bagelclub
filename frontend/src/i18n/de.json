@@ -412,5 +412,6 @@
   "profile.notifyTitle": "Meine Mitteilungen",
   "profile.notifyEmail": "E-Mail",
   "profile.notifyWhatsapp": "WhatsApp",
-  "profile.notifyTelegram": "Telegram"
+  "profile.notifyTelegram": "Telegram",
+  "admin.notifications.push": "Push"
 }
