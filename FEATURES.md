@@ -8,7 +8,9 @@
 | # | Feature | Notes |
 |---|---------|-------|
 | 23 | Notifications per channel — email + push, push suboptions WhatsApp / Telegram; preferences split admin vs user; mail/telegram/whatsapp settings sections visible only when their channel checkbox is on | DONE: Brevo pipe (#28), spec. MISSING: events×channel matrix, templates, per-club sender settings, prefs UI, WhatsApp/Telegram send paths |
-| 26 | Explicit participant lists on bookings (admin bypass: free booking) | MISSING: everything (design + build); per-club option |
+| 26 | Explicit participant lists on bookings (admin bypass: free booking) — per-club option | MISSING: everything (design + build) |
+| | ↳ 26a. Club admin decides whether this club requires bookings to list all players, picked from the users database | |
+| | ↳ 26b. When required, the booking screen adds a field to search & pick users (associates) by username or email | |
 | 30 | Club admin submits feature requests (in-app channel to the platform) | MISSING: everything (design + build) |
 | 16 | Online payment collection (Stripe/subscriptions/player checkout) | later candidate, was `SPEC.md:20` non-goal |
 | 17 | Peak/off-peak price rules, discounts, memberships | later candidate |
