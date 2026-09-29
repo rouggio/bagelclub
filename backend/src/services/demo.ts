@@ -1,4 +1,4 @@
-import { clubs, courts, timetables, users, bookings, blocks, blockingRules, announcements, telegramLinkTokens, appSettings } from "../db/schema.js";
+import { clubs, courts, timetables, users, bookings, blocks, blockingRules, announcements, announcementTranslations, telegramLinkTokens, appSettings } from "../db/schema.js";
 import { eq, and, ne, sql } from "drizzle-orm";
 import { withClubScope } from "./club.js";
 import bcrypt from "bcryptjs";
@@ -95,10 +95,69 @@ export async function seedShowcaseExtras(db: any, clubId: string) {
   await db.delete(announcements).where(
     and(eq(announcements.clubId, clubId), eq(announcements.title, "Demo access / Accesso demo"))
   );
-  await db.insert(announcements).values({
+  const [card] = await db.insert(announcements).values({
     clubId, title: "Demo access / Accesso demo", body,
     visibility: "public", position: 0,
-  });
+  }).returning();
+  // Localised card in every supported locale (public visitors read their own).
+  const localized: Record<string, { title: string; body: string }> = {
+    it: {
+      title: "Accesso demo",
+      body: [
+        "Benvenuti! Gioca con questo club o crea la tua demo dalla home.",
+        "Questa demo si azzera ogni 3 ore — tutto qui è pubblico.",
+        "",
+        "Admin: demo-admin / demo1234!",
+        "Giocatori: demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+      ].join("\n"),
+    },
+    en: {
+      title: "Demo access",
+      body: [
+        "Welcome! Play with this club or create your own demo from the home page.",
+        "This demo resets every 3 hours — everything here is public test data.",
+        "",
+        "Admin: demo-admin / demo1234!",
+        "Players: demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+      ].join("\n"),
+    },
+    fr: {
+      title: "Accès démo",
+      body: [
+        "Bienvenue ! Jouez avec ce club ou créez votre propre démo depuis la page d'accueil.",
+        "Cette démo est réinitialisée toutes les 3 heures — tout ici est public.",
+        "",
+        "Admin : demo-admin / demo1234!",
+        "Joueurs : demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+      ].join("\n"),
+    },
+    de: {
+      title: "Demo-Zugang",
+      body: [
+        "Willkommen! Spielen Sie mit diesem Club oder erstellen Sie Ihre eigene Demo von der Startseite.",
+        "Diese Demo wird alle 3 Stunden zurückgesetzt — alles hier ist öffentlich.",
+        "",
+        "Admin: demo-admin / demo1234!",
+        "Spieler: demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+      ].join("\n"),
+    },
+    es: {
+      title: "Acceso demo",
+      body: [
+        "¡Bienvenidos! Jueguen con este club o creen su propia demo desde la página principal.",
+        "Esta demo se restablece cada 3 horas — todo aquí es público.",
+        "",
+        "Admin: demo-admin / demo1234!",
+        "Jugadores: demo1 / demo1234! · demo2 / demo1234! · demo3 / demo1234!",
+      ].join("\n"),
+    },
+  };
+  for (const [lang, tr] of Object.entries(localized)) {
+    await db.insert(announcementTranslations).values({ announcementId: card.id, lang, title: tr.title, body: tr.body }).onConflictDoUpdate({
+      target: [announcementTranslations.announcementId, announcementTranslations.lang],
+      set: { title: tr.title, body: tr.body },
+    });
+  }
 }
 
 /** Delete expired personal demo runs (never the showcase). Returns deleted slugs. */

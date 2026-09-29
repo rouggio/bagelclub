@@ -32,6 +32,10 @@ describe("demo showcase", () => {
     expect(anns.length).toBe(1);
     expect(anns[0].visibility).toBe("public");
     expect(anns[0].body).toContain("demo-admin / demo1234!");
+    const { announcementTranslations } = await import("../db/schema.js");
+    const trs = await db.select().from(announcementTranslations).where(eq(announcementTranslations.announcementId, anns[0].id));
+    expect(trs.map((r: any) => r.lang).sort()).toEqual(["de", "en", "es", "fr", "it"]);
+    expect(trs.every((r: any) => r.body.includes("demo1234!"))).toBe(true);
     await pool.end();
   });
 
