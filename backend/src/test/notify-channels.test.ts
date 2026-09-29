@@ -62,7 +62,7 @@ describe("notification channels (#23)", () => {
     }
   });
 
-  it("push master off silences Telegram but email still flows", async () => {
+  it("retired master switch is ignored: push flows on matrix + channels alone", async () => {
     const { club, booking } = await seed();
     const sent: any[] = [];
     vi.stubGlobal("fetch", (async (url: string, init: any) => {
@@ -78,7 +78,7 @@ describe("notification channels (#23)", () => {
       await notifyAdminPendingBooking(db2, booking);
       await pool2.end();
       const tg = sent.filter((s) => !String(s.url).includes("api.brevo.com"));
-      expect(tg.length).toBe(0);
+      expect(tg.length).toBeGreaterThan(0);
       expect(sent.filter((s) => String(s.url).includes("api.brevo.com")).length).toBeGreaterThan(0);
     } finally {
       vi.unstubAllGlobals();

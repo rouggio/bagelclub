@@ -1038,7 +1038,6 @@
   <section x-show="view==='admin-notifications'" class="mx-auto max-w-2xl space-y-4 rounded-xl border bg-white p-6" x-init="if(user?.role==='admin') loadAdminSettings()">
   <h2 class="text-xl font-bold" x-text="t('admin.notifications.title')"></h2>
   <p class="text-xs text-zinc-500" x-text="t('admin.notifications.desc')"></p>
-  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.enable')"></span></label>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.channels')"></div>
   <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
@@ -1053,6 +1052,7 @@
   <th class="py-1 font-medium" x-text="t('admin.notifications.push')"></th>
   </tr></thead>
   <tbody>
+  <tr><td colspan="3" class="pt-1 text-xs font-semibold text-zinc-500" x-text="t('admin.notifications.adminEvents')"></td></tr>
   <tr class="border-t">
   <td class="py-2 pr-2" x-text="t('admin.notifications.notifyAdminOnRequest')"></td>
   <td><input type="checkbox" x-model="notificationForm.notify_request_email" /></td>
@@ -1063,6 +1063,7 @@
   <td><input type="checkbox" x-model="notificationForm.notify_auto_email" /></td>
   <td><input type="checkbox" x-model="notificationForm.notify_auto_push" /></td>
   </tr>
+  <tr><td colspan="3" class="pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.notifications.userEvents')"></td></tr>
   <tr class="border-t">
   <td class="py-2 pr-2" x-text="t('admin.notifications.notifyOnApproval')"></td>
   <td><input type="checkbox" x-model="notificationForm.notify_approval_email" /></td>

@@ -281,14 +281,14 @@ export async function notifyAdminPendingBooking(poolDb: Db, booking: any, opts?:
     try {
     const { settings, club, platformBase } = await getClubNotifyContext(db, booking.clubId);
     if (!settings) return;
-    // Master switch is push-only: it parents WhatsApp/Telegram, never email.
-    const pushOn = (settings as any).notificationsEnabled !== false;
+    // No master switch: push legs are governed by the event matrix +
+    // WhatsApp/Telegram checkboxes only (notifications_enabled retired).
     // Per-event matrix (admin side): email vs push legs.
     const evEmail = autoApproved ? ((settings as any).notifyAutoEmail ?? false) : ((settings as any).notifyRequestEmail ?? true);
     const evPush = autoApproved ? ((settings as any).notifyAutoPush ?? false) : ((settings as any).notifyRequestPush ?? true);
     // respect channel toggles
-    const viaTelegram = pushOn && evPush && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = pushOn && evPush && ((settings as any).notifyViaWhatsapp ?? true);
+    const viaTelegram = evPush && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = evPush && ((settings as any).notifyViaWhatsapp ?? true);
     const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
@@ -398,9 +398,8 @@ export async function notifyUserBookingDecision(poolDb: Db, booking: any, decisi
     // Per-event matrix (user side): email vs push legs.
     const evEmail = decision === "approved" ? ((settings as any).notifyApprovalEmail ?? true) : ((settings as any).notifyRejectionEmail ?? true);
     const evPush = decision === "approved" ? ((settings as any).notifyApprovalPush ?? true) : ((settings as any).notifyRejectionPush ?? true);
-    const pushOn = (settings as any).notificationsEnabled !== false;
-    const viaTelegram = pushOn && evPush && ((settings as any).notifyViaTelegram ?? true);
-    const viaWhatsapp = pushOn && evPush && ((settings as any).notifyViaWhatsapp ?? true);
+    const viaTelegram = evPush && ((settings as any).notifyViaTelegram ?? true);
+    const viaWhatsapp = evPush && ((settings as any).notifyViaWhatsapp ?? true);
     const viaEmail = evEmail && ((settings as any).notifyViaEmail ?? true);
     const emailSender = (settings as any).notifyEmailSender || undefined;
     const clubName = settings.clubName || club?.name || BRAND_NAME;
