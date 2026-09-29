@@ -342,7 +342,7 @@
  class="rounded-lg border px-2 py-2 text-xs font-medium"
  :class="isPastSlot(slot) ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : ((slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? ' border-2 !border-red-700 ring-1 ring-red-700 font-bold ' : '') + (slot.status==='available' ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200' : slot.status==='booked' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' : slot.status==='pending_approval' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : slot.status==='lesson' ? 'bg-red-50 text-red-700 border-red-200' : slot.status==='blocked' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-400'))"
  :title="slot.label || ''"
- x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slot.start} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
+  x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slot.start} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
  ></button>
  </template>
  </div>
@@ -363,7 +363,7 @@
  <div class="font-semibold" x-text="pendingIntent?.courtLabel"></div>
  <div x-text="`${pendingIntent?.date} · ${pendingIntent?.startTime}`"></div>
   <div class="text-xs text-zinc-500" x-text="pendingIntent?.courtType ? (pendingIntent.courtType === 'padel' ? 'Padel' : 'Tennis') : ''"></div>
-  <div class="text-sm font-semibold text-emerald-700" x-show="fmtPrice(priceForCourt(pendingIntent?.courtId))" x-text="t('price.total') + ': ' + fmtPrice(priceForCourt(pendingIntent?.courtId))"></div>
+  <div class="text-sm font-semibold text-emerald-700" x-show="fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))" x-text="t('price.total') + ': ' + fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))"></div>
   </div>
  <div class="space-y-1">
  <label class="text-sm font-medium" x-text="t('confirm.notes')"></label>

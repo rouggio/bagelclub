@@ -29,13 +29,14 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
     const wins = (await db.select().from(timetableWindows)
       .where(and(eq(timetableWindows.courtId, court_id), eq(timetableWindows.dayOfWeek, dayOfWeek)))
       .orderBy(asc(timetableWindows.position)) as any[]);
-    let baseSlots: Array<{ start: string; end: string }> = [];
+    let baseSlots: Array<{ start: string; end: string; price_cents?: number }> = [];
     if (wins.length) {
       const settings = await getClubSettings(db, club.id);
       const fallbackDur = settings?.defaultSlotDurationMinutes ?? 60;
       for (const w of wins) {
         const dur = w.slotDurationMinutes || fallbackDur;
-        baseSlots.push(...splitIntoSlots(String(w.openTime).slice(0, 5), String(w.closeTime).slice(0, 5), dur));
+        const price = w.priceCents ?? courtRows[0].basePriceCents ?? 0;
+        baseSlots.push(...splitIntoSlots(String(w.openTime).slice(0, 5), String(w.closeTime).slice(0, 5), dur).map((s) => ({ ...s, price_cents: price })));
       }
     } else {
       let timetableRows = await db.select().from(timetables).where(eq(timetables.courtId, court_id));
@@ -50,7 +51,8 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
           const settings = await getClubSettings(db, club.id);
           duration = settings?.defaultSlotDurationMinutes ?? 60;
         }
-        baseSlots = splitIntoSlots(tt.openTime.slice(0, 5), tt.closeTime.slice(0, 5), duration);
+        baseSlots = splitIntoSlots(tt.openTime.slice(0, 5), tt.closeTime.slice(0, 5), duration)
+          .map((s) => ({ ...s, price_cents: courtRows[0].basePriceCents ?? 0 }));
       }
     }
 

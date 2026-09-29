@@ -113,6 +113,18 @@ describe("timetable windows (#24)", () => {
     expect(bk.json().endTime.slice(0, 5)).toBe("17:00");
   });
 
+  it("availability slots carry the window price", async () => {
+    await putDay(1, [
+      { open_time: "09:00", close_time: "13:00", slot_duration_minutes: 60, price_cents: 2500 },
+      { open_time: "16:00", close_time: "21:00", slot_duration_minutes: 60 },
+    ]);
+    const r = await app.inject({ method: "GET", url: `/api/availability?court_id=${courtId}&date=${nextMonday()}`, headers: { "X-Club-Slug": "green-village" } });
+    const byStart: Record<string, any> = {};
+    for (const s of r.json().slots) byStart[s.start] = s;
+    expect(byStart["09:00"].price_cents).toBe(2500);
+    expect(byStart["16:00"].price_cents).toBe(1000); // inherits court price
+  });
+
   it("booking price snapshots the window price, else the court price", async () => {
     await putDay(1, [
       { open_time: "08:00", close_time: "12:00", slot_duration_minutes: 60, price_cents: 2500 },

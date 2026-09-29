@@ -40,7 +40,7 @@ function app() {
     selectedDate: new Date().toISOString().slice(0, 10),
     courts: [] as Court[],
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
-    pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; notes?: string; rentRacquets?: number; players?: number },
+    pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number },
     confirmLoading: false as boolean,
     confirmNotes: "" as string,
     confirmRent: 0 as number,
@@ -377,7 +377,7 @@ function app() {
         return;
       }
       const defaultPlayers = court.type === "padel" ? "double" as const : "single" as const;
-      this.pendingIntent = { courtId: court.id, date: this.selectedDate, startTime: slot.start, courtLabel: `${court.name || `Court ${court.number}`} · ${court.type}`, courtType: court.type };
+      this.pendingIntent = { courtId: court.id, date: this.selectedDate, startTime: slot.start, courtLabel: `${court.name || `Court ${court.number}`} · ${court.type}`, courtType: court.type, priceCents: (slot as any).price_cents ?? null };
       this.confirmNotes = "";
       this.confirmRent = 0;
       this.confirmPlayers = defaultPlayers;
