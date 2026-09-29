@@ -320,10 +320,16 @@ private club data.
    owner-pool exceptions (reviewed): auth credential checks, webhook token
    bootstrap, demo provisioning (demo-only, asserted). No `FORCE` — owners
    (migrate/seed/dashboard) bypass by design.
-   Runbook — local: `CREATE ROLE app_user LOGIN PASSWORD '…'` + CONNECT/USAGE/
-   CRUD grants + `ALTER DEFAULT PRIVILEGES FOR ROLE postgres …` (same on Neon
-   via SQL editor); runtime `DATABASE_URL`= app role, `AUTH_`/`OWNER_` vars =
-   owner (migrate/seed/CLIs). Verified: dev server runs fully as app_user.
+    Runbook — local: `CREATE ROLE app_user LOGIN PASSWORD '…'` + CONNECT/USAGE/
+    CRUD grants + `ALTER DEFAULT PRIVILEGES FOR ROLE postgres …` (same on Neon
+    via SQL editor); runtime `DATABASE_URL`= app role, `AUTH_`/`OWNER_` vars =
+    owner (migrate/seed/CLIs). Verified: dev server runs fully as app_user.
+    Boot migrate (`render.yaml` startCommand) MUST run as owner: the app role
+    cannot DDL and `IF NOT EXISTS` succeeds silently, so booting migrate as
+    app_user reports success on a half-migrated DB. Prod incident 2026-09-28:
+    Neon `login_challenges` missing while bookkeeping looked fine; fixed via
+    Neon SQL editor (owner) + `migrate.ts` now self-verifies required
+    tables/columns and exits 1 (red deploy) instead of booting half-migrated.
 5. Frontend club context (`/club/:slug/` + `X-Club-Slug`) + per-club branding/links.
 6. Platform frontend: `/` landing + `/clubs` directory + `GET /api/clubs` +
    `/club/:slug/` enforcement + slug deep links.
