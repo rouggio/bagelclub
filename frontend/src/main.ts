@@ -49,6 +49,7 @@ function app() {
     _holdTimer: null as number | null,
     _refreshTimer: null as number | null,
     _refreshing: false as boolean,
+    _impTicker: null as number | null,
     authForm: { username: "", password: "" },
     loginChallenge: null as null | { challenge_id: string; expires_at: string },
     loginCode: "" as string,
@@ -115,6 +116,7 @@ function app() {
     platformFooter: "" as string,
     // Impersonation session (superadmin acting as club admin).
     impSession: null as null | { clubSlug: string; expiresAt: number },
+    impNow: 0 as number,
     platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
     platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
@@ -836,12 +838,29 @@ function app() {
       const p = decodeToken(storedToken());
       if (p?.imp && p?.exp && getClubSlug()) {
         this.impSession = { clubSlug: getClubSlug()!, expiresAt: p.exp * 1000 };
+        this.startImpTicker();
       } else {
         this.impSession = null;
+        this.stopImpTicker();
       }
+    },
+    startImpTicker() {
+      // The countdown only re-renders on reactive change — tick it every
+      // second while impersonating; end the session exactly at expiry.
+      if (this._impTicker) return;
+      this._impTicker = window.setInterval(() => {
+        if (!this.impSession) { this.stopImpTicker(); return; }
+        this.impNow = Date.now();
+        if (this.impSession.expiresAt - Date.now() <= 0) this.endImpersonation();
+      }, 1000);
+    },
+    stopImpTicker() {
+      if (this._impTicker) clearInterval(this._impTicker);
+      this._impTicker = null;
     },
     impCountdown(): string {
       if (!this.impSession) return "";
+      void this.impNow; // reactive dependency so the 1s ticker re-renders
       const ms = Math.max(0, this.impSession.expiresAt - Date.now());
       const m = Math.floor(ms / 60000);
       const s = Math.floor((ms % 60000) / 1000);
@@ -868,6 +887,7 @@ function app() {
       } catch {}
       if (slug) clearTokenFor(slug);
       this.impSession = null;
+      this.stopImpTicker();
       this.user = null;
       this.view = "home";
       location.hash = "home";
