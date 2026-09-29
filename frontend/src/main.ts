@@ -1061,7 +1061,7 @@ function app() {
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
         const token = storedToken();
-        const res = await apiFetch("/api/timetable/copy", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ court_id: this.adminTimetableCourtId, from_dow: this.adminTimetableCopyFrom, to_dows: this.adminTimetableCopyTo }) });
+        const res = await apiFetch("/api/timetable/copy", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ court_id: this.adminTimetableCourtId, from_dow: Number(this.adminTimetableCopyFrom), to_dows: (this.adminTimetableCopyTo || []).map((d) => Number(d)) }) });
         if (!res.ok) {
           const txt = await res.text();
           let msg = txt;
