@@ -297,6 +297,7 @@ function app() {
         this.view = (location.hash.replace("#", "").split("?")[0]) || "home";
         this.syncHighlight();
         if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
+        if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
         if (this.view === "me" && this.user) this.loadBookings();
         if (this.view === "profile" && this.user) this.loadProfile();
         if (this.view === "admin-bookings" && this.user?.role === "admin") { await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
@@ -312,6 +313,7 @@ function app() {
         if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
       if (this.view === "me" && this.user) this.loadBookings();
+      if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
       if (this.view === "profile" && this.user) this.loadProfile();
       if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
       if (this.view === "admin-bookings" && this.user?.role === "admin") { await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }

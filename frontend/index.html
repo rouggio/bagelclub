@@ -77,7 +77,7 @@
  </div>
  </div>
  </template>
-  <a href="#profile" x-show="user && clubSlug" class="hidden text-sm font-medium text-zinc-700 hover:text-black md:inline" x-text="user?.username" @click.prevent="view='profile'; location.hash='profile'; loadProfile()"></a>
+  <a href="#profile" x-show="user && clubSlug && !impSession" class="hidden text-sm font-medium text-zinc-700 hover:text-black md:inline" x-text="user?.username" @click.prevent="view='profile'; location.hash='profile'; loadProfile()"></a>
   <button x-show="!user && clubSlug" @click="view='login'" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-4 py-2 text-sm font-medium" x-text="t('nav.login')"></button>
   <button x-show="user || platformUser" @click="isPlatform ? platformLogout() : logout()" class="rounded-lg border px-4 py-2 text-sm" x-text="t('nav.logout')"></button>
  </div>
@@ -93,7 +93,7 @@
   <nav x-show="clubSlug" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
   <a href="#courts" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.courts')"></a>
   <a href="#me" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.myBookings')"></a>
-  <a href="#profile" x-show="user" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.profile')"></a>
+  <a href="#profile" x-show="user && !impSession" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('nav.profile')"></a>
   </nav>
   <nav x-show="isPlatform && platformUser" class="fixed inset-x-0 bottom-0 z-30 flex border-t bg-white px-2 py-2 md:hidden">
   <a href="#platform" @click.prevent="view='platform-clubs'; loadPlatformClubs()" class="flex flex-1 flex-col items-center text-xs whitespace-nowrap" x-text="t('platform.clubs')"></a>
