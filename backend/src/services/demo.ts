@@ -3,15 +3,16 @@ import { eq, and, ne, sql } from "drizzle-orm";
 import { withClubScope } from "./club.js";
 import bcrypt from "bcryptjs";
 
-async function demoClubSeed(db: any, clubId: string, courtSpecs: Array<{ type: "tennis" | "padel"; count: number }>, adminPassword: string) {
+async function demoClubSeed(db: any, clubId: string, courtSpecs: Array<{ type: "tennis" | "padel"; count: number; names?: string[]; surface?: string }>, adminPassword: string) {
   // Settings
   await db.insert(appSettings).values({ clubId }).onConflictDoNothing();
   // Courts
   const created: any[] = [];
   for (const spec of courtSpecs) {
     for (let i = 1; i <= spec.count; i++) {
-      const label = spec.type === "padel" ? `Padel ${i}` : `Tennis ${i}`;
-      const [c] = await db.insert(courts).values({ clubId, number: created.length + 1, type: spec.type, name: label, surface: "synthetic", basePriceCents: 0, isActive: true }).returning();
+      const label = spec.names?.[i - 1] || (spec.type === "padel" ? `Padel ${i}` : `Tennis ${i}`);
+      const surface = spec.surface || "synthetic";
+      const [c] = await db.insert(courts).values({ clubId, number: created.length + 1, type: spec.type, name: label, surface, basePriceCents: 0, isActive: true }).returning();
       created.push(c);
     }
   }
@@ -57,7 +58,10 @@ async function assertDemo(db: any, slug: string) {
 export async function resetDemoShowcase(db: any) {
   const club = await assertDemo(db, "demo");
   await wipeClubData(db, club.id);
-  await demoClubSeed(db, club.id, [{ type: "tennis", count: 2 }, { type: "padel", count: 2 }], "demo1234!");
+  await demoClubSeed(db, club.id, [
+    { type: "tennis", count: 2, names: ["Centrale", "Pietrangeli"], surface: "clay" },
+    { type: "padel", count: 2, names: ["Chatrier", "Ashe"] },
+  ], "demo1234!");
   // One sample lesson rule so prospects see a "lesson" slot.
   const cs = await db.select().from(courts).where(eq(courts.clubId, club.id));
   const first = cs[0];

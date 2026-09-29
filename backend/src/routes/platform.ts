@@ -143,7 +143,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     const before = await countAll();
     const existing = await db.select().from(clubs).where(eq(clubs.slug, "demo")).limit(1);
     if (!existing[0]) {
-      await db.insert(clubs).values({ slug: "demo", name: "Bagel Club Demo", timezone: "Europe/Rome", plan: "free", isDemo: true, isListed: true });
+      await db.insert(clubs).values({ slug: "demo", name: "Circolo Bagel", timezone: "Europe/Rome", plan: "free", isDemo: true, isListed: true });
     }
     const club = await resetDemoShowcase(db);
     const after = await countAll();

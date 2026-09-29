@@ -23,6 +23,17 @@ describe("demo showcase", () => {
     await pool.end();
   });
 
+  it("showcase courts carry famous names", async () => {
+    const { db, pool } = await testDb();
+    await db.insert(clubs).values({ slug: "demo", name: "Demo", timezone: "Europe/Rome", isDemo: true, isListed: true });
+    await resetDemoShowcase(db);
+    const demoClub = (await db.select().from(clubs).where(eq(clubs.slug, "demo")))[0];
+    const { courts } = await import("../db/schema.js");
+    const cs = await db.select().from(courts).where(eq(courts.clubId, demoClub.id));
+    expect(cs.map((c: any) => c.name).sort()).toEqual(["Ashe", "Centrale", "Chatrier", "Pietrangeli"]);
+    await pool.end();
+  });
+
   it("creds announcement is idempotent without a wipe (exactly one card)", async () => {
     const { db, pool } = await testDb();
     const [c] = await db.insert(clubs).values({ slug: "demo-solo1", name: "Solo", timezone: "Europe/Rome", isDemo: true }).returning();
