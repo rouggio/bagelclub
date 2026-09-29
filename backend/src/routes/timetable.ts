@@ -8,11 +8,11 @@ const hhmm = (t: any) => String(t).slice(0, 5);
 
 function validateWindows(windows: Array<{ open_time: string; close_time: string }>): string | null {
   for (const w of windows) {
-    if (hhmm(w.open_time) >= hhmm(w.close_time)) return "open_time must be before close_time";
+    if (hhmm(w.open_time) >= hhmm(w.close_time)) return "timetable_bad_order";
   }
   const sorted = [...windows].sort((a, b) => (hhmm(a.open_time) < hhmm(b.open_time) ? -1 : 1));
   for (let i = 1; i < sorted.length; i++) {
-    if (hhmm(sorted[i].open_time) < hhmm(sorted[i - 1].close_time)) return "windows must not overlap";
+    if (hhmm(sorted[i].open_time) < hhmm(sorted[i - 1].close_time)) return "timetable_overlap";
   }
   return null;
 }
@@ -106,7 +106,7 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
     db = reqDb(req) as any;
     const { court_id, day_of_week, windows } = parsed.data;
     const own = await db.select({ id: courts.id }).from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
-    if (!own[0]) return reply.status(400).send({ error: "court_id must be a court of this club" });
+    if (!own[0]) return reply.status(400).send({ error: "timetable_foreign_court" });
     const bad = validateWindows(windows);
     if (bad) return reply.status(400).send({ error: bad });
     const force = (req.query as any)?.force === "true";
@@ -131,7 +131,7 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
     db = reqDb(req) as any;
     const { court_id, from_dow, to_dows } = parsed.data;
     const own = await db.select({ id: courts.id }).from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
-    if (!own[0]) return reply.status(400).send({ error: "court_id must be a court of this club" });
+    if (!own[0]) return reply.status(400).send({ error: "timetable_foreign_court" });
     const src: any[] = await db.select().from(timetableWindows)
       .where(and(eq(timetableWindows.courtId, court_id), eq(timetableWindows.dayOfWeek, from_dow)))
       .orderBy(asc(timetableWindows.position));

@@ -58,8 +58,10 @@ describe("timetable windows (#24)", () => {
       { open_time: "12:00", close_time: "18:00", slot_duration_minutes: 60 },
     ]);
     expect(overlap.statusCode).toBe(400);
+    expect(overlap.json()).toMatchObject({ error: "timetable_overlap" });
     const inverted = await putDay(2, [{ open_time: "18:00", close_time: "09:00", slot_duration_minutes: 60 }]);
     expect(inverted.statusCode).toBe(400);
+    expect(inverted.json()).toMatchObject({ error: "timetable_bad_order" });
   });
 
   it("empty windows close the day", async () => {

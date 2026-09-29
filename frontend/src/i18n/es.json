@@ -368,5 +368,8 @@
   "admin.timetable.copyFrom": "Copiar de",
   "admin.timetable.copyTo": "a",
   "admin.timetable.copy": "Copiar",
-  "admin.timetable.stubDropped": "minutos descartados"
+  "admin.timetable.stubDropped": "minutos descartados",
+  "admin.timetable.overlap": "Las franjas no deben solaparse",
+  "admin.timetable.badOrder": "Apertura antes del cierre",
+  "admin.timetable.foreignCourt": "Pista fuera del club"
 }

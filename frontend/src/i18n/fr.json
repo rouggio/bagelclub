@@ -368,5 +368,8 @@
   "admin.timetable.copyFrom": "Copier de",
   "admin.timetable.copyTo": "vers",
   "admin.timetable.copy": "Copier",
-  "admin.timetable.stubDropped": "minutes perdues"
+  "admin.timetable.stubDropped": "minutes perdues",
+  "admin.timetable.overlap": "Les plages ne doivent pas se chevaucher",
+  "admin.timetable.badOrder": "Ouverture avant fermeture",
+  "admin.timetable.foreignCourt": "Terrain hors club"
 }

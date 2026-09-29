@@ -368,5 +368,8 @@
   "admin.timetable.copyFrom": "Copia da",
   "admin.timetable.copyTo": "a",
   "admin.timetable.copy": "Copia",
-  "admin.timetable.stubDropped": "minuti scartati"
+  "admin.timetable.stubDropped": "minuti scartati",
+  "admin.timetable.overlap": "Le fasce non devono sovrapporsi",
+  "admin.timetable.badOrder": "Apertura deve precedere chiusura",
+  "admin.timetable.foreignCourt": "Campo non valido per questo club"
 }

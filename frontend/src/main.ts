@@ -1047,13 +1047,27 @@ function app() {
       return !!((this.adminSettings as any)?.flexible_slots ||
         (this.adminTimetableRows || []).some((r: any) => (r.windows || []).length > 1));
     },
+    mapTimetableError(j: any, fallback: string): string {
+      const codes: Record<string, string> = {
+        timetable_overlap: "admin.timetable.overlap",
+        timetable_bad_order: "admin.timetable.badOrder",
+        timetable_foreign_court: "admin.timetable.foreignCourt",
+      };
+      const k = j && codes[j.error];
+      return k ? this.t(k) : (j?.error || fallback);
+    },
     async copyAdminTimetable() {
       if (!this.adminTimetableCourtId) return;
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
         const token = storedToken();
         const res = await apiFetch("/api/timetable/copy", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ court_id: this.adminTimetableCourtId, from_dow: this.adminTimetableCopyFrom, to_dows: this.adminTimetableCopyTo }) });
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          const txt = await res.text();
+          let msg = txt;
+          try { msg = this.mapTimetableError(JSON.parse(txt), txt); } catch {}
+          throw new Error(msg);
+        }
         this.adminTimetableSuccess = this.t("admin.timetable.saved");
         await this.loadAdminTimetable();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
@@ -1082,7 +1096,7 @@ function app() {
                 msg = `${base}: ${j.conflicts.map((c:any)=>`${c.date} ${c.startTime}-${c.endTime} ${c.reason}`).join("; ")}`;
                 if (!force) msg += " — " + this.t('admin.timetable.forceHint');
               } else {
-                msg = j.error || txt;
+                msg = this.mapTimetableError(j, txt);
               }
             } catch {}
             throw new Error(msg);
