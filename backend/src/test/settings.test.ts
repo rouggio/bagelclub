@@ -20,4 +20,22 @@ describe("club settings toggles", () => {
     const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
     expect(info.json().show_prices).toBe(false);
   });
+
+  it("closed signup 403s public registration, open allows it", async () => {
+    const reg = (payload: any) => app.inject({
+      method: "POST", url: "/api/auth/register", headers: { "X-Club-Slug": "green-village" }, payload,
+    });
+    const body = { username: "gated1", email: "gated1@x.io", mobile: "393331234567", password: "Test1234!", first_name: "Gated", last_name: "One" };
+    const shut = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { allow_open_signup: false } });
+    expect(shut.statusCode).toBe(200);
+    const denied = await reg(body);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ error: "signup_closed" });
+    const open = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { allow_open_signup: true } });
+    expect(open.statusCode).toBe(200);
+    const allowed = await reg(body);
+    expect(allowed.statusCode).toBe(201);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().allow_open_signup).toBe(true);
+  });
 });

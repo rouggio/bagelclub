@@ -426,5 +426,6 @@ export function maskSettingsForAdminResponse(s: any) {
     two_fa_enabled: s.twoFaEnabled ?? false,
     flexible_slots: s.flexibleSlots ?? false,
     show_prices: s.showPrices ?? true,
+    allow_open_signup: s.allowOpenSignup ?? true,
   };
 }

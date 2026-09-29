@@ -132,6 +132,7 @@ export const settingsSchema = z.object({
   two_fa_enabled: z.boolean().optional(),
   flexible_slots: z.boolean().optional(),
   show_prices: z.boolean().optional(),
+  allow_open_signup: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

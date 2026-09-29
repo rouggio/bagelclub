@@ -86,7 +86,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; notifications_enabled?: boolean; notify_on_auto_approved?: boolean; notify_on_approval?: boolean; notify_on_rejection?: boolean; notify_via_telegram?: boolean; notify_via_whatsapp?: boolean; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { notifications_enabled: false, notify_on_auto_approved: false, notify_on_approval: true, notify_on_rejection: true, notify_via_telegram: true, notify_via_whatsapp: true, telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { notifications_enabled: boolean; notify_on_auto_approved: boolean; notify_on_approval: boolean; notify_on_rejection: boolean; notify_via_telegram: boolean; notify_via_whatsapp: boolean; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notificationTestResult: "" as string,
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
@@ -96,7 +96,7 @@ function app() {
     reportsData: null as null | { period: string; refDate: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }>; timeline: Array<{ label: string; startDate: string; endDate: string; count: number }> },
     reportsSliceData: null as null | { period: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }> },
     reportsSelectedLabel: "" as string,
-    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string; show_prices?: boolean },
+    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean },
     clubSlug: "" as string,
     clubTimezone: "Europe/Rome" as string,
     clubLocales: [] as string[],
@@ -876,6 +876,19 @@ function app() {
       (this.adminSettings as any).show_prices = next;
       if (this.clubInfo) (this.clubInfo as any).show_prices = next;
     },
+    openSignup(): boolean {
+      const v = (this.clubInfo as any)?.allow_open_signup ?? (this.adminSettings as any)?.allow_open_signup;
+      return v ?? true;
+    },
+    async toggleAllowSignup() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).allow_open_signup ?? true);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ allow_open_signup: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).allow_open_signup = next;
+      if (this.clubInfo) (this.clubInfo as any).allow_open_signup = next;
+    },
 
     async loadPlatformFooter() {
       try {
@@ -987,7 +1000,7 @@ function app() {
         if (res.ok) {
           const s = await res.json();
           this.clubForm = { club_name: s.club_name || "", club_phone: s.club_phone || "", club_address: s.club_address || "" };
-          this.clubInfo = { club_name: s.club_name, club_phone: s.club_phone, club_address: s.club_address, show_prices: s.show_prices ?? (this.clubInfo as any)?.show_prices ?? true };
+          this.clubInfo = { club_name: s.club_name, club_phone: s.club_phone, club_address: s.club_address, show_prices: s.show_prices ?? (this.clubInfo as any)?.show_prices ?? true, allow_open_signup: s.allow_open_signup ?? (this.clubInfo as any)?.allow_open_signup ?? true };
         }
       } catch (e: any) { this.clubInfoError = e.message || String(e); }
       finally { this.clubInfoLoading = false; }

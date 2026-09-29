@@ -391,5 +391,9 @@
   "profile.currentPassword": "Contraseña actual",
   "profile.passwordSave": "Actualizar",
   "profile.passwordOk": "Contraseña actualizada.",
-  "profile.passwordWrong": "La contraseña actual es incorrecta."
+  "profile.passwordWrong": "La contraseña actual es incorrecta.",
+  "admin.allowSignup": "Registro abierto",
+  "admin.allowSignup.on": "Registro libre",
+  "admin.allowSignup.off": "Sólo cuentas de admin",
+  "auth.signupClosed": "Registro cerrado: pide una cuenta a tu admin."
 }

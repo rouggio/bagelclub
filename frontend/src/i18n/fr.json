@@ -391,5 +391,9 @@
   "profile.currentPassword": "Mot de passe actuel",
   "profile.passwordSave": "Mettre à jour",
   "profile.passwordOk": "Mot de passe mis à jour.",
-  "profile.passwordWrong": "Mot de passe actuel incorrect."
+  "profile.passwordWrong": "Mot de passe actuel incorrect.",
+  "admin.allowSignup": "Inscriptions ouvertes",
+  "admin.allowSignup.on": "Inscription libre",
+  "admin.allowSignup.off": "Comptes créés par admin uniquement",
+  "auth.signupClosed": "Inscriptions fermées : demandez un compte à votre admin."
 }

@@ -66,6 +66,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const club = await requireClub(req, reply, db, resolveClubSlug(req) ?? (data.club_slug ? String(data.club_slug).toLowerCase() : null));
     if (!club) return;
     const settings = await getClubSettings(db, club.id);
+    if (settings && settings.allowOpenSignup === false) {
+      return reply.status(403).send({ error: "signup_closed" });
+    }
     const { enabled, def } = clubLocales(settings);
     const lang = data.preferred_language ?? def;
     if (!enabled.includes(lang)) return reply.status(400).send({ error: "preferred_language not enabled for this club" });

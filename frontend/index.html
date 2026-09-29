@@ -405,7 +405,7 @@
   <input x-model="loginCode" data-code-input inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" class="w-full rounded-lg border px-3 py-2 text-center text-lg tracking-widest font-mono" />
   <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('platform.verify')"></button>
   </form>
-  <button @click="view='register'" class="w-full text-sm text-zinc-600" x-text="t('auth.needAccount')"></button>
+  <button x-show="openSignup()" @click="view='register'" class="w-full text-sm text-zinc-600" x-text="t('auth.needAccount')"></button>
   <button @click="view='reset-request'; resetRequestSent=false; resetError=''" class="w-full text-sm text-zinc-600" x-text="t('auth.forgot')"></button>
   <div x-show="authError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="authError"></div>
   </section>
@@ -434,7 +434,9 @@
   </section>
 
   <section x-show="view==='register'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
- <h2 class="text-lg font-bold" x-text="t('auth.registerTitle')"></h2>
+  <h2 class="text-lg font-bold" x-text="t('auth.registerTitle')"></h2>
+  <template x-if="openSignup()">
+  <div class="space-y-4">
  <div x-show="pendingIntent" class="rounded-lg bg-amber-50 p-3 text-xs border border-amber-200">
  <div class="font-medium" x-text="pendingIntent?.courtLabel"></div>
  <div x-text="`${pendingIntent?.date} · ${pendingIntent?.startTime}`"></div>
@@ -466,6 +468,9 @@
  </div>
  </div>
   <button @click="register()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('auth.confirm')"></button>
+  </div>
+  </template>
+  <p x-show="!openSignup()" class="text-sm text-zinc-600" x-text="t('auth.signupClosed')"></p>
   <button @click="view='login'" class="w-full text-sm text-zinc-600" x-text="t('auth.haveAccount')"></button>
   <div x-show="authError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="authError"></div>
  </section>
@@ -942,6 +947,13 @@
   <div class="text-xs text-zinc-500" x-text="showPrices() ? t('admin.showPrices.on') : t('admin.showPrices.off')"></div>
   </div>
   <button @click="toggleShowPrices()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="showPrices() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="showPrices() ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.allowSignup')"></div>
+  <div class="text-xs text-zinc-500" x-text="openSignup() ? t('admin.allowSignup.on') : t('admin.allowSignup.off')"></div>
+  </div>
+  <button @click="toggleAllowSignup()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="openSignup() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="openSignup() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
   <div class="flex items-center justify-between">

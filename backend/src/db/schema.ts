@@ -209,6 +209,7 @@ export const appSettings = pgTable("app_settings", {
   twoFaEnabled: boolean("two_fa_enabled").notNull().default(false),
   flexibleSlots: boolean("flexible_slots").notNull().default(false),
   showPrices: boolean("show_prices").notNull().default(true),
+  allowOpenSignup: boolean("allow_open_signup").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

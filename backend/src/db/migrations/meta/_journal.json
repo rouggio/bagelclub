@@ -183,6 +183,13 @@
       "when": 1790679600000,
       "tag": "0025_show_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790683200000,
+      "tag": "0026_open_signup",
+      "breakpoints": true
     }
   ]
 }

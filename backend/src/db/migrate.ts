@@ -39,6 +39,7 @@ const requiredColumns: Array<[string, string]> = [
   ["app_settings", "two_fa_enabled"],
   ["app_settings", "flexible_slots"],
   ["app_settings", "show_prices"],
+  ["app_settings", "allow_open_signup"],
   ["timetable_windows", "price_cents"],
   ["users", "last_login_at"],
 ];

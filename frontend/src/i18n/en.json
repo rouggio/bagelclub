@@ -391,5 +391,9 @@
   "profile.currentPassword": "Current password",
   "profile.passwordSave": "Update password",
   "profile.passwordOk": "Password updated.",
-  "profile.passwordWrong": "Current password is wrong."
+  "profile.passwordWrong": "Current password is wrong.",
+  "admin.allowSignup": "Open signup",
+  "admin.allowSignup.on": "Anyone can register",
+  "admin.allowSignup.off": "Admin-created accounts only",
+  "auth.signupClosed": "Signup is closed: ask your admin for an account."
 }
