@@ -413,7 +413,7 @@
   <section x-show="view==='reset-request'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
   <h2 class="text-lg font-bold" x-text="t('auth.resetTitle')"></h2>
   <form @submit.prevent="requestPasswordReset()" class="space-y-4" x-show="!resetRequestSent">
-  <input x-model="resetRequestEmail" type="email" :placeholder="t('auth.usernameOrEmail')" autocomplete="email" class="w-full rounded-lg border px-3 py-2" />
+  <input x-model="resetRequestEmail" type="text" :placeholder="t('auth.usernameOrEmail')" autocomplete="username" class="w-full rounded-lg border px-3 py-2" />
   <button type="submit" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 font-medium" x-text="t('auth.resetSend')"></button>
   </form>
   <p x-show="resetRequestSent" class="text-sm text-emerald-700" x-text="t('auth.resetSent')"></p>
