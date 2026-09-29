@@ -397,7 +397,7 @@
   "admin.allowSignup.off": "Nur Admin-Konten",
   "auth.signupClosed": "Registrierung geschlossen: Admin um Konto bitten.",
   "admin.users.welcome": "Willkommensmail senden",
-  "admin.users.welcomeConfirm": "Link zum Setzen des Passworts senden?",
+  "admin.users.welcomeConfirm": "Willkommensmail senden?",
   "admin.users.welcomeSent": "E-Mail gesendet.",
   "admin.users.welcomeNoEmail": "Nutzer ohne E-Mail."
 }

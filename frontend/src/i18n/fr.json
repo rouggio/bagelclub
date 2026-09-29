@@ -396,8 +396,8 @@
   "admin.allowSignup.on": "Inscription libre",
   "admin.allowSignup.off": "Comptes créés par admin uniquement",
   "auth.signupClosed": "Inscriptions fermées : demandez un compte à votre admin.",
-  "admin.users.welcome": "Envoyer email de bienvenue",
-  "admin.users.welcomeConfirm": "Envoyer le lien de mot de passe ?",
+  "admin.users.welcome": "Envoyer le mail de bienvenue",
+  "admin.users.welcomeConfirm": "Envoyer le mail de bienvenue ?",
   "admin.users.welcomeSent": "Email envoyé.",
   "admin.users.welcomeNoEmail": "Utilisateur sans email."
 }
