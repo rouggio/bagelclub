@@ -34,6 +34,7 @@
 | 26 | Explicit participant lists on bookings (admin bypass: free booking) | ✅ | planned (Massimo) | per-club option; extends #1 booking model |
 | 27 | Password reset via email (token link, expiry, single-use) | ✅ | planned (Massimo) | cross-cutting, needed regardless of #23 content mail |
 | 28 | Transactional email provider (REST API — Render blocks SMTP traffic) | ✅ | planned (Massimo) | blocks #23 + #27; candidates TBD (Resend/Brevo/Postmark-style) |
+| 29 | Per-window pricing (price bound to the slot window, not the court — e.g. evening premium) | ❌ | later | extends #24 windows; price snapshot already per-booking |
 
 ## Notes — Massimo (prospect, next release)
 - #23–#26 are **per-club admin options**, never global mandates: each club toggles them in settings; defaults keep current behaviour.
