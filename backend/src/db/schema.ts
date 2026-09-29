@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, varchar, integer, smallint, boolean, timestamp, date, time, pgEnum, index, unique, char } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const userRoleEnum = pgEnum("user_role", ["visitor", "associate", "admin", "superadmin"]);
+export const userRoleEnum = pgEnum("user_role", ["associate", "admin", "superadmin"]);
 export const courtTypeEnum = pgEnum("court_type", ["tennis", "padel"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending_registration",
@@ -38,14 +38,14 @@ export const users = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     // Nullable only for the platform superadmin (outside all clubs).
-    // Every club role (visitor/associate/admin) always carries a club_id.
+    // Every club role (associate/admin) always carries a club_id.
     clubId: uuid("club_id").references(() => clubs.id),
     username: varchar("username", { length: 30 }).notNull(),
     email: varchar("email", { length: 255 }),
     passwordHash: text("password_hash").notNull(),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }).notNull(),
-    role: userRoleEnum("role").notNull().default("visitor"),
+    role: userRoleEnum("role").notNull().default("associate"),
     preferredLanguage: preferredLanguageEnum("preferred_language").notNull().default("it"),
     preferredSport: courtTypeEnum("preferred_sport"),
     mobile: varchar("mobile", { length: 20 }),

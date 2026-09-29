@@ -24,13 +24,13 @@ describe("auth (club-scoped)", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("register lands in the club as visitor with clubId", async () => {
+  it("register lands in the club as associate with clubId", async () => {
     const res = await app.inject({
       method: "POST", url: "/api/auth/register", headers: { "X-Club-Slug": "green-village" },
       payload: { username: "newbie", email: "newbie@x.io", mobile: "393331234567", password: "Test1234!", first_name: "New", last_name: "Bie" },
     });
     expect(res.statusCode).toBe(201);
-    expect(res.json().user.role).toBe("visitor");
+    expect(res.json().user.role).toBe("associate");
     expect(res.json().user.club_slug).toBe("green-village");
     expect(res.json().user.clubId).toBeTruthy();
   });

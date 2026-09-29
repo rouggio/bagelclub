@@ -4,7 +4,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 export interface JwtPayload {
   id: string;
   username: string;
-  role: "visitor" | "associate" | "admin" | "superadmin";
+  role: "associate" | "admin" | "superadmin";
   /** Club scope. Null only for superadmin (platform, outside clubs). */
   clubId: string | null;
   /** Impersonation grant id — present when a superadmin acts as club admin. */

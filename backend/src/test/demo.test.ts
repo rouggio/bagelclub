@@ -97,7 +97,7 @@ describe("platform demo hygiene endpoints", () => {
     await db.insert(clubs).values({ slug: "demo-old1", name: "Old", timezone: "Europe/Rome", isDemo: true, createdAt: old, updatedAt: old });
     await db.insert(clubs).values({ slug: "demo-fresh1", name: "Fresh", timezone: "Europe/Rome", isDemo: true });
     const [lc] = await db.insert(clubs).values({ slug: "demo-oldlogin1", name: "OldLogin", timezone: "Europe/Rome", isDemo: true, createdAt: old, updatedAt: old }).returning();
-    await db.insert(users).values({ clubId: lc.id, username: "returning", passwordHash: "x", firstName: "R", lastName: "E", role: "visitor", isVerified: true, createdAt: old, lastLoginAt: new Date() });
+    await db.insert(users).values({ clubId: lc.id, username: "returning", passwordHash: "x", firstName: "R", lastName: "E", role: "associate", isVerified: true, createdAt: old, lastLoginAt: new Date() });
     await pool.end();
     const r = await app.inject({ method: "POST", url: "/api/platform/demo/cleanup", headers: H() });
     expect(r.statusCode).toBe(200);
@@ -117,7 +117,7 @@ describe("platform demo hygiene endpoints", () => {
     expect(no.statusCode).toBe(400);
     const { db, pool } = await testDb();
     const [c] = await db.insert(clubs).values({ slug: "demo-doom1", name: "Doom", timezone: "Europe/Rome", isDemo: true }).returning();
-    await db.insert(users).values({ clubId: c.id, username: "someone", passwordHash: "x", firstName: "S", lastName: "O", role: "visitor", isVerified: true });
+    await db.insert(users).values({ clubId: c.id, username: "someone", passwordHash: "x", firstName: "S", lastName: "O", role: "associate", isVerified: true });
     await pool.end();
     const r = await app.inject({ method: "DELETE", url: "/api/platform/clubs/demo-doom1", headers: H() });
     expect(r.statusCode).toBe(200);

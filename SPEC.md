@@ -72,7 +72,7 @@ Auth: **JWT** (short-lived access 15m + refresh 7d, stored in httpOnly cookie or
 - `email` VARCHAR unique, validated
 - `password_hash` TEXT (argon2id/bcrypt)
 - `first_name`, `last_name` VARCHAR
-- `role` ENUM: `visitor`, `associate`, `admin`
+- `role` ENUM: `associate`, `admin`
 - `preferred_language` ENUM: `it`, `en`, `fr`, `de`, `es` — default `it`, persisted per user
 - `preferred_sport` ENUM: `tennis`, `padel` nullable — preferred sport, presets timetable filter (not mandatory)
 - `mobile` VARCHAR(20) nullable — mobile number
@@ -288,7 +288,7 @@ All admin routes behind `role=admin` middleware (JWT verified). Guest intent rat
 
 ```sql
 -- Drizzle schema mirrors this SQL; keep as source of truth for migrations
-CREATE TYPE user_role AS ENUM ('visitor','associate','admin');
+CREATE TYPE user_role AS ENUM ('associate','admin');
 CREATE TYPE court_type AS ENUM ('tennis','padel');
 CREATE TYPE booking_status AS ENUM ('pending_registration','pending_approval','approved','rejected','cancelled','expired');
 
@@ -301,7 +301,7 @@ CREATE TABLE users (
   password_hash TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  role user_role NOT NULL DEFAULT 'visitor',
+  role user_role NOT NULL DEFAULT 'associate',
   preferred_language preferred_language NOT NULL DEFAULT 'it',
   mobile VARCHAR(20),
   gender gender,
@@ -612,7 +612,7 @@ For split frontend (alternative), add a second `type: web` service with `rootDir
 ## 13. Open Questions for Stakeholder
 
 1. ~~Should visitor bookings auto-approve or always require admin approval?~~ **Decided 2026-09-23**: configurable via `app_settings.auto_approve_bookings` (default `false` = admin approval required). Admin toggles at `PUT /api/settings`.
-2. Visitor → associate promotion: automatic or admin-gated? (Still open — proposed: `visitor` role persists, admin upgrades to `associate` manually.)
+2. ~~Visitor → associate promotion: automatic or admin-gated?~~ **Dropped with the visitor role — every member is an associate.**
 3. ~~Slot duration: fixed 60 min or configurable per court/sport?~~ **Decided 2026-09-23**: configurable per court via `timetables.slot_duration_minutes` (30/60/90/120) with global default in `app_settings.default_slot_duration_minutes`.
 4. Max advance booking window and cancellation policy? (Default: `max_advance_days=14`, `min_cancel_hours=2` — confirm.)
 5. Club timezone and operating hours defaults? (Default: `Europe/Rome` — confirm.)

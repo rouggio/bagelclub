@@ -13,7 +13,7 @@ function computeEnd(startTime: string, durationMin: number): string {
 
 export default async function bookingRoutes(fastify: FastifyInstance) {
   fastify.post("/api/bookings/intent", async (_req, reply) => {
-    // Deprecated: visitor intent is now stored only locally, booking created only after auth
+    // Deprecated: booking intent is now stored only locally, booking created only after auth
     return reply.status(410).send({ error: "Intent endpoint deprecated — booking is created only after registration via POST /api/bookings" });
   });
 

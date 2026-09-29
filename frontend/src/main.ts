@@ -500,7 +500,7 @@ function app() {
         return;
       }
       if (data.token) storeToken(data.token);
-      this.user = data.user || { id: "1", username: this.regForm.username, role: "visitor", preferred_language: this.lang };
+      this.user = data.user || { id: "1", username: this.regForm.username, role: "associate", preferred_language: this.lang };
       this.startTokenRefresh();
       this.checkImpSession();
       this.loadAnnouncements();
@@ -516,7 +516,7 @@ function app() {
         return;
       }
       await this.loadBookings();
-      // Admin lands on bookings, visitor on my bookings
+      // Admin lands on bookings, others on my bookings
       if (this.user?.role === "admin") {
         this.view = "admin-bookings";
         location.hash = "admin-bookings";
@@ -1232,7 +1232,7 @@ function app() {
     adminBlockError: "" as string,
     adminBlockForm: { courtId: "" as string, date: "" as string, startTime: "10:00" as string, endTime: "12:00" as string, reason: "" as string } as { courtId: string; date: string; startTime: string; endTime: string; reason: string },
     editingBlockId: null as string | null,
-    adminUserForm: { username: "", email: "", password: "", first_name: "", last_name: "", role: "visitor" as string, mobile: "" } as { username: string; email: string; password: string; first_name: string; last_name: string; role: string; mobile: string },
+    adminUserForm: { username: "", email: "", password: "", first_name: "", last_name: "", role: "associate" as string, mobile: "" } as { username: string; email: string; password: string; first_name: string; last_name: string; role: string; mobile: string },
     editingUserId: null as string | null,
     adminUserSuccess: "" as string,
 
@@ -1528,7 +1528,7 @@ function app() {
       const res = await apiFetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ username: this.adminUserForm.username, email: this.adminUserForm.email, password: this.adminUserForm.password, first_name: this.adminUserForm.first_name, last_name: this.adminUserForm.last_name, role: this.adminUserForm.role, preferred_language: this.clubDefaultLocale || "it" }) });
       if (!res.ok) { this.adminUsersError = await res.text(); return; }
       this.adminUserSuccess = this.t("admin.users.created");
-      this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "visitor", mobile: "" };
+      this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "associate", mobile: "" };
       await this.loadAdminUsers();
     },
 
@@ -1537,7 +1537,7 @@ function app() {
       this.adminUserForm = { username: u.username, email: u.email, password: "", first_name: u.first_name, last_name: u.last_name, role: u.role, mobile: u.mobile || "" };
     },
 
-    cancelEditUser() { this.editingUserId = null; this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "visitor", mobile: "" }; this.adminUsersError = ""; },
+    cancelEditUser() { this.editingUserId = null; this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "associate", mobile: "" }; this.adminUsersError = ""; },
 
     async updateAdminUser() {
       if (!this.editingUserId) return;
@@ -1548,7 +1548,7 @@ function app() {
       if (!res.ok) { this.adminUsersError = await res.text(); return; }
       this.adminUserSuccess = this.t("admin.users.updated");
       this.editingUserId = null;
-      this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "visitor", mobile: "" };
+      this.adminUserForm = { username: "", email: "", password: "", first_name: "", last_name: "", role: "associate", mobile: "" };
       await this.loadAdminUsers();
     },
 
@@ -1588,7 +1588,7 @@ function app() {
         location.hash = "admin-view-user";
       } else {
         const b = this.adminBookings.find((x: any) => String(x.userId) === String(userId));
-        this.viewedUser = { id: userId, username: b?.username || String(userId).slice(0,8), email: "", first_name: "", last_name: "", role: "visitor", mobile: "", gender: "", birthdate: "", preferred_language: "it", preferred_sport: "" };
+        this.viewedUser = { id: userId, username: b?.username || String(userId).slice(0,8), email: "", first_name: "", last_name: "", role: "associate", mobile: "", gender: "", birthdate: "", preferred_language: "it", preferred_sport: "" };
         this.view = "admin-view-user";
         location.hash = "admin-view-user";
       }

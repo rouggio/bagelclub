@@ -3,7 +3,7 @@
 > Persisted habits and facts so next AI session doesn't lose track. Keep this file updated after each significant change.
 
 ## 1. Project & Stack
-- **App**: Bagel Club (brand centralised: `frontend/src/brand.ts` `VITE_BRAND_NAME`, `backend/src/config/brand.ts` `BRAND_NAME`; `t('app.name')` returns it; formerly Empanadel) — tennis & padel court booking, mobile-first. Personas `visitor|associate|admin`. Deferred visitor flow `browse → select slot → register → confirm → pending_approval|approved`.
+- **App**: Bagel Club (brand centralised: `frontend/src/brand.ts` `VITE_BRAND_NAME`, `backend/src/config/brand.ts` `BRAND_NAME`; `t('app.name')` returns it; formerly Empanadel) — tennis & padel court booking, mobile-first. Personas `associate|admin`. Deferred visitor flow `browse → select slot → register → confirm → pending_approval|approved`.
 - **Frontend**: `HTML + Alpine.js (Aurora) + Vite + Tailwind 4`, `frontend/src/main.ts:12` `app()` Alpine store, `frontend/index.html:1` SPA, `frontend/vite.config.ts:1` proxy `/api → :3000`, `frontend/src/styles.css:1` `@import "tailwindcss"` + `:root` theme.
 - **Backend**: `Node 20+ TS 5.x strict NodeNext ESM Fastify 4 Drizzle pg Zod bcryptjs @fastify/jwt/cookie/static/rate-limit/cors`, `backend/src/app.ts:1`, `backend/tsconfig.json:1` `ES2022 NodeNext strict`, `backend/drizzle.config.ts:1`.
 - **DB**: PostgreSQL 16 `btree_gist` EXCLUDE, Neon pooled `postgresql://neondb_owner:npg_WqXumnT7sfr0@ep-orange-sea-b1tza1cy-pooler.c-5.eu-central-1.aws.neon.tech/neondb?sslmode=require`, local `docker-compose.yml:1` `postgres:16-alpine:5432` `postgres:postgres@localhost:5432/empanadel`. **Do NOT use `libsql://empanadel-empanadel.aws-eu-west-1.turso.io`** (wrong).
@@ -38,7 +38,7 @@
 - **Validation**: `field.*`, `validation.*`, `error.taken/registerFailed/loginFailed`, `btn.*`, `admin.*`, `status.unavailable` etc.
 
 ## 5. Auth & Users
-- JWT `15m` + refresh `7d httpOnly cookie`, `bcrypt 10`, `JwtPayload {id,username,role,preferred_language}`, RBAC `visitor|associate|admin`, seeds `admin/admin123!` + `rouggio/rouggio123!` (`$2a$10$97IO...`), `backend/src/plugins/auth.ts:1` `authenticate/requireRole`.
+- JWT `15m` + refresh `7d httpOnly cookie`, `bcrypt 10`, `JwtPayload {id,username,role,preferred_language}`, RBAC `associate|admin`, seeds `admin/admin123!` + `rouggio/rouggio123!` (`$2a$10$97IO...`), `backend/src/plugins/auth.ts:1` `authenticate/requireRole`.
 - **Last admin guard**: `backend/src/routes/users.ts:141` `DELETE` and `PATCH` check admin count `<=1` → `400 Cannot delete/demote last admin`; frontend `frontend/index.html:367` disable delete `opacity-40 cursor-not-allowed` + `title t('admin.users.lastAdmin')`.
 - **Cascade delete**: `DELETE /api/users/:id` first `delete bookings where userId=id` + `update bookings set reviewedBy=null` + `blocks.createdBy=null` + `auditLog.actorId=null` to avoid `23503 FK`.
 

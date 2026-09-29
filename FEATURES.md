@@ -7,7 +7,7 @@
 | # | Feature | MVP? | Status | Details |
 |---|---------|:---:|--------|---------|
 | 1 | Single-club booking (courts, timetable, availability, bookings, blocks) | ✅ | done | `SPEC.md` §§3–11 |
-| 2 | Auth + roles (`visitor\|associate\|admin`, JWT 15m + refresh 7d) | ✅ | done | `SPEC.md` §8, `MEMORY.md` §5 |
+| 2 | Auth + roles (`associate\|admin`, JWT 15m + refresh 7d) | ✅ | done | `SPEC.md` §8, `MEMORY.md` §5 |
 | 3 | i18n 5 langs + theme centralisation | ✅ | done | `MEMORY.md` §§3–4 |
 | 4 | Notifications (Telegram/WhatsApp, admin queue) | ✅ | done-ish | `SPEC.md` §4.4, `feat/notifications` |
 | 5 | Multitenancy core (clubs table, `club_id` scoping, per-club settings/timezone) | ✅ | planned | `MULTITENANT.md` §§1–5, Phases 0–4 |

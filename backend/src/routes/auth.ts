@@ -57,12 +57,12 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const db: any = (fastify as any).dbOwner ?? (fastify as any).db; // trust root: credential checks run owner-side
     if (!db) {
       // No DB (dev without docker) — fallback to dummy
-      const user = { id: "dev-" + Date.now(), username: data.username, role: "visitor" as const, email: data.email, clubId: null };
+      const user = { id: "dev-" + Date.now(), username: data.username, role: "associate" as const, email: data.email, clubId: null };
       const token = fastify.jwt.sign({ id: user.id, username: user.username, role: user.role, clubId: null });
       return reply.status(201).send({ user, token });
     }
 
-    // Club first: public registration always lands in exactly one club as visitor.
+    // Club first: public registration always lands in exactly one club as associate.
     const club = await requireClub(req, reply, db, resolveClubSlug(req) ?? (data.club_slug ? String(data.club_slug).toLowerCase() : null));
     if (!club) return;
     const settings = await getClubSettings(db, club.id);
@@ -94,7 +94,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           passwordHash,
           firstName: data.first_name,
           lastName: data.last_name,
-          role: "visitor",
+          role: "associate",
           preferredLanguage: lang,
         })
         .returning();

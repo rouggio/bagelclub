@@ -87,7 +87,7 @@ env (`CLUB_TIMEZONE`), and there is one Telegram bot / one WhatsApp sender.
 - New `superadmin` platform role to bootstrap club #2 (outside club scoping).
 - Refresh-cookie flow survives mostly as-is under single-club users.
 - Club admins are never self-registered (locked 2026-09-27): public register
-  forces `visitor`. A club `admin` comes into existence only two ways —
+  forces `associate`. A club `admin` comes into existence only two ways —
   (a) designated at club creation (`POST /api/platform/clubs` carries the
   initial admin email, provisioned with the seed), or (b) created/promoted
   later by the platform admin (or by an existing club admin promoting a club
@@ -182,7 +182,7 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
 
 - Bootstrap: seeded from env (`PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`
   hashed) via `npm run seed:platform`; public `POST /api/auth/register` can
-  never create it (forces `visitor` + `club_id`).
+  never create it (forces `associate` + `club_id`).
 - Auth: same login endpoint, no slug required; `authenticate` accepts
   `clubId: null` only with `role=superadmin`; new `requireSuperadmin`
   middleware gates `/api/platform/*`; refresh-cookie flow unchanged.

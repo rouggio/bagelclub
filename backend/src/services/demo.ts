@@ -103,7 +103,7 @@ export async function seedShowcaseExtras(db: any, clubId: string) {
     clubId, title: "Demo access / Accesso demo", body,
     visibility: "public", position: 0,
   }).returning();
-  // Localised card in every supported locale (public visitors read their own).
+  // Localised card in every supported locale (the public reads its own).
   const localized: Record<string, { title: string; body: string }> = {
     it: {
       title: "Accesso demo",

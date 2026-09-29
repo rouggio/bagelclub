@@ -198,7 +198,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (term) {
       rows = rows.filter((r: any) => [r.username, r.email, r.firstName, r.lastName, r.mobile].some((v: any) => v && String(v).toLowerCase().includes(term)));
     }
-    if (role && ["visitor","associate","admin"].includes(role)) {
+    if (role && ["associate","admin"].includes(role)) {
       rows = rows.filter((r: any) => r.role === role);
     }
     return reply.send(rows.map(safeUser));
@@ -212,7 +212,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     db = reqDb(req) as any;
     const { id } = req.params as any;
     const { role } = (req as any).body as any;
-    if (!["visitor", "associate", "admin"].includes(role)) return reply.status(400).send({ error: "Invalid role" });
+    if (!["associate", "admin"].includes(role)) return reply.status(400).send({ error: "Invalid role" });
     const targetRows = await db.select().from(users).where(and(eq(users.id, id), eq(users.clubId, club.id), live())).limit(1);
     const target = targetRows[0];
     if (!target) return reply.status(404).send({ error: "Not found" });
@@ -236,7 +236,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (!club) return;
     db = reqDb(req) as any;
     const { password, ...data } = parsed.data as any;
-    const role = (req.body as any).role && ["visitor","associate","admin"].includes((req.body as any).role) ? (req.body as any).role : "visitor";
+    const role = (req.body as any).role && ["associate","admin"].includes((req.body as any).role) ? (req.body as any).role : "associate";
     const passwordHash = await bcrypt.hash(password, 10);
     const emailVal = (data.email as string | null | undefined) ? String(data.email).toLowerCase() : null;
     const uname = String(data.username);
@@ -300,7 +300,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (body.telegram_chat_id !== undefined) updates.telegramChatId = body.telegram_chat_id || null;
     if (body.gender !== undefined) updates.gender = body.gender;
     if (body.birthdate !== undefined) updates.birthdate = body.birthdate || null;
-    if (role && ["visitor","associate","admin"].includes(role)) updates.role = role;
+    if (role && ["associate","admin"].includes(role)) updates.role = role;
     if ((req.body as any).password) updates.passwordHash = await bcrypt.hash((req.body as any).password, 10);
     if (Object.keys(updates).length === 0) return reply.status(400).send({ error: "No fields to update" });
     updates.updatedAt = new Date();
