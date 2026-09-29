@@ -1042,9 +1042,8 @@
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.channels')"></div>
   <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_email" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaEmail')"></span></label>
-  <div class="pl-6 text-xs font-medium text-zinc-500" x-text="t('admin.notifications.pushTitle')"></div>
-  <label class="flex items-center gap-2 text-sm pl-6"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
-  <label class="flex items-center gap-2 text-sm pl-6"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_whatsapp" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaWhatsapp')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="notificationForm.notify_via_telegram" :disabled="!notificationForm.notifications_enabled" /> <span x-text="t('admin.notifications.viaTelegram')"></span></label>
   </div>
   <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
   <div class="font-semibold text-sm" x-text="t('admin.notifications.adminEvents')"></div>
