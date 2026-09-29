@@ -181,8 +181,7 @@
   "telegram.linking": "Collegamento...",
   "telegram.disconnect": "Disconnetti Telegram",
   "telegram.hint": "Tocca Connetti per aprire Telegram — le notifiche di approvazione/rifiuto arriveranno lì. WhatsApp usa il tuo cellulare.",
-  "admin.notifications.title": "Notifiche — WhatsApp & Telegram",
-  "admin.notifications.desc": "Richiesta in attesa → avvisa admin · Approvazione/rifiuto → avvisa utente. Usa Meta WhatsApp Cloud API e Telegram Bot API. Attiva qui e compila le credenziali sotto. Puoi anche impostare tramite variabili Render come fallback.",
+  "admin.notifications.title": "Impostazioni notifiche",
   "admin.notifications.enable": "Abilita notifiche",
   "admin.notifications.telegram.title": "Telegram (Bot)",
   "admin.notifications.telegram.desc": "Crea bot via @BotFather → copia token. Ottieni il tuo chat ID: scrivi al bot, poi apri https://api.telegram.org/bot<TOKEN>/getUpdates e copia chat.id. Per più admin, separati da virgola.",
@@ -427,8 +426,8 @@
   "profile.connectFirst": "Collega WhatsApp o Telegram per attivare il push",
   "profile.waNotSet": "imposta il cellulare nei Dati profilo",
   "profile.pushRule": "Il push arriva solo se è attivo qui, hai collegato WhatsApp o Telegram e il club lo prevede per quell’evento.",
-  "admin.notify.tabUsers": "Avvisa utenti",
-  "admin.notify.tabAlerts": "Avvisi admin",
+  "admin.notify.tabUsers": "Avvisi agli utenti",
+  "admin.notify.tabAlerts": "Avvisi agli admin",
   "admin.notify.usersDesc": "Cosa ricevono gli utenti del club per ogni evento, via email e/o push.",
   "admin.notify.alertsDesc": "Cosa riceve tutto il team admin per ogni evento. Il push segue i canali collegati di ciascun admin."
 }

@@ -1071,7 +1071,6 @@
 
   <section x-show="view==='admin-notifications'" class="mx-auto max-w-2xl space-y-4 rounded-xl border bg-white p-6" x-init="if(user?.role==='admin') loadAdminSettings()">
   <h2 class="text-xl font-bold" x-text="t('admin.notifications.title')"></h2>
-  <p class="text-xs text-zinc-500" x-text="t('admin.notifications.desc')"></p>
   <div class="flex gap-2">
   <button @click="notifyAdminTab='users'" class="flex-1 rounded-lg px-3 py-1 text-xs" :class="notifyAdminTab==='users' ? 'bg-emerald-200 border border-emerald-300 text-emerald-900' : 'border bg-white'" x-text="t('admin.notify.tabUsers')"></button>
   <button @click="notifyAdminTab='alerts'" class="flex-1 rounded-lg px-3 py-1 text-xs" :class="notifyAdminTab==='alerts' ? 'bg-emerald-200 border border-emerald-300 text-emerald-900' : 'border bg-white'" x-text="t('admin.notify.tabAlerts')"></button>
