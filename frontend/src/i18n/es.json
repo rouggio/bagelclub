@@ -395,5 +395,9 @@
   "admin.allowSignup": "Registro abierto",
   "admin.allowSignup.on": "Registro libre",
   "admin.allowSignup.off": "Sólo cuentas de admin",
-  "auth.signupClosed": "Registro cerrado: pide una cuenta a tu admin."
+  "auth.signupClosed": "Registro cerrado: pide una cuenta a tu admin.",
+  "admin.users.welcome": "Enviar email de bienvenida",
+  "admin.users.welcomeConfirm": "Enviar enlace para crear contraseña?",
+  "admin.users.welcomeSent": "Email enviado.",
+  "admin.users.welcomeNoEmail": "Usuario sin email."
 }

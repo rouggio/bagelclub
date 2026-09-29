@@ -766,9 +766,11 @@
   </div>
   </div>
   <div class="flex gap-2">
-   <button @click="startEditUser(viewedUser); view='admin-create-user'; location.hash='admin-create-user'" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm" x-text="t('btn.edit')"></button>
-   <button @click="backFromViewUser()" class="flex-1 rounded-lg border py-2 text-sm" x-text="t('btn.back')"></button>
+  <button @click="startEditUser(viewedUser); view='admin-create-user'; location.hash='admin-create-user'" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm" x-text="t('btn.edit')"></button>
+  <button @click="backFromViewUser()" class="flex-1 rounded-lg border py-2 text-sm" x-text="t('btn.back')"></button>
   </div>
+  <button x-show="viewedUser?.email" @click="sendWelcomeEmail()" class="w-full rounded-lg border py-2 text-sm" x-text="t('admin.users.welcome')"></button>
+  <p x-show="viewedUserMsg" class="text-xs" :class="viewedUserMsgOk ? 'text-emerald-600' : 'text-red-600'" x-text="viewedUserMsg"></p>
   </section>
 
   <section x-show="view==='admin-bookings'" class="space-y-4">

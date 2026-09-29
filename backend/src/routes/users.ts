@@ -2,8 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { users, appSettings } from "../db/schema.js";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { profileSchema, adminCreateUserSchema } from "../types/schemas.js";
-import { requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
+import { requireRequestClub, getClubSettings, getPlatformSetting, clubLocales, reqDb } from "../services/club.js";
 import bcrypt from "bcryptjs";
+import { randomBytes, createHash } from "crypto";
 
 const live = () => isNull(users.deletedAt);
 
@@ -373,5 +374,51 @@ export default async function userRoutes(fastify: FastifyInstance) {
     }
     const [row] = await db.update(users).set({ deletedAt: null, deletedBy: null, updatedAt: new Date() }).where(eq(users.id, id)).returning();
     return reply.send(safeUser(row));
+  });
+
+  // Welcome email for admin-created accounts: set-password link (7 days).
+  // The account is unusable until the link is consumed (random password),
+  // so receiving + clicking IS the forced password change. Admin sees
+  // delivery failures (no enumeration concern inside the admin UI).
+  fastify.post("/api/users/:id/welcome", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    let db: any = (fastify as any).server.db ?? (fastify as any).db;
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req) as any;
+    const { id } = req.params as any;
+    const targetRows = await db.select().from(users).where(and(eq(users.id, id), eq(users.clubId, club.id), live())).limit(1);
+    const target = targetRows[0];
+    if (!target) return reply.status(404).send({ error: "Not found" });
+    if (!target.email) return reply.status(400).send({ error: "welcome_no_email" });
+    const base = ((await getPlatformSetting(db, "base_url")) || "").replace(/\/$/, "");
+    if (!base) return reply.status(501).send({ error: "welcome_no_base_url" });
+    const subjects: Record<string, string> = {
+      it: `Benvenuto su ${club.name} — imposta la tua password`,
+      en: `Welcome to ${club.name} — set your password`,
+      fr: `Bienvenue sur ${club.name} — définissez votre mot de passe`,
+      de: `Willkommen bei ${club.name} — legen Sie Ihr Passwort fest`,
+      es: `Bienvenido a ${club.name} — establece tu contraseña`,
+    };
+    try {
+      const { loginChallenges } = await import("../db/schema.js");
+      await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, target.id), eq(loginChallenges.purpose, "welcome")));
+      const token = randomBytes(32).toString("hex");
+      await db.insert(loginChallenges).values({
+        userId: target.id, codeHash: createHash("sha256").update(token).digest("hex"),
+        purpose: "welcome", expiresAt: new Date(Date.now() + 7 * 86400000),
+      });
+      const link = `${base}/club/${club.slug}/#reset-password?token=${token}`;
+      const lang = ["it", "en", "fr", "de", "es"].includes(target.preferredLanguage) ? target.preferredLanguage : "en";
+      const { sendEmail } = await import("../services/email.js");
+      await sendEmail({ to: target.email, subject: subjects[lang], text: `${subjects[lang]}: ${link}`, html: `<p><a href="${link}">${subjects[lang]}</a></p>` });
+      return reply.send({ ok: true });
+    } catch (e: any) {
+      try {
+        const { loginChallenges } = await import("../db/schema.js");
+        await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, target.id), eq(loginChallenges.purpose, "welcome")));
+      } catch {}
+      return reply.status(e.statusCode || 500).send({ error: e.message || "welcome_failed" });
+    }
   });
 }

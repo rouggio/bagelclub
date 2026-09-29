@@ -395,5 +395,9 @@
   "admin.allowSignup": "Offene Registrierung",
   "admin.allowSignup.on": "Jeder kann sich registrieren",
   "admin.allowSignup.off": "Nur Admin-Konten",
-  "auth.signupClosed": "Registrierung geschlossen: Admin um Konto bitten."
+  "auth.signupClosed": "Registrierung geschlossen: Admin um Konto bitten.",
+  "admin.users.welcome": "Willkommensmail senden",
+  "admin.users.welcomeConfirm": "Link zum Setzen des Passworts senden?",
+  "admin.users.welcomeSent": "E-Mail gesendet.",
+  "admin.users.welcomeNoEmail": "Nutzer ohne E-Mail."
 }

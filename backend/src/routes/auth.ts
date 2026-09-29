@@ -3,7 +3,7 @@ import { registerSchema, loginSchema } from "../types/schemas.js";
 import bcrypt from "bcryptjs";
 import { randomBytes, createHash } from "crypto";
 import { users } from "../db/schema.js";
-import { eq, or, and, isNull } from "drizzle-orm";
+import { eq, or, and, isNull, inArray } from "drizzle-orm";
 import { resolveClubSlug, requireClub, getClubSettings, clubLocales } from "../services/club.js";
 
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
@@ -337,7 +337,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const { loginChallenges } = await import("../db/schema.js");
       const hash = createHash("sha256").update(token).digest("hex");
       const rows = await db.select().from(loginChallenges).where(
-        and(eq(loginChallenges.codeHash, hash), eq(loginChallenges.purpose, "reset"), isNull(loginChallenges.consumedAt))
+        and(eq(loginChallenges.codeHash, hash), inArray(loginChallenges.purpose, ["reset", "welcome"]), isNull(loginChallenges.consumedAt))
       ).limit(1);
       const ch = rows[0];
       if (!ch || new Date(ch.expiresAt).getTime() < Date.now()) {

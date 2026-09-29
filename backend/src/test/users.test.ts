@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { cleanSlate, buildTestApp, loginAs, authHeaders, testDb } from "./helpers.js";
-import { users, bookings, courts } from "../db/schema.js";
+import { users, bookings, courts, loginChallenges } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 describe("users (soft delete)", () => {
@@ -12,6 +12,47 @@ describe("users (soft delete)", () => {
   beforeEach(async () => { admin = await loginAs(app, "green-village", "admin"); });
   afterAll(async () => { await app.close(); });
   const H = () => authHeaders(admin.token, "green-village");
+
+  it("welcome email validates target, needs email, fails closed without delivery", async () => {
+    const member = await loginAs(app, "green-village", "member");
+    // Cross-club target → 404.
+    const { db, pool } = await testDb();
+    const target = (await db.select().from(users).where(eq(users.username, "member")))[0];
+    await pool.end();
+    const beta = await loginAs(app, "beta", "admin").catch(() => null);
+    if (beta) {
+      const r = await app.inject({ method: "POST", url: `/api/users/${target.id}/welcome`, headers: authHeaders(beta.token, "beta") });
+      expect(r.statusCode).toBe(404);
+    }
+    // Member without email → 400.
+    const { db: db2, pool: pool2 } = await testDb();
+    await db2.update(users).set({ email: null }).where(eq(users.id, target.id));
+    await pool2.end();
+    const noMail = await app.inject({ method: "POST", url: `/api/users/${target.id}/welcome`, headers: H() });
+    expect(noMail.statusCode).toBe(400);
+    expect(noMail.json()).toMatchObject({ error: "welcome_no_email" });
+    // Undeliverable (dummy creds) → 502 and no dangling welcome token.
+    const keepKey = process.env.BREVO_API_KEY;
+    const keepFrom = process.env.BREVO_VERIFIED_EMAIL;
+    process.env.BREVO_API_KEY = "dummy";
+    process.env.BREVO_VERIFIED_EMAIL = "from@test.local";
+    const { db: db3, pool: pool3 } = await testDb();
+    await db3.update(users).set({ email: "member@test.local" }).where(eq(users.id, target.id));
+    const { platformSettings } = await import("../db/schema.js");
+    await db3.insert(platformSettings).values({ key: "base_url", value: "https://example.local" }).onConflictDoUpdate({ target: [platformSettings.key], set: { value: "https://example.local" } });
+    await pool3.end();
+    try {
+      const fail = await app.inject({ method: "POST", url: `/api/users/${target.id}/welcome`, headers: H() });
+      expect(fail.statusCode).toBe(502);
+      const { db: db4, pool: pool4 } = await testDb();
+      const rows = await db4.select().from(loginChallenges);
+      await pool4.end();
+      expect(rows.filter((c: any) => c.purpose === "welcome").length).toBe(0);
+    } finally {
+      if (keepKey !== undefined) process.env.BREVO_API_KEY = keepKey; else delete process.env.BREVO_API_KEY;
+      if (keepFrom !== undefined) process.env.BREVO_VERIFIED_EMAIL = keepFrom; else delete process.env.BREVO_VERIFIED_EMAIL;
+    }
+  });
 
   it("delete stamps deleted_at and keeps the row + booking history", async () => {
     const member = await loginAs(app, "green-village", "member");

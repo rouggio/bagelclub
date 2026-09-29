@@ -395,5 +395,9 @@
   "admin.allowSignup": "Open signup",
   "admin.allowSignup.on": "Anyone can register",
   "admin.allowSignup.off": "Admin-created accounts only",
-  "auth.signupClosed": "Signup is closed: ask your admin for an account."
+  "auth.signupClosed": "Signup is closed: ask your admin for an account.",
+  "admin.users.welcome": "Send welcome email",
+  "admin.users.welcomeConfirm": "Send email with set-password link?",
+  "admin.users.welcomeSent": "Email sent.",
+  "admin.users.welcomeNoEmail": "User has no email."
 }

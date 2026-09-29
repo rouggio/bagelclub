@@ -395,5 +395,9 @@
   "admin.allowSignup": "Iscrizioni aperte",
   "admin.allowSignup.on": "Chiunque puo registrarsi",
   "admin.allowSignup.off": "Solo account creati dall’admin",
-  "auth.signupClosed": "Iscrizioni chiuse: chiedi al tuo admin di crearti un account."
+  "auth.signupClosed": "Iscrizioni chiuse: chiedi al tuo admin di crearti un account.",
+  "admin.users.welcome": "Invia email di benvenuto",
+  "admin.users.welcomeConfirm": "Inviare email con link per impostare la password?",
+  "admin.users.welcomeSent": "Email inviata.",
+  "admin.users.welcomeNoEmail": "Utente senza email."
 }

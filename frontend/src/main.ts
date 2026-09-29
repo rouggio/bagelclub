@@ -77,6 +77,8 @@ function app() {
     adminUsersRole: "" as string,
     viewedUser: null as any | null,
     viewedUserBack: "admin-users" as string,
+    viewedUserMsg: "" as string,
+    viewedUserMsgOk: false as boolean,
     adminLoading: false as boolean,
     adminError: "" as string,
     adminFilter: "pending_approval" as string,
@@ -1596,6 +1598,21 @@ function app() {
       const back = this.viewedUserBack && this.viewedUserBack !== "admin-view-user" ? this.viewedUserBack : "admin-users";
       this.view = back;
       location.hash = back;
+    },
+    async sendWelcomeEmail() {
+      this.viewedUserMsg = ""; this.viewedUserMsgOk = false;
+      const u = this.viewedUser;
+      if (!u?.id) return;
+      if (!u.email) { this.viewedUserMsg = this.t("admin.users.welcomeNoEmail"); return; }
+      if (!confirm(`${u.username} — ${this.t("admin.users.welcomeConfirm")}`)) return;
+      try {
+        const token = storedToken();
+        const res = await apiFetch(`/api/users/${u.id}/welcome`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.viewedUserMsg = data.error || "send failed"; return; }
+        this.viewedUserMsgOk = true;
+        this.viewedUserMsg = this.t("admin.users.welcomeSent");
+      } catch (e: any) { this.viewedUserMsg = e.message || String(e); }
     },
 
     async loadProfile() {
