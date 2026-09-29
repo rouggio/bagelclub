@@ -371,5 +371,6 @@
   "admin.timetable.stubDropped": "minutes perdues",
   "admin.timetable.overlap": "Les plages ne doivent pas se chevaucher",
   "admin.timetable.badOrder": "Ouverture avant fermeture",
-  "admin.timetable.foreignCourt": "Terrain hors club"
+  "admin.timetable.foreignCourt": "Terrain hors club",
+  "price.defaultPerSlot": "Euro par creneau (defaut)"
 }

@@ -562,7 +562,7 @@
   <select x-model="adminCourtForm.type" class="rounded border px-2 py-1 text-sm"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
   <input x-model="adminCourtForm.name" :placeholder="t('admin.courts.namePlaceholder')" class="rounded border px-2 py-1 text-sm" />
   <input x-model="adminCourtForm.surface" :placeholder="t('admin.courts.surfacePlaceholder')" class="rounded border px-2 py-1 text-sm" />
-  <input type="number" min="0" step="0.5" x-model.number="adminCourtForm.price_eur" :placeholder="t('price.perSlot')" class="rounded border px-2 py-1 text-sm" />
+  <input type="number" min="0" step="0.5" x-model.number="adminCourtForm.price_eur" :placeholder="t('price.defaultPerSlot')" :title="t('price.defaultPerSlot')" class="rounded border px-2 py-1 text-sm" />
   </div>
  <div class="flex gap-2 mb-4">
  <button x-show="!editingCourtId" @click="createCourt()" class="rounded-lg bg-emerald-200 border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-300" x-text="t('btn.create')"></button>

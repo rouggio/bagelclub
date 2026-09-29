@@ -371,5 +371,6 @@
   "admin.timetable.stubDropped": "minuti scartati",
   "admin.timetable.overlap": "Le fasce non devono sovrapporsi",
   "admin.timetable.badOrder": "Apertura deve precedere chiusura",
-  "admin.timetable.foreignCourt": "Campo non valido per questo club"
+  "admin.timetable.foreignCourt": "Campo non valido per questo club",
+  "price.defaultPerSlot": "Euro a turno (default)"
 }

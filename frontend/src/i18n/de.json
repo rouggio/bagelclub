@@ -371,5 +371,6 @@
   "admin.timetable.stubDropped": "Minuten entfallen",
   "admin.timetable.overlap": "Fenster dürfen sich nicht überschneiden",
   "admin.timetable.badOrder": "Öffnung vor Schließung",
-  "admin.timetable.foreignCourt": "Platz gehört nicht zum Club"
+  "admin.timetable.foreignCourt": "Platz gehört nicht zum Club",
+  "price.defaultPerSlot": "Euro pro Slot (Standard)"
 }

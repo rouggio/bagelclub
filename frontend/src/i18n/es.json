@@ -371,5 +371,6 @@
   "admin.timetable.stubDropped": "minutos descartados",
   "admin.timetable.overlap": "Las franjas no deben solaparse",
   "admin.timetable.badOrder": "Apertura antes del cierre",
-  "admin.timetable.foreignCourt": "Pista fuera del club"
+  "admin.timetable.foreignCourt": "Pista fuera del club",
+  "price.defaultPerSlot": "Euro por turno (defecto)"
 }

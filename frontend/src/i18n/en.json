@@ -371,5 +371,6 @@
   "admin.timetable.stubDropped": "minutes dropped",
   "admin.timetable.overlap": "Windows must not overlap",
   "admin.timetable.badOrder": "Open must be before close",
-  "admin.timetable.foreignCourt": "Court does not belong to this club"
+  "admin.timetable.foreignCourt": "Court does not belong to this club",
+  "price.defaultPerSlot": "Euro per slot (default)"
 }
