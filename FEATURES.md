@@ -28,7 +28,7 @@
 | 20 | Social login alt route (OAuth Google/Apple; identity still club-scoped, one user = one club) | ❌ | deferred | `SPEC.md` §8 |
 | 21 | Calendar sync, native apps, realtime chat | ❌ | deferred | `SPEC.md:20` non-goals |
 | 22 | Memberships join table (one login, many clubs) | ❌ | deferred | `MULTITENANT.md` §1 |
-| 23 | Notifications per channel — email + push, push suboptions WhatsApp / Telegram; the mail, telegram and whatsapp settings sections are only visible when their channel checkbox is on | ✅ | planned (Massimo) | needs #28 first; per-club sender settings + channel toggles |
+| 23 | Notifications per channel — email + push, push suboptions WhatsApp / Telegram; preferences split admin vs user (each side toggles its own channels/events); the mail, telegram and whatsapp settings sections are only visible when their channel checkbox is on | ✅ | planned (Massimo) | needs #28 first; per-club sender settings + channel toggles |
 | 24 | Flexible slot definitions: (a) per-court × weekday precise slots, (b) constant durations day/week-wide (current), (c) midday break — morning/afternoon gap | ✅ | planned (Massimo) | per-club option; extends #1 timetable (day needs multiple open windows, not one open–close) |
 | 25 | Admin-managed accounts (admin sets usernames, no open signup) | ✅ | planned (Massimo) | per-club option (`allow_open_signup` flag, default on?) |
 | 26 | Explicit participant lists on bookings (admin bypass: free booking) | ✅ | planned (Massimo) | per-club option; extends #1 booking model |
