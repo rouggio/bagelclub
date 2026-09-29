@@ -1,5 +1,5 @@
 import { clubs, courts, timetables, users, bookings, blocks, blockingRules, announcements, telegramLinkTokens, appSettings } from "../db/schema.js";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { withClubScope } from "./club.js";
 import bcrypt from "bcryptjs";
 
@@ -28,7 +28,10 @@ async function demoClubSeed(db: any, clubId: string, courtSpecs: Array<{ type: "
   return created;
 }
 
-async function wipeClubData(db: any, clubId: string) {
+/** Full wipe of one club's tenant data (audit + grants survive: audit is
+ *  platform history, grants cascade on club delete). Exported for the
+ *  platform club-delete endpoint. */
+export async function wipeClubData(db: any, clubId: string) {
   // Children first (NO ACTION FKs), translations cascade from announcements.
   await db.delete(telegramLinkTokens).where(eq(telegramLinkTokens.clubId, clubId));
   await db.delete(bookings).where(eq(bookings.clubId, clubId));
@@ -102,6 +105,37 @@ export async function deleteExpiredDemoRuns(db: any): Promise<string[]> {
   for (const c of rows as any[]) {
     if (c.slug === "demo") continue;
     if (!c.demoExpiresAt || new Date(c.demoExpiresAt) > now) continue;
+    await wipeClubData(db, c.id);
+    await db.delete(clubs).where(and(eq(clubs.id, c.id), eq(clubs.isDemo, true), ne(clubs.slug, "demo")));
+    gone.push(c.slug);
+  }
+  return gone;
+}
+
+/**
+ * Idle sweeper for user-created demos: deletes personal demo runs whose last
+ * activity (newest member, newest booking, or club creation) is older than
+ * `idleDays`. Never touches the showcase. Expired runs are included
+ * regardless of activity (they are garbage by definition).
+ */
+export async function deleteIdleDemoRuns(db: any, idleDays = 60): Promise<string[]> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - idleDays * 86400000);
+  const latestIn = async (table: any, clubId: string): Promise<Date | null> => {
+    const r: any[] = await db.select({ m: sql`max(${table.createdAt})` }).from(table).where(eq(table.clubId, clubId));
+    return r[0]?.m ? new Date(r[0].m) : null;
+  };
+  const rows = await db.select().from(clubs).where(eq(clubs.isDemo, true));
+  const gone: string[] = [];
+  for (const c of rows as any[]) {
+    if (c.slug === "demo") continue;
+    const expired = c.demoExpiresAt && new Date(c.demoExpiresAt) <= now;
+    let last: Date = new Date(c.createdAt);
+    for (const t of [users, bookings]) {
+      const m = await latestIn(t, c.id);
+      if (m && m > last) last = m;
+    }
+    if (!expired && last > cutoff) continue;
     await wipeClubData(db, c.id);
     await db.delete(clubs).where(and(eq(clubs.id, c.id), eq(clubs.isDemo, true), ne(clubs.slug, "demo")));
     gone.push(c.slug);

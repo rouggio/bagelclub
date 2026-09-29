@@ -1732,6 +1732,8 @@ function app() {
         "platform.abuse.unblock": "auditAbuseUnblock",
         "platform.impersonate.grant": "auditImpGrant",
         "platform.impersonate.revoke": "auditImpRevoke",
+        "platform.club.delete": "auditClubDelete",
+        "platform.impersonate.blocked-write": "auditImpBlocked",
         "platform.admin.reset-password": "auditAdminReset",
       };
       const key = map[action];
@@ -1785,11 +1787,14 @@ function app() {
         else await this.loadPlatformClubs();
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
-    async resetDemo() {
+    async deletePlatformClub(c: any) {
       this.platformError = "";
+      if (!confirm(`${c.name} — ${this.t("platform.deleteConfirm")}`)) return;
       try {
-        const res = await platformFetch("/api/platform/clubs/demo/reset", { method: "POST" });
-        if (!res.ok) this.platformError = await res.text();
+        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "DELETE" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || "delete failed"; return; }
+        await this.loadPlatformClubs();
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
     async cleanupDemos() {

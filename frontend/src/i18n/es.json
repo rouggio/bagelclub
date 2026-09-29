@@ -357,5 +357,10 @@
   "platform.auditTo": "Hasta",
   "platform.auditClub": "Club",
   "platform.auditPrev": "‹ Ant",
-  "platform.auditNext": "Sig ›"
+  "platform.auditNext": "Sig ›",
+  "platform.auditClubDelete": "Club eliminado",
+  "platform.auditImpBlocked": "Escritura bloqueada (suplantacion)",
+  "platform.delete": "Eliminar",
+  "platform.deleteConfirm": "Eliminar este club y TODOS sus datos? Irreversible.",
+  "platform.cleanupIdle": "Eliminar demos inactivas (60d)"
 }

@@ -5,7 +5,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { slugify, validateSlug, validTimezone } from "../services/club.js";
 import { attachSuperadmin, reqDb } from "../services/club.js";
-import { resetDemoShowcase, deleteExpiredDemoRuns, clubCounts } from "../services/demo.js";
+import { resetDemoShowcase, deleteIdleDemoRuns, wipeClubData, clubCounts } from "../services/demo.js";
 import { auditLog } from "../db/schema.js";
 
 const createClubSchema = z.object({
@@ -128,20 +128,10 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({ ok: true });
   });
 
-  // Provision the public showcase (/club/demo/) if missing, then reset its content.
+  // Reset the public showcase (/club/demo/): create it if missing, then wipe
+  // + reseed its content. Reports before/after counts.
   fastify.post("/api/platform/demo/ensure", { preHandler: pre }, async (req, reply) => {
     let db: any = reqDb(req);
-    if (!db) return reply.status(501).send({ error: "DB not configured" });
-    const existing = await db.select().from(clubs).where(eq(clubs.slug, "demo")).limit(1);
-    if (!existing[0]) {
-      await db.insert(clubs).values({ slug: "demo", name: "Demo Club", timezone: "Europe/Rome", plan: "free", isDemo: true, isListed: true });
-    }
-    const club = await resetDemoShowcase(db);
-    await audit(db, (req as any).user.id, "platform.demo.ensure", "demo", {});
-    return reply.send({ ok: true, slug: club.slug });
-  });
-
-  fastify.post("/api/platform/clubs/demo/reset", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
     const countAll = async () => {
       const out: Record<string, number> = {};
@@ -151,18 +141,42 @@ export default async function platformRoutes(fastify: FastifyInstance) {
       return out;
     };
     const before = await countAll();
+    const existing = await db.select().from(clubs).where(eq(clubs.slug, "demo")).limit(1);
+    if (!existing[0]) {
+      await db.insert(clubs).values({ slug: "demo", name: "Demo Club", timezone: "Europe/Rome", plan: "free", isDemo: true, isListed: true });
+    }
     const club = await resetDemoShowcase(db);
     const after = await countAll();
-    await audit(db, (req as any).user.id, "platform.demo.reset", "demo", { before, after });
+    await audit(db, (req as any).user.id, "platform.demo.ensure", "demo", { before, after });
     return reply.send({ ok: true, slug: club.slug, before, after });
   });
 
+  // Idle sweeper: delete user-created demo runs idle for 60+ days (expired
+  // runs included regardless of activity). Never touches the showcase.
+  // Expired-run cleanup also runs daily via cron (deleteExpiredDemoRuns).
   fastify.post("/api/platform/demo/cleanup", { preHandler: pre }, async (req, reply) => {
     let db: any = reqDb(req);
     if (!db) return reply.status(501).send({ error: "DB not configured" });
-    const deleted = await deleteExpiredDemoRuns(db);
-    await audit(db, (req as any).user.id, "platform.demo.cleanup", "-", { deleted });
-    return reply.send({ ok: true, deleted });
+    const deleted = await deleteIdleDemoRuns(db, 60);
+    await audit(db, (req as any).user.id, "platform.demo.cleanup", "-", { deleted, idle_days: 60 });
+    return reply.send({ ok: true, deleted, idle_days: 60 });
+  });
+
+  // Delete a whole club (tenant data wiped; audit history survives).
+  // The public showcase is protected — reset it via ensure instead.
+  fastify.delete("/api/platform/clubs/:slug", { preHandler: pre }, async (req, reply) => {
+    let db: any = reqDb(req);
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const { slug } = req.params as any;
+    if (slug === "demo") return reply.status(400).send({ error: "Showcase is protected — reset it via ensure" });
+    const rows = await db.select().from(clubs).where(eq(clubs.slug, slug)).limit(1);
+    const club = rows[0];
+    if (!club) return reply.status(404).send({ error: "Not found" });
+    const counts = await clubCounts(db, club.id);
+    await wipeClubData(db, club.id);
+    await db.delete(clubs).where(eq(clubs.id, club.id));
+    await audit(db, (req as any).user.id, "platform.club.delete", slug, counts);
+    return reply.send({ ok: true, slug, counts });
   });
 
   // Platform-wide reporting: totals + per-club breakdown (revenue from

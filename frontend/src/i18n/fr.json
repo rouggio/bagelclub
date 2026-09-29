@@ -357,5 +357,10 @@
   "platform.auditTo": "Au",
   "platform.auditClub": "Club",
   "platform.auditPrev": "‹ Préc",
-  "platform.auditNext": "Suiv ›"
+  "platform.auditNext": "Suiv ›",
+  "platform.auditClubDelete": "Club supprime",
+  "platform.auditImpBlocked": "Ecriture bloquee (impersonation)",
+  "platform.delete": "Supprimer",
+  "platform.deleteConfirm": "Supprimer ce club et TOUTES ses donnees ? Irreversible.",
+  "platform.cleanupIdle": "Supprimer demos inactives (60j)"
 }

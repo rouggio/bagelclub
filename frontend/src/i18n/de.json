@@ -357,5 +357,10 @@
   "platform.auditTo": "Bis",
   "platform.auditClub": "Club",
   "platform.auditPrev": "‹ Zurück",
-  "platform.auditNext": "Weiter ›"
+  "platform.auditNext": "Weiter ›",
+  "platform.auditClubDelete": "Club geloscht",
+  "platform.auditImpBlocked": "Schreiben blockiert (Impersonierung)",
+  "platform.delete": "Loschen",
+  "platform.deleteConfirm": "Diesen Club und ALLE seine Daten loschen? Unwiderruflich.",
+  "platform.cleanupIdle": "Inaktive Demos loschen (60T)"
 }

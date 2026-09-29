@@ -197,6 +197,7 @@
   <label class="flex items-center gap-1"><input type="checkbox" x-model="c.isListed" /><span x-text="t('platform.listed')"></span></label>
   <button @click="savePlatformClub(c)" class="rounded-lg border px-2 py-1" x-text="t('platform.save')"></button>
   <button @click="accessClubAsAdmin(c.slug)" class="rounded-lg border border-red-300 bg-red-50 px-2 py-1" x-text="t('platform.access')"></button>
+  <button x-show="c.slug!=='demo'" @click="deletePlatformClub(c)" class="rounded-lg border border-red-300 bg-red-50 px-2 py-1" x-text="t('platform.delete')"></button>
   </div>
   </div>
   </div>
@@ -227,9 +228,8 @@
   </div>
   </div>
   <div class="flex flex-wrap gap-2">
-  <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.ensure')"></button>
-  <button @click="resetDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
-  <button @click="cleanupDemos()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.cleanup')"></button>
+  <button @click="ensureDemo()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.resetDemo')"></button>
+  <button @click="cleanupDemos()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('platform.cleanupIdle')"></button>
   </div>
   <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
   </section>

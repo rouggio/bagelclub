@@ -357,5 +357,10 @@
   "platform.auditTo": "To",
   "platform.auditClub": "Club",
   "platform.auditPrev": "‹ Prev",
-  "platform.auditNext": "Next ›"
+  "platform.auditNext": "Next ›",
+  "platform.auditClubDelete": "Club deleted",
+  "platform.auditImpBlocked": "Write blocked (impersonation)",
+  "platform.delete": "Delete",
+  "platform.deleteConfirm": "Delete this club and ALL its data? Cannot be undone.",
+  "platform.cleanupIdle": "Delete idle demos (60d)"
 }
