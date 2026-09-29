@@ -113,6 +113,26 @@ describe("timetable windows (#24)", () => {
     expect(bk.json().endTime.slice(0, 5)).toBe("17:00");
   });
 
+  it("booking price snapshots the window price, else the court price", async () => {
+    await putDay(1, [
+      { open_time: "08:00", close_time: "12:00", slot_duration_minutes: 60, price_cents: 2500 },
+      { open_time: "16:00", close_time: "22:00", slot_duration_minutes: 60 },
+    ]);
+    const h = authHeaders(member.token, "green-village");
+    const eve = await app.inject({
+      method: "POST", url: "/api/bookings", headers: h,
+      payload: { court_id: courtId, date: nextMonday(), start_time: "09:00" },
+    });
+    expect(eve.statusCode).toBe(201);
+    expect(eve.json().priceCents).toBe(2500);
+    const night = await app.inject({
+      method: "POST", url: "/api/bookings", headers: h,
+      payload: { court_id: courtId, date: nextMonday(), start_time: "16:00" },
+    });
+    expect(night.statusCode).toBe(201);
+    expect(night.json().priceCents).toBe(1000); // seeded tennis court price
+  });
+
   it("cross-club writes are rejected", async () => {
     const { db, pool } = await testDb();
     await seedClub(db, "beta", "Beta Club", "Europe/Rome");

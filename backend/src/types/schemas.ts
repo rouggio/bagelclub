@@ -51,6 +51,7 @@ export const timetableWindowSchema = z.object({
   open_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
   close_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
   slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120].includes(v)).default(60),
+  price_cents: z.number().int().min(0).nullable().optional(),
 });
 
 export const timetableDaySchema = z.object({

@@ -111,6 +111,7 @@ export const timetableWindows = pgTable(
     openTime: time("open_time").notNull(),
     closeTime: time("close_time").notNull(),
     slotDurationMinutes: integer("slot_duration_minutes").notNull().default(60),
+    priceCents: integer("price_cents"),
     position: integer("position").notNull().default(0),
   },
   (t) => [unique("timetable_windows_court_day_pos_unique").on(t.courtId, t.dayOfWeek, t.position)]

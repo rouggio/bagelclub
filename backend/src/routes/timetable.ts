@@ -46,7 +46,7 @@ function stubHints(windows: Array<{ open_time: string; close_time: string; slot_
   return out;
 }
 
-async function writeDay(db: any, courtId: string, dow: number, windows: Array<{ open_time: string; close_time: string; slot_duration_minutes: number }>) {
+async function writeDay(db: any, courtId: string, dow: number, windows: Array<{ open_time: string; close_time: string; slot_duration_minutes: number; price_cents?: number | null }>) {
   await db.delete(timetableWindows).where(and(eq(timetableWindows.courtId, courtId), eq(timetableWindows.dayOfWeek, dow)));
   // Migrate-on-write: this day now lives in windows — drop its legacy rows so
   // the fallback never resurrects them (empty windows = closed day).
@@ -57,7 +57,8 @@ async function writeDay(db: any, courtId: string, dow: number, windows: Array<{ 
     await db.insert(timetableWindows).values({
       courtId: courtId, dayOfWeek: dow,
       openTime: hhmm(w.open_time), closeTime: hhmm(w.close_time),
-      slotDurationMinutes: w.slot_duration_minutes ?? 60, position: pos++,
+      slotDurationMinutes: w.slot_duration_minutes ?? 60,
+      priceCents: w.price_cents ?? null, position: pos++,
     });
   }
 }
@@ -89,7 +90,7 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
       days[id] = rows.map((r: any) => ({
         day_of_week: r.dayOfWeek,
         open_time: hhmm(r.openTime), close_time: hhmm(r.closeTime),
-        slot_duration_minutes: r.slotDurationMinutes, position: r.position,
+        slot_duration_minutes: r.slotDurationMinutes, price_cents: r.priceCents ?? null, position: r.position,
       }));
     }
     return reply.send({ days });
@@ -135,7 +136,7 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
     const src: any[] = await db.select().from(timetableWindows)
       .where(and(eq(timetableWindows.courtId, court_id), eq(timetableWindows.dayOfWeek, from_dow)))
       .orderBy(asc(timetableWindows.position));
-    const wins = src.map((r: any) => ({ open_time: hhmm(r.openTime), close_time: hhmm(r.closeTime), slot_duration_minutes: r.slotDurationMinutes }));
+    const wins = src.map((r: any) => ({ open_time: hhmm(r.openTime), close_time: hhmm(r.closeTime), slot_duration_minutes: r.slotDurationMinutes, price_cents: r.priceCents ?? null }));
     const force = (req.query as any)?.force === "true";
     if (!force) {
       for (const dow of to_dows) {

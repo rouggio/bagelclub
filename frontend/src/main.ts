@@ -136,7 +136,7 @@ function app() {
     adminCourtForm: { number: null as number | null, type: "tennis" as "tennis" | "padel", name: "", surface: "", price_eur: null as number | null } as { number: number | null; type: "tennis" | "padel"; name: string; surface: string; price_eur: number | null },
     editingCourtId: null as string | null,
     adminTimetableCourtId: "" as string,
-    adminTimetableRows: [] as Array<{ dayOfWeek: number; windows: Array<{ open: string; close: string; dur: number }> }>,
+    adminTimetableRows: [] as Array<{ dayOfWeek: number; windows: Array<{ open: string; close: string; dur: number; price: number | null }> }>,
     adminTimetableCopyFrom: 1 as number,
     adminTimetableCopyTo: [2, 3, 4, 5] as number[],
     adminTimetableLoading: false as boolean,
@@ -1020,14 +1020,14 @@ function app() {
         const flat: any[] = (data.days && data.days[this.adminTimetableCourtId]) || [];
         const defDur = (this.adminCourts.find((c: any) => c.id === this.adminTimetableCourtId)?.type === "padel") ? 90 : 60;
         const byDay: Record<number, any[]> = {};
-        for (const w of flat) (byDay[w.day_of_week] ||= []).push({ open: w.open_time, close: w.close_time, dur: w.slot_duration_minutes || defDur });
+        for (const w of flat) (byDay[w.day_of_week] ||= []).push({ open: w.open_time, close: w.close_time, dur: w.slot_duration_minutes || defDur, price: w.price_cents != null ? Number(w.price_cents) / 100 : null });
         this.adminTimetableRows = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({ dayOfWeek: dow, windows: byDay[dow] || [] }));
         await this.loadAdminSettings();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }
     },
     addTimetableWindow(row: any) {
-      row.windows.push({ open: "08:00", close: "22:00", dur: 60 });
+      row.windows.push({ open: "08:00", close: "22:00", dur: 60, price: null });
     },
     removeTimetableWindow(row: any, i: number) {
       row.windows.splice(i, 1);
@@ -1084,7 +1084,7 @@ function app() {
           const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({
             court_id: this.adminTimetableCourtId,
             day_of_week: row.dayOfWeek,
-            windows: row.windows.map((w) => ({ open_time: w.open, close_time: w.close, slot_duration_minutes: w.dur })),
+            windows: row.windows.map((w) => ({ open_time: w.open, close_time: w.close, slot_duration_minutes: w.dur, price_cents: w.price != null && w.price !== "" ? Math.max(0, Math.round(Number(w.price) * 100)) : null })),
           }) });
           if (!res.ok) {
             const txt = await res.text();

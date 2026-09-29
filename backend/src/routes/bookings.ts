@@ -84,7 +84,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
 
     const [row] = await db
       .insert(bookings)
-      .values({ clubId: club.id, courtId: court_id, userId: user.id, date, startTime: start_time, endTime, status: status as any, notes: notes ?? null, rentRacquets: rent_racquets ?? 0, players: playersVal, priceCents: court.basePriceCents ?? 0, reviewedBy: user.role === "admin" ? user.id : null })
+      .values({ clubId: club.id, courtId: court_id, userId: user.id, date, startTime: start_time, endTime, status: status as any, notes: notes ?? null, rentRacquets: rent_racquets ?? 0, players: playersVal, priceCents: hit?.priceCents ?? court.basePriceCents ?? 0, reviewedBy: user.role === "admin" ? user.id : null })
       .returning();
     // Notifications (fire-and-forget, localized per recipient)
     if (status === "pending_approval") {

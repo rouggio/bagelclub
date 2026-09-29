@@ -38,6 +38,7 @@ const requiredColumns: Array<[string, string]> = [
   ["login_challenges", "purpose"],
   ["app_settings", "two_fa_enabled"],
   ["app_settings", "flexible_slots"],
+  ["timetable_windows", "price_cents"],
   ["users", "last_login_at"],
 ];
 const missing: string[] = [];
