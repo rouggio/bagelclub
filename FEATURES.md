@@ -28,6 +28,17 @@
 | 20 | Social login alt route (OAuth Google/Apple; identity still club-scoped, one user = one club) | ❌ | deferred | `SPEC.md` §8 |
 | 21 | Calendar sync, native apps, realtime chat | ❌ | deferred | `SPEC.md:20` non-goals |
 | 22 | Memberships join table (one login, many clubs) | ❌ | deferred | `MULTITENANT.md` §1 |
+| 23 | Email notifications (booking confirmations/decisions, 2FA-adjacent flows) | ✅ | planned (Massimo) | needs #27 first; per-club sender settings |
+| 24 | Per-court, per-weekday slot definitions (slot grid varies by court × dow, not one global timetable) | ✅ | planned (Massimo) | per-club option; extends #1 timetable |
+| 25 | Admin-managed accounts (admin sets usernames, no open signup) | ✅ | planned (Massimo) | per-club option (`allow_open_signup` flag, default on?) |
+| 26 | Explicit participant lists on bookings (admin bypass: free booking) | ✅ | planned (Massimo) | per-club option; extends #1 booking model |
+| 27 | Password reset via email (token link, expiry, single-use) | ✅ | planned (Massimo) | cross-cutting, needed regardless of #23 content mail |
+| 28 | Transactional email provider (REST API — Render blocks SMTP traffic) | ✅ | planned (Massimo) | blocks #23 + #27; candidates TBD (Resend/Brevo/Postmark-style) |
+
+## Notes — Massimo (prospect, next release)
+- #23–#26 are **per-club admin options**, never global mandates: each club toggles them in settings; defaults keep current behaviour.
+- #27 is needed in any case (support + onboarding), independent of notification content.
+- #28 is the infrastructure prerequisite: no SMTP on Render, so a REST-API mail provider must be chosen + sender identity per club.
 
 ## Rules
 - New feature requests land here first with an MVP? flag before any design doc grows.
