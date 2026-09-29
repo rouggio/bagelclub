@@ -372,5 +372,8 @@
   "admin.timetable.overlap": "Le fasce non devono sovrapporsi",
   "admin.timetable.badOrder": "Apertura deve precedere chiusura",
   "admin.timetable.foreignCourt": "Campo non valido per questo club",
-  "price.defaultPerSlot": "Euro a turno (default)"
+  "price.defaultPerSlot": "Euro a turno (default)",
+  "admin.showPrices": "Mostra prezzi",
+  "admin.showPrices.on": "Prezzi visibili a tutti",
+  "admin.showPrices.off": "Nessun prezzo mostrato"
 }

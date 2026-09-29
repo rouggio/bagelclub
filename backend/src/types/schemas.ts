@@ -131,6 +131,7 @@ export const settingsSchema = z.object({
   // 2FA state changes go through /api/settings/2fa/* (OTP-gated), never PUT.
   two_fa_enabled: z.boolean().optional(),
   flexible_slots: z.boolean().optional(),
+  show_prices: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

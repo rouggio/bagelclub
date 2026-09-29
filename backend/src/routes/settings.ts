@@ -44,6 +44,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         currency: club.currency || "EUR",
         locales: enabled,
         default_locale: def,
+        show_prices: s?.showPrices ?? true,
       });
     } catch {
       return reply.send(FALLBACK_INFO);
@@ -79,6 +80,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.min_cancel_hours !== undefined) updates.minCancelHours = parsed.data.min_cancel_hours;
     if (parsed.data.auto_approve_bookings !== undefined) updates.autoApproveBookings = parsed.data.auto_approve_bookings;
     if (parsed.data.flexible_slots !== undefined) updates.flexibleSlots = parsed.data.flexible_slots;
+    if (parsed.data.show_prices !== undefined) updates.showPrices = parsed.data.show_prices;
     if (parsed.data.club_name !== undefined) updates.clubName = parsed.data.club_name || null;
     if (parsed.data.club_phone !== undefined) updates.clubPhone = parsed.data.club_phone || null;
     if (parsed.data.club_address !== undefined) updates.clubAddress = parsed.data.club_address || null;

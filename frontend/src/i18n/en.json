@@ -372,5 +372,8 @@
   "admin.timetable.overlap": "Windows must not overlap",
   "admin.timetable.badOrder": "Open must be before close",
   "admin.timetable.foreignCourt": "Court does not belong to this club",
-  "price.defaultPerSlot": "Euro per slot (default)"
+  "price.defaultPerSlot": "Euro per slot (default)",
+  "admin.showPrices": "Show prices",
+  "admin.showPrices.on": "Prices visible to everyone",
+  "admin.showPrices.off": "No prices shown"
 }

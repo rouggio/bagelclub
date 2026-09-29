@@ -372,5 +372,8 @@
   "admin.timetable.overlap": "Les plages ne doivent pas se chevaucher",
   "admin.timetable.badOrder": "Ouverture avant fermeture",
   "admin.timetable.foreignCourt": "Terrain hors club",
-  "price.defaultPerSlot": "Euro par créneau (défaut)"
+  "price.defaultPerSlot": "Euro par créneau (défaut)",
+  "admin.showPrices": "Afficher les prix",
+  "admin.showPrices.on": "Prix visibles par tous",
+  "admin.showPrices.off": "Aucun prix affiché"
 }

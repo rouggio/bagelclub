@@ -208,6 +208,7 @@ export const appSettings = pgTable("app_settings", {
   defaultLocale: varchar("default_locale", { length: 5 }).notNull().default("it"),
   twoFaEnabled: boolean("two_fa_enabled").notNull().default(false),
   flexibleSlots: boolean("flexible_slots").notNull().default(false),
+  showPrices: boolean("show_prices").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

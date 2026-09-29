@@ -372,5 +372,8 @@
   "admin.timetable.overlap": "Las franjas no deben solaparse",
   "admin.timetable.badOrder": "Apertura antes del cierre",
   "admin.timetable.foreignCourt": "Pista fuera del club",
-  "price.defaultPerSlot": "Euro por turno (defecto)"
+  "price.defaultPerSlot": "Euro por turno (defecto)",
+  "admin.showPrices": "Mostrar precios",
+  "admin.showPrices.on": "Precios visibles para todos",
+  "admin.showPrices.off": "Sin precios visibles"
 }

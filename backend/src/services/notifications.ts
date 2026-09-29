@@ -425,5 +425,6 @@ export function maskSettingsForAdminResponse(s: any) {
     default_locale: s.defaultLocale ?? "it",
     two_fa_enabled: s.twoFaEnabled ?? false,
     flexible_slots: s.flexibleSlots ?? false,
+    show_prices: s.showPrices ?? true,
   };
 }

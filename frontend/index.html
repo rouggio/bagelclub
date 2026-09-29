@@ -342,7 +342,7 @@
  class="rounded-lg border px-2 py-2 text-xs font-medium"
  :class="isPastSlot(slot) ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : ((slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? ' border-2 !border-red-700 ring-1 ring-red-700 font-bold ' : '') + (slot.status==='available' ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200' : slot.status==='booked' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' : slot.status==='pending_approval' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : slot.status==='lesson' ? 'bg-red-50 text-red-700 border-red-200' : slot.status==='blocked' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-400'))"
  :title="slot.label || ''"
-  x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slot.start} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
+  x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slot.start} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${showPrices() && slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
  ></button>
  </template>
  </div>
@@ -363,7 +363,7 @@
  <div class="font-semibold" x-text="pendingIntent?.courtLabel"></div>
  <div x-text="`${pendingIntent?.date} · ${pendingIntent?.startTime}`"></div>
   <div class="text-xs text-zinc-500" x-text="pendingIntent?.courtType ? (pendingIntent.courtType === 'padel' ? 'Padel' : 'Tennis') : ''"></div>
-  <div class="text-sm font-semibold text-emerald-700" x-show="fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))" x-text="t('price.total') + ': ' + fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))"></div>
+  <div class="text-sm font-semibold text-emerald-700" x-show="showPrices() && fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))" x-text="t('price.total') + ': ' + fmtPrice(pendingIntent?.priceCents ?? priceForCourt(pendingIntent?.courtId))"></div>
   </div>
  <div class="space-y-1">
  <label class="text-sm font-medium" x-text="t('confirm.notes')"></label>
@@ -467,7 +467,7 @@
  <div>
  <div class="font-semibold" x-text="courtLabel(b)"></div>
  <div class="text-sm text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-  <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${(b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''}`"></div>
+  <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''}`"></div>
   <div x-show="b.notes" class="mt-1 text-xs italic text-zinc-600" x-text="`&quot;${b.notes}&quot;`"></div>
   </div>
   <span class="rounded-lg px-2 py-1 text-xs font-medium" :class="statusClass(b.status)" x-text="t('status.'+b.status)"></span>
@@ -562,7 +562,7 @@
   <select x-model="adminCourtForm.type" class="rounded border px-2 py-1 text-sm"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
   <input x-model="adminCourtForm.name" :placeholder="t('admin.courts.namePlaceholder')" class="rounded border px-2 py-1 text-sm" />
   <input x-model="adminCourtForm.surface" :placeholder="t('admin.courts.surfacePlaceholder')" class="rounded border px-2 py-1 text-sm" />
-  <input type="number" min="0" step="0.5" x-model.number="adminCourtForm.price_eur" :placeholder="t('price.defaultPerSlot')" :title="t('price.defaultPerSlot')" class="rounded border px-2 py-1 text-sm" />
+  <input type="number" min="0" step="0.5" x-model.number="adminCourtForm.price_eur" :placeholder="t('price.defaultPerSlot')" :title="t('price.defaultPerSlot')" x-show="showPrices()" class="rounded border px-2 py-1 text-sm" />
   </div>
  <div class="flex gap-2 mb-4">
  <button x-show="!editingCourtId" @click="createCourt()" class="rounded-lg bg-emerald-200 border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-300" x-text="t('btn.create')"></button>
@@ -636,7 +636,7 @@
   <select x-model.number="w.dur" class="rounded border px-2 py-1 text-sm">
   <option value="30">30m</option><option value="60">60m</option><option value="90">90m</option><option value="120">120m</option>
   </select>
-  <input type="number" min="0" step="0.5" x-model="w.price" :placeholder="t('price.perSlot')" class="w-24 rounded border px-2 py-1 text-sm" />
+  <input type="number" min="0" step="0.5" x-model="w.price" :placeholder="t('price.perSlot')" x-show="showPrices()" class="w-24 rounded border px-2 py-1 text-sm" />
   <button x-show="row.windows.length > 1" @click="removeTimetableWindow(row, i)" class="rounded border px-2 py-1 text-xs">×</button>
   </div>
   </template>
@@ -769,7 +769,7 @@
   <div class="grid gap-0.5 text-sm">
   <div class="font-semibold leading-tight" x-text="courtLabel(b)"></div>
   <div class="text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${(b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
+   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
   <div x-show="b.notes" class="text-xs italic text-zinc-600 bg-amber-50 px-2 py-1 rounded" x-text="b.notes"></div>
   </div>
   <div class="flex flex-col items-end gap-1.5">
@@ -902,6 +902,13 @@
    <div class="text-xs text-zinc-500" x-text="adminSettings ? (adminSettings.auto_approve_bookings ? t('admin.autoApprove.enabled') : t('admin.autoApprove.disabled')) : ''"></div>
   </div>
   <button @click="toggleAutoApprove()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="adminSettings?.auto_approve_bookings ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="adminSettings?.auto_approve_bookings ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.showPrices')"></div>
+  <div class="text-xs text-zinc-500" x-text="showPrices() ? t('admin.showPrices.on') : t('admin.showPrices.off')"></div>
+  </div>
+  <button @click="toggleShowPrices()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="showPrices() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="showPrices() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
   <div class="flex items-center justify-between">
