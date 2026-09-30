@@ -11,7 +11,7 @@
 | 26 | Explicit participant lists on bookings (admin bypass: free booking) — per-club option | LIVE ON PROD 2026-09-30 (0031): `booking_participants` join table + `require_participant_list` toggle (default off) + member search `GET /api/users/search` + confirm/edit picker |
 | | ↳ 26a. Club admin decides whether this club requires bookings to list all players, picked from the users database | |
 | | ↳ 26b. When required, the booking screen adds a field to search & pick users (associates) by username or email | |
-| 30 | Club admin submits feature requests (in-app channel to the platform) | BUILT 2026-09-30, pending pd: shared anonymized board + `+1` votes + tracked statuses + reply (`0032`, club + platform endpoints, admin + platform UI, 5 backend tests) |
+| 30 | Club admin submits feature requests (in-app channel to the platform) | LIVE ON PROD 2026-09-30 (0032): shared anonymized board + `+1` votes + tracked statuses + reply (club + platform endpoints, admin + platform UI) |
 | 16 | Online payment collection (Stripe/subscriptions/player checkout) | later candidate, was `SPEC.md:20` non-goal |
 | 17 | Peak/off-peak price rules, discounts, memberships | later candidate |
 | 18 | Tournaments (brackets, scheduling, court assignment, entries) | later candidate |
@@ -42,6 +42,7 @@
 - #29 per-window pricing + `show_prices` master switch
 - #23 notifications v2 (policy × subscription × reachability; push master + WA/TG channels; Notify-users vs Admin-alerts tabs)
 - #26 explicit participant lists (per-club `require_participant_list`, member search, confirm/edit picker)
+- #30 feature requests (shared anonymized board + `+1` votes, tracked statuses + reply; club + platform UI)
 
 ## Out of scope (dropped)
 
