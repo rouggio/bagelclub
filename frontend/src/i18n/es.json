@@ -198,7 +198,7 @@
   "admin.notifications.whatsapp.usersHint": "Los usuarios son notificados en su móvil (WhatsApp) y vía Telegram si lo vincularon en Perfil.",
   "admin.notifications.whatsapp.test": "Probar WhatsApp",
   "admin.notifications.save": "Guardar notificaciones",
-  "admin.club.publicUrlPlaceholder": "URL pública ej. https://empanadel.onrender.com",
+  "admin.club.publicUrlPlaceholder": "URL pública ej. https://bagelclub.onrender.com",
   "admin.club.publicUrlHint": "Usado para enlaces de notificación (Telegram/WhatsApp) — debe ser la URL de producción.",
   "admin.notifications.nav": "Notificaciones",
   "admin.notifications.notifyOnAutoApproved": "Notificar al usuario para reservas auto-aprobadas",

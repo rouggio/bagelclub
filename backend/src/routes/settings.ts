@@ -15,7 +15,7 @@ const FALLBACK_SETTINGS = {
   club_name: "Green Village",
   club_phone: "3923047417",
   club_address: "",
-  public_url: "https://empanadel.onrender.com",
+  public_url: "https://bagelclub.onrender.com",
   notify_policy: [],
 };
 

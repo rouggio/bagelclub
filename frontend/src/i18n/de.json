@@ -198,7 +198,7 @@
   "admin.notifications.whatsapp.usersHint": "Nutzer werden auf ihrem Handy (WhatsApp) und via Telegram benachrichtigt, falls im Profil verknüpft.",
   "admin.notifications.whatsapp.test": "WhatsApp testen",
   "admin.notifications.save": "Benachrichtigungen speichern",
-  "admin.club.publicUrlPlaceholder": "Öffentliche URL z.B. https://empanadel.onrender.com",
+  "admin.club.publicUrlPlaceholder": "Öffentliche URL z.B. https://bagelclub.onrender.com",
   "admin.club.publicUrlHint": "Für Benachrichtigungslinks verwendet (Telegram/WhatsApp) — muss die Produktions-URL sein.",
   "admin.notifications.nav": "Benachrichtigungen",
   "admin.notifications.notifyOnAutoApproved": "Nutzer bei automatisch genehmigten Buchungen benachrichtigen",
