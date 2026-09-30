@@ -8,7 +8,7 @@
 | # | Feature | Notes |
 |---|---------|-------|
 | 23 | Notifications v2 — reachability × subscription × policy; email mandatory, push = WA/TG with master switch | LIVE ON PROD 2026-09-29 (0030): user channels + per-event push toggles; admin Notify-users vs Admin-alerts tabs; send iff policy AND subscription AND channel connected |
-| 26 | Explicit participant lists on bookings (admin bypass: free booking) — per-club option | BUILT 2026-09-30, pending pd: `booking_participants` join table (0031) + `require_participant_list` toggle (default off) + member search `GET /api/users/search` (minimal fields) + confirm/edit picker + 8 backend tests |
+| 26 | Explicit participant lists on bookings (admin bypass: free booking) — per-club option | LIVE ON PROD 2026-09-30 (0031): `booking_participants` join table + `require_participant_list` toggle (default off) + member search `GET /api/users/search` + confirm/edit picker |
 | | ↳ 26a. Club admin decides whether this club requires bookings to list all players, picked from the users database | |
 | | ↳ 26b. When required, the booking screen adds a field to search & pick users (associates) by username or email | |
 | 30 | Club admin submits feature requests (in-app channel to the platform) | MISSING: everything (design + build) |
@@ -41,6 +41,7 @@
 - #28 Brevo transactional email pipe + platform test-send
 - #29 per-window pricing + `show_prices` master switch
 - #23 notifications v2 (policy × subscription × reachability; push master + WA/TG channels; Notify-users vs Admin-alerts tabs)
+- #26 explicit participant lists (per-club `require_participant_list`, member search, confirm/edit picker)
 
 ## Out of scope (dropped)
 
