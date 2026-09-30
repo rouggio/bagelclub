@@ -379,14 +379,34 @@
  </select>
  <div class="text-xs text-zinc-500">0–4</div>
  </div>
- <div class="space-y-1">
- <label class="text-sm font-medium" x-text="t('confirm.players')"></label>
- <div class="flex gap-4 pt-2">
- <label class="flex items-center gap-2 text-sm"><input type="radio" value="single" x-model="confirmPlayers" /> <span x-text="t('confirm.single')"></span></label>
- <label class="flex items-center gap-2 text-sm"><input type="radio" value="double" x-model="confirmPlayers" /> <span x-text="t('confirm.double')"></span></label>
- </div>
- </div>
- </div>
+  <div class="space-y-1">
+  <label class="text-sm font-medium" x-text="t('confirm.players')"></label>
+  <div class="flex gap-4 pt-2">
+  <label class="flex items-center gap-2 text-sm"><input type="radio" value="single" x-model="confirmPlayers" @change="trimParticipants()" /> <span x-text="t('confirm.single')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="radio" value="double" x-model="confirmPlayers" @change="trimParticipants()" /> <span x-text="t('confirm.double')"></span></label>
+  </div>
+  </div>
+  </div>
+  <div x-show="requireParticipants() && user?.role!=='admin'" class="space-y-2 rounded-lg border p-3">
+  <div class="flex items-center justify-between">
+  <label class="text-sm font-medium" x-text="t('booking.participants.title')"></label>
+  <span class="text-xs text-zinc-500" x-text="`${confirmParticipants.length}/${participantTarget()}`"></span>
+  </div>
+  <div x-show="!user" class="text-xs text-zinc-500" x-text="t('booking.participants.loginHint')"></div>
+  <div x-show="user" class="space-y-2">
+  <div class="flex flex-wrap gap-1">
+  <template x-for="p in confirmParticipants" :key="p.id">
+  <span class="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900"><span x-text="p.username"></span><button x-show="user && String(p.id)!==String(user.id)" @click="removeParticipant(p.id)" class="font-bold hover:text-black" aria-label="remove">×</button></span>
+  </template>
+  </div>
+  <input x-model="participantSearch" @input.debounce.300ms="searchParticipants()" :placeholder="t('booking.participants.searchPlaceholder')" class="w-full rounded-lg border px-3 py-2 text-sm" />
+  <p x-show="participantLoading" class="text-xs text-zinc-500" x-text="t('myBookings.loading')"></p>
+  <template x-for="r in participantResults" :key="r.id">
+  <button @click="addParticipant(r)" class="flex w-full items-center justify-between rounded-lg border px-3 py-1 text-left text-sm hover:bg-emerald-50"><span x-text="r.username"></span><span class="text-xs text-zinc-500" x-text="((r.first_name || '') + ' ' + (r.last_name || '')).trim()"></span></button>
+  </template>
+  </div>
+  </div>
+  <div x-show="confirmError" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" x-text="confirmError"></div>
   <div class="flex gap-2">
   <button @click="cancelConfirm()" :disabled="confirmLoading" class="flex-1 rounded-lg border py-2 text-sm disabled:opacity-50" x-text="t('confirm.cancel')"></button>
   <button @click="confirmBooking()" :disabled="confirmLoading" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium disabled:opacity-50" x-text="user ? t('confirm.confirm') : t('confirm.continue')"></button>
@@ -497,8 +517,9 @@
  <div>
  <div class="font-semibold" x-text="courtLabel(b)"></div>
  <div class="text-sm text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-  <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''}`"></div>
-  <div x-show="b.notes" class="mt-1 text-xs italic text-zinc-600" x-text="`&quot;${b.notes}&quot;`"></div>
+   <div class="text-xs text-zinc-500" x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''}`"></div>
+   <div x-show="b.participant_usernames && b.participant_usernames.length" class="text-xs text-zinc-500" x-text="b.participant_usernames.filter(Boolean).join(', ')"></div>
+   <div x-show="b.notes" class="mt-1 text-xs italic text-zinc-600" x-text="`&quot;${b.notes}&quot;`"></div>
   </div>
   <span class="rounded-lg px-2 py-1 text-xs font-medium" :class="statusClass(b.status)" x-text="t('status.'+b.status)"></span>
  </div>
@@ -512,11 +533,24 @@
    <select x-model.number="editRent" class="rounded border px-2 py-1 text-xs">
    <option value="0" x-text="'0 ' + t('confirm.rent')"></option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
    </select>
-   <div class="flex gap-2 text-xs">
-   <label class="flex items-center gap-1"><input type="radio" value="single" x-model="editPlayers" /> <span x-text="t('confirm.single')"></span></label>
-   <label class="flex items-center gap-1"><input type="radio" value="double" x-model="editPlayers" /> <span x-text="t('confirm.double')"></span></label>
-   </div>
-   </div>
+    <div class="flex gap-2 text-xs">
+    <label class="flex items-center gap-1"><input type="radio" value="single" x-model="editPlayers" @change="confirmPlayers=editPlayers; trimParticipants()" /> <span x-text="t('confirm.single')"></span></label>
+    <label class="flex items-center gap-1"><input type="radio" value="double" x-model="editPlayers" @change="confirmPlayers=editPlayers; trimParticipants()" /> <span x-text="t('confirm.double')"></span></label>
+    </div>
+    </div>
+    <div x-show="requireParticipants()" class="space-y-1">
+    <div class="flex items-center justify-between text-xs"><span class="font-medium" x-text="t('booking.participants.title')"></span><span class="text-zinc-500" x-text="`${confirmParticipants.length}/${editPlayers==='double' ? 4 : 2}`"></span></div>
+    <div class="flex flex-wrap gap-1">
+    <template x-for="p in confirmParticipants" :key="p.id">
+    <span class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-900"><span x-text="p.username"></span><button x-show="user && String(p.id)!==String(user.id)" @click="removeParticipant(p.id)" class="font-bold hover:text-black" aria-label="remove">×</button></span>
+    </template>
+    </div>
+    <input x-model="participantSearch" @input.debounce.300ms="searchParticipants()" :placeholder="t('booking.participants.searchPlaceholder')" class="w-full rounded border px-2 py-1 text-xs" />
+    <template x-for="r in participantResults" :key="r.id">
+    <button @click="addParticipant(r)" class="flex w-full items-center justify-between rounded border px-2 py-1 text-left text-xs hover:bg-emerald-50"><span x-text="r.username"></span><span class="text-zinc-500" x-text="((r.first_name || '') + ' ' + (r.last_name || '')).trim()"></span></button>
+    </template>
+    </div>
+    <div x-show="confirmError" class="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700" x-text="confirmError"></div>
    <div class="flex gap-2">
    <button @click="saveEditBooking(b.id)" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-3 py-1 text-xs" x-text="t('btn.save')"></button>
    <button @click="cancelEditBooking()" class="rounded border px-3 py-1 text-xs" x-text="t('btn.cancel')"></button>
@@ -850,7 +884,8 @@
   <div class="font-semibold leading-tight" x-text="courtLabel(b)"></div>
   <div class="text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
    <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
-  <div x-show="b.notes" class="text-xs italic text-zinc-600 bg-amber-50 px-2 py-1 rounded" x-text="b.notes"></div>
+   <div x-show="b.participant_usernames && b.participant_usernames.length" class="text-xs text-zinc-500" x-text="b.participant_usernames.filter(Boolean).join(', ')"></div>
+   <div x-show="b.notes" class="text-xs italic text-zinc-600 bg-amber-50 px-2 py-1 rounded" x-text="b.notes"></div>
   </div>
   <div class="flex flex-col items-end gap-1.5">
   <span class="rounded-lg px-2 py-1 text-xs font-medium" :class="statusClass(b.status)" x-text="t('status.'+b.status)"></span>
@@ -996,6 +1031,13 @@
   <div class="text-xs text-zinc-500" x-text="openSignup() ? t('admin.allowSignup.on') : t('admin.allowSignup.off')"></div>
   </div>
   <button @click="toggleAllowSignup()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="openSignup() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="openSignup() ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.requireParticipants')"></div>
+  <div class="text-xs text-zinc-500" x-text="requireParticipants() ? t('admin.requireParticipants.on') : t('admin.requireParticipants.off')"></div>
+  </div>
+  <button @click="toggleRequireParticipants()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="requireParticipants() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="requireParticipants() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
   <div class="flex items-center justify-between">

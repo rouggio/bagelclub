@@ -569,5 +569,6 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     flexible_slots: s.flexibleSlots ?? false,
     show_prices: s.showPrices ?? true,
     allow_open_signup: s.allowOpenSignup ?? true,
+    require_participant_list: (s as any).requireParticipantList ?? false,
   };
 }

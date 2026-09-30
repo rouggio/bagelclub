@@ -41,6 +41,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         default_locale: def,
         show_prices: s?.showPrices ?? true,
         allow_open_signup: s?.allowOpenSignup ?? true,
+        require_participant_list: (s as any)?.requireParticipantList ?? false,
       });
     } catch {
       return reply.send(FALLBACK_INFO);
@@ -79,6 +80,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.flexible_slots !== undefined) updates.flexibleSlots = parsed.data.flexible_slots;
     if (parsed.data.show_prices !== undefined) updates.showPrices = parsed.data.show_prices;
     if (parsed.data.allow_open_signup !== undefined) updates.allowOpenSignup = parsed.data.allow_open_signup;
+    if (parsed.data.require_participant_list !== undefined) updates.requireParticipantList = parsed.data.require_participant_list;
     if (parsed.data.club_name !== undefined) updates.clubName = parsed.data.club_name || null;
     if (parsed.data.club_phone !== undefined) updates.clubPhone = parsed.data.club_phone || null;
     if (parsed.data.club_address !== undefined) updates.clubAddress = parsed.data.club_address || null;

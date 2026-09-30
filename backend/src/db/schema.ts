@@ -209,6 +209,7 @@ export const appSettings = pgTable("app_settings", {
   flexibleSlots: boolean("flexible_slots").notNull().default(false),
   showPrices: boolean("show_prices").notNull().default(true),
   allowOpenSignup: boolean("allow_open_signup").notNull().default(true),
+  requireParticipantList: boolean("require_participant_list").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -291,6 +292,20 @@ export const notifyEventPrefs = pgTable(
   },
   (t) => [
     index("notify_event_prefs_user_idx").on(t.userId),
+  ]
+);
+
+// Participant lists (#26): explicit identities per booking (join table).
+// club_id denormalized for RLS, like notify_event_prefs.
+export const bookingParticipants = pgTable(
+  "booking_participants",
+  {
+    bookingId: uuid("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    index("booking_participants_booking_idx").on(t.bookingId),
   ]
 );
 

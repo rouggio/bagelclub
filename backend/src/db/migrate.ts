@@ -33,13 +33,14 @@ console.log("Migrations complete");
 
 // Post-migrate self-verify: every relation/column the current code requires
 // must exist, or the deploy must go red (never boot half-migrated).
-const requiredTables = ["users", "clubs", "audit_log", "club_impersonation_grants", "login_challenges", "timetable_windows", "notify_policy", "notify_event_prefs"];
+const requiredTables = ["users", "clubs", "audit_log", "club_impersonation_grants", "login_challenges", "timetable_windows", "notify_policy", "notify_event_prefs", "booking_participants"];
 const requiredColumns: Array<[string, string]> = [
   ["login_challenges", "purpose"],
   ["app_settings", "two_fa_enabled"],
   ["app_settings", "flexible_slots"],
   ["app_settings", "show_prices"],
   ["app_settings", "allow_open_signup"],
+  ["app_settings", "require_participant_list"],
   ["timetable_windows", "price_cents"],
   ["users", "last_login_at"],
   ["users", "notify_push_master"],

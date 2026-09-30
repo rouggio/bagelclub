@@ -73,6 +73,9 @@ export const bookingIntentSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
   rent_racquets: z.number().int().min(0).max(4).optional().default(0),
   players: z.union([z.literal(2), z.literal(4)]).optional(),
+  // #26: explicit participant user ids (incl. the booker); required iff the
+  // club has require_participant_list on (admins bypass the requirement).
+  participant_ids: z.array(z.string().uuid()).max(4).optional(),
 });
 
 export const blockSchema = z.object({
@@ -147,6 +150,7 @@ export const settingsSchema = z.object({
   flexible_slots: z.boolean().optional(),
   show_prices: z.boolean().optional(),
   allow_open_signup: z.boolean().optional(),
+  require_participant_list: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

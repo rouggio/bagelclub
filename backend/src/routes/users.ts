@@ -271,6 +271,27 @@ export default async function userRoutes(fastify: FastifyInstance) {
     return reply.send(rows.map(safeUser));
   });
 
+  // #26b: member-visible participant search (any authenticated club member
+  // picks players by username/email; minimal fields only — no email/mobile
+  // leak, though email remains searchable).
+  fastify.get("/api/users/search", { preHandler: [fastify.authenticate] }, async (req, reply) => {
+    let db: any = (req as any).server.db;
+    if (!db) return reply.send([]);
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req) as any;
+    const { q } = (req.query as any) || {};
+    const term = String(q || "").toLowerCase().trim();
+    if (term.length < 2) return reply.status(400).send({ error: "q must be at least 2 characters" });
+    const rows = await db.select().from(users).where(and(eq(users.clubId, club.id), live()));
+    return reply.send(
+      rows
+        .filter((r: any) => [r.username, r.email, r.firstName, r.lastName].some((v: any) => v && String(v).toLowerCase().includes(term)))
+        .slice(0, 20)
+        .map((r: any) => ({ id: r.id, username: r.username, first_name: r.firstName, last_name: r.lastName }))
+    );
+  });
+
   fastify.patch("/api/users/:id/role", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     let db: any = (fastify as any).server.db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });

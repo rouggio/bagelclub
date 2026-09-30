@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { bookingIntentSchema } from "../types/schemas.js";
 import { randomUUID } from "crypto";
-import { bookings, timetables, courts } from "../db/schema.js";
-import { eq, and, desc } from "drizzle-orm";
+import { bookings, bookingParticipants, timetables, courts } from "../db/schema.js";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import { requireRequestClub, getClubSettings, reqDb } from "../services/club.js";
 
 function computeEnd(startTime: string, durationMin: number): string {
@@ -20,7 +20,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   fastify.post("/api/bookings", { preHandler: [fastify.authenticate] }, async (req, reply) => {
     const parsed = bookingIntentSchema.safeParse((req as any).body);
     if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
-    const { court_id, date, start_time, notes, rent_racquets, players } = parsed.data as any;
+    const { court_id, date, start_time, notes, rent_racquets, players, participant_ids } = parsed.data as any;
     let db: any = (fastify as any).db;
     const user = (req as any).user;
     if (!db) return reply.status(201).send({ id: randomUUID(), status: "pending_approval", ...parsed.data, players: players ?? 2 });
@@ -82,10 +82,18 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     // Admin bookings are auto-approved (no need to approve own booking)
     const status = user.role === "admin" || autoApprove ? "approved" : "pending_approval";
 
+    // #26: explicit identities when the club requires them (admins bypass).
+    const requireList = (settings as any)?.requireParticipantList ?? false;
+    const participantIds = await resolveParticipantIds(db, club, user.id, playersVal, participant_ids, requireList && user.role !== "admin", reply);
+    if (!participantIds) return;
+
     const [row] = await db
       .insert(bookings)
       .values({ clubId: club.id, courtId: court_id, userId: user.id, date, startTime: start_time, endTime, status: status as any, notes: notes ?? null, rentRacquets: rent_racquets ?? 0, players: playersVal, priceCents: hit?.priceCents ?? court.basePriceCents ?? 0, reviewedBy: user.role === "admin" ? user.id : null })
       .returning();
+    if (participantIds.length) {
+      await db.insert(bookingParticipants).values(participantIds.map((uid) => ({ bookingId: row.id, clubId: club.id, userId: uid })));
+    }
     // Notifications (fire-and-forget, localized per recipient)
     if (status === "pending_approval") {
       try {
@@ -106,7 +114,8 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         } catch {}
       }
     }
-    return reply.status(201).send(row);
+    const [enriched] = await attachParticipants(db, club, [row]);
+    return reply.status(201).send(enriched);
   });
 
   fastify.get("/api/bookings", { preHandler: [fastify.authenticate] }, async (req, reply) => {
@@ -134,12 +143,59 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       for (const u of userRows as any[]) usernameById[String(u.id)] = u.username;
       rows = rows.map((r: any) => ({ ...r, username: usernameById[String(r.userId)] || null }));
     } catch {}
+    rows = await attachParticipants(db, club, rows);
     return reply.send(rows);
   });
 
   async function scopedBooking(db: any, clubId: string, id: string) {
     const rows = await db.select().from(bookings).where(and(eq(bookings.id, id), eq(bookings.clubId, clubId))).limit(1);
     return rows[0] ?? null;
+  }
+
+  // #26: validate an explicit participant list (incl. the booker, length ===
+  // players, all live same-club users). Replies 400 and returns null on fail.
+  async function resolveParticipantIds(db: any, club: any, ownerId: string, playersVal: number, raw: any, required: boolean, reply: any): Promise<string[] | null> {
+    const ids = Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
+    if (!ids.length) {
+      if (!required) return [];
+      reply.status(400).send({ error: "participant list required: pick all players" });
+      return null;
+    }
+    if (ids.length !== playersVal) {
+      reply.status(400).send({ error: `participant list must hold exactly ${playersVal} players` });
+      return null;
+    }
+    if (!ids.includes(String(ownerId))) {
+      reply.status(400).send({ error: "participant list must include the booker" });
+      return null;
+    }
+    const { users } = await import("../db/schema.js");
+    const memberRows: any[] = await db.select({ id: users.id }).from(users).where(and(eq(users.clubId, club.id), isNull(users.deletedAt)));
+    const liveIds = new Set(memberRows.map((r: any) => String(r.id)));
+    if (ids.some((id) => !liveIds.has(id))) {
+      reply.status(400).send({ error: "unknown participant" });
+      return null;
+    }
+    return ids;
+  }
+
+  // #26: attach participant_ids + participant_usernames to booking rows.
+  async function attachParticipants(db: any, club: any, rows: any[]) {
+    try {
+      const { users } = await import("../db/schema.js");
+      const parts: any[] = await db.select().from(bookingParticipants).where(eq(bookingParticipants.clubId, club.id));
+      const userRows: any[] = await db.select().from(users).where(eq(users.clubId, club.id));
+      const nameById: Record<string, string> = {};
+      for (const u of userRows as any[]) nameById[String(u.id)] = u.username;
+      const idsByBooking: Record<string, string[]> = {};
+      for (const p of parts as any[]) (idsByBooking[String(p.bookingId)] ??= []).push(String(p.userId));
+      return rows.map((r: any) => {
+        const ids = idsByBooking[String(r.id)] ?? [];
+        return { ...r, participant_ids: ids, participant_usernames: ids.map((id) => nameById[id] || null) };
+      });
+    } catch {
+      return rows;
+    }
   }
 
   // Notifications stay fire-and-forget in prod, but tests await them so no
@@ -160,7 +216,8 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     if (!booking) return reply.status(404).send({ error: "Not found" });
     const user = (req as any).user;
     if (user.role !== "admin" && String(booking.userId) !== String(user.id)) return reply.status(403).send({ error: "Forbidden" });
-    return reply.send(booking);
+    const [enriched] = await attachParticipants(db, club, [booking]);
+    return reply.send(enriched);
   });
 
   fastify.post("/api/bookings/:id/approve", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
@@ -223,10 +280,33 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       if (v !== 2 && v !== 4) return reply.status(400).send({ error: "players must be 2 or 4" });
       updates.players = v;
     }
-    if (Object.keys(updates).length === 0) return reply.status(400).send({ error: "No editable fields (notes, rent_racquets, players)" });
+    // #26: replace the participant list (validated like on create; the
+    // booker is the booking owner, not necessarily the editor).
+    let participantIds: string[] | null = null;
+    if (body.participant_ids !== undefined) {
+      const settings = await getClubSettings(db, club.id);
+      const requireList = (settings as any)?.requireParticipantList ?? false;
+      const finalPlayers = updates.players ?? (booking as any).players;
+      const ids = await resolveParticipantIds(db, club, (booking as any).userId, finalPlayers, body.participant_ids, requireList && user.role !== "admin", reply);
+      if (!ids) return;
+      participantIds = ids;
+    } else if (updates.players !== undefined && user.role !== "admin") {
+      // Count changed without a new list: the stored list must still match.
+      const settings = await getClubSettings(db, club.id);
+      if ((settings as any)?.requireParticipantList ?? false) {
+        const existing = await db.select().from(bookingParticipants).where(and(eq(bookingParticipants.bookingId, id), eq(bookingParticipants.clubId, club.id)));
+        if (existing.length !== updates.players) return reply.status(400).send({ error: `participant list must hold exactly ${updates.players} players` });
+      }
+    }
+    if (Object.keys(updates).length === 0 && participantIds === null) return reply.status(400).send({ error: "No editable fields (notes, rent_racquets, players, participant_ids)" });
+    if (participantIds !== null) {
+      await db.delete(bookingParticipants).where(and(eq(bookingParticipants.bookingId, id), eq(bookingParticipants.clubId, club.id)));
+      if (participantIds.length) await db.insert(bookingParticipants).values(participantIds.map((uid) => ({ bookingId: id, clubId: club.id, userId: uid })));
+    }
     updates.updatedAt = new Date();
     const [row] = await db.update(bookings).set(updates).where(and(eq(bookings.id, id), eq(bookings.clubId, club.id))).returning();
-    return reply.send(row);
+    const [enriched] = await attachParticipants(db, club, [row]);
+    return reply.send(enriched);
   });
 
   fastify.post("/api/bookings/:id/cancel", { preHandler: [fastify.authenticate] }, async (req, reply) => {

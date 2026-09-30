@@ -40,11 +40,18 @@ function app() {
     selectedDate: new Date().toISOString().slice(0, 10),
     courts: [] as Court[],
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
-    pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number },
+    pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number; participants?: Array<{ id: string; username: string }> },
     confirmLoading: false as boolean,
     confirmNotes: "" as string,
     confirmRent: 0 as number,
     confirmPlayers: "single" as "single" | "double",
+    confirmError: "" as string,
+    // #26 participant picker (confirm + edit panels share this state; the two
+    // panels are never visible at the same time).
+    confirmParticipants: [] as Array<{ id: string; username: string }>,
+    participantSearch: "" as string,
+    participantResults: [] as Array<{ id: string; username: string; first_name?: string | null; last_name?: string | null }>,
+    participantLoading: false as boolean,
     holdCountdown: null as string | null,
     _holdTimer: null as number | null,
     _refreshTimer: null as number | null,
@@ -64,12 +71,12 @@ function app() {
     regForm: { username: "", email: "", mobile_code: defaultDialCode(), mobile_number: "", first_name: "", last_name: "", password: "" },
     countryCodes: DIAL_CODES,
     authError: "" as string,
-    bookings: [] as Array<{ id: string; courtId: string; court_id?: string; date: string; startTime: string; start_time?: string; endTime: string; end_time?: string; status: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number; courtNumber?: number; courtType?: string; courtName?: string }>,
+    bookings: [] as Array<{ id: string; courtId: string; court_id?: string; date: string; startTime: string; start_time?: string; endTime: string; end_time?: string; status: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number; courtNumber?: number; courtType?: string; courtName?: string; participant_ids?: string[]; participant_usernames?: Array<string | null> }>,
     bookingsTab: "upcoming" as "upcoming" | "past" | "all",
     bookingsPastRange: "month" as "month" | "3months" | "6months",
     bookingsLoading: false as boolean,
     bookingsError: "" as string,
-    adminBookings: [] as Array<{ id: string; courtId: string; date: string; startTime: string; endTime: string; status: string; userId?: string; username?: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number }>,
+    adminBookings: [] as Array<{ id: string; courtId: string; date: string; startTime: string; endTime: string; status: string; userId?: string; username?: string; notes?: string; rentRacquets?: number; players?: number; priceCents?: number; participant_ids?: string[]; participant_usernames?: Array<string | null> }>,
     adminUsers: [] as any[],
     adminUsersLoading: false as boolean,
     adminUsersError: "" as string,
@@ -88,7 +95,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
@@ -100,7 +107,7 @@ function app() {
     reportsData: null as null | { period: string; refDate: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }>; timeline: Array<{ label: string; startDate: string; endDate: string; count: number }> },
     reportsSliceData: null as null | { period: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }> },
     reportsSelectedLabel: "" as string,
-    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean },
+    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean },
     clubSlug: "" as string,
     clubTimezone: "Europe/Rome" as string,
     clubLocales: [] as string[],
@@ -396,6 +403,12 @@ function app() {
       this.confirmNotes = "";
       this.confirmRent = 0;
       this.confirmPlayers = defaultPlayers;
+      this.confirmError = "";
+      // #26: fresh picker; the logged-in booker is pre-added (locked chip).
+      this.confirmParticipants = this.user ? [{ id: this.user.id, username: this.user.username }] : [];
+      this.participantSearch = "";
+      this.participantResults = [];
+      this.participantLoading = false;
       storeIntent( JSON.stringify({ ...this.pendingIntent, notes: "", rentRacquets: 0, players: defaultPlayers === "single" ? 2 : 4 }));
       this.view = "confirm";
       location.hash = "confirm";
@@ -415,18 +428,38 @@ function app() {
 
     async confirmBooking() {
       if (!this.pendingIntent || this.confirmLoading) return;
+      this.confirmError = "";
+      const playersVal = this.confirmPlayers === "single" ? 2 : 4;
+      // #26: when the club requires it (non-admin), the list must hold exactly
+      // N players incl. the booker. Logged-in booker is auto-added if missing.
+      let participantIds: string[] | undefined;
+      if (this.requireParticipants() && this.user?.role !== "admin") {
+        if (this.user && !this.confirmParticipants.some((p) => String(p.id) === String(this.user.id))) {
+          this.confirmParticipants.unshift({ id: this.user.id, username: this.user.username });
+        }
+        this.trimParticipants();
+        if (this.confirmParticipants.length !== playersVal) {
+          this.confirmError = `${this.t("booking.participants.required")} (${this.confirmParticipants.length}/${playersVal})`;
+          return;
+        }
+        participantIds = this.confirmParticipants.map((p) => String(p.id));
+      } else if (this.confirmParticipants.length) {
+        participantIds = this.confirmParticipants.map((p) => String(p.id));
+      }
       const payload: any = {
         court_id: this.pendingIntent.courtId,
         date: this.pendingIntent.date,
         start_time: this.pendingIntent.startTime,
         notes: this.confirmNotes || null,
         rent_racquets: this.confirmRent,
-        players: this.confirmPlayers === "single" ? 2 : 4,
+        players: playersVal,
+        ...(participantIds ? { participant_ids: participantIds } : {}),
       };
       // Store latest choices into pendingIntent for deferred register flow
       this.pendingIntent.notes = this.confirmNotes;
       this.pendingIntent.rentRacquets = this.confirmRent;
       this.pendingIntent.players = payload.players;
+      this.pendingIntent.participants = this.confirmParticipants.map((p) => ({ id: p.id, username: p.username }));
       storeIntent( JSON.stringify(this.pendingIntent));
 
       if (!this.user) {
@@ -450,6 +483,9 @@ function app() {
         location.hash = "me";
         clearIntent();
         this.pendingIntent = null;
+        this.confirmParticipants = [];
+        this.participantSearch = "";
+        this.participantResults = [];
         await this.loadBookings();
         if (this.user?.role === "admin") await this.loadAdminBookings();
         await this.loadAvailability();
@@ -514,6 +550,14 @@ function app() {
         this.confirmNotes = this.pendingIntent.notes || "";
         this.confirmRent = this.pendingIntent.rentRacquets ?? 0;
         this.confirmPlayers = this.pendingIntent.players === 4 ? "double" : "single";
+        this.confirmError = "";
+        this.confirmParticipants = [...(this.pendingIntent.participants || [])];
+        if (this.user && !this.confirmParticipants.some((p) => String(p.id) === String(this.user.id))) {
+          this.confirmParticipants.unshift({ id: this.user.id, username: this.user.username });
+        }
+        this.trimParticipants();
+        this.participantSearch = "";
+        this.participantResults = [];
         this.view = "confirm";
         location.hash = "confirm";
         return;
@@ -621,6 +665,15 @@ function app() {
         this.confirmNotes = this.pendingIntent.notes || "";
         this.confirmRent = this.pendingIntent.rentRacquets ?? 0;
         this.confirmPlayers = this.pendingIntent.players === 4 ? "double" : "single";
+        this.confirmError = "";
+        this.confirmParticipants = [...(this.pendingIntent.participants || [])];
+        // Post-login the booker joins a restored list that lacks them.
+        if (data.user && !this.confirmParticipants.some((p) => String(p.id) === String(data.user.id))) {
+          this.confirmParticipants.unshift({ id: data.user.id, username: data.user.username });
+        }
+        this.trimParticipants();
+        this.participantSearch = "";
+        this.participantResults = [];
         this.view = "confirm";
         location.hash = "confirm";
         return;
@@ -682,6 +735,8 @@ function app() {
           rentRacquets: r.rentRacquets ?? r.rent_racquets ?? 0,
           priceCents: r.priceCents ?? r.price_cents ?? 0,
           players: r.players ?? 2,
+          participant_ids: r.participant_ids ?? [],
+          participant_usernames: r.participant_usernames ?? [],
           courtNumber: r.courtNumber,
           courtType: r.courtType,
           courtName: r.courtName,
@@ -753,6 +808,8 @@ function app() {
           rentRacquets: r.rentRacquets ?? r.rent_racquets ?? 0,
           priceCents: r.priceCents ?? r.price_cents ?? 0,
           players: r.players ?? 2,
+          participant_ids: r.participant_ids ?? [],
+          participant_usernames: r.participant_usernames ?? [],
         }));
         // Jump to the highlighted booking's page (deep link), else clamp page.
         if (this.adminHighlightId) {
@@ -901,6 +958,59 @@ function app() {
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       (this.adminSettings as any).allow_open_signup = next;
       if (this.clubInfo) (this.clubInfo as any).allow_open_signup = next;
+    },
+    // #26a: per-club participant-list requirement (defaults keep current behaviour).
+    requireParticipants(): boolean {
+      const v = (this.clubInfo as any)?.require_participant_list ?? (this.adminSettings as any)?.require_participant_list;
+      return v ?? false;
+    },
+    async toggleRequireParticipants() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).require_participant_list ?? false);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ require_participant_list: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).require_participant_list = next;
+      if (this.clubInfo) (this.clubInfo as any).require_participant_list = next;
+    },
+    // #26b: participant picker — search club members, pick up to N.
+    participantTarget(): number {
+      return this.confirmPlayers === "double" ? 4 : 2;
+    },
+    async searchParticipants() {
+      this.participantResults = [];
+      const term = (this.participantSearch || "").trim();
+      if (!this.user || term.length < 2) return;
+      this.participantLoading = true;
+      try {
+        const token = storedToken();
+        const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(term)}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const rows = await res.json();
+          const taken = new Set(this.confirmParticipants.map((p) => String(p.id)));
+          this.participantResults = (rows as any[]).filter((r) => !taken.has(String(r.id)));
+        }
+      } catch {}
+      finally { this.participantLoading = false; }
+    },
+    addParticipant(p: { id: string; username: string }) {
+      if (this.confirmParticipants.some((x) => String(x.id) === String(p.id))) return;
+      if (this.confirmParticipants.length >= this.participantTarget()) return;
+      this.confirmParticipants.push({ id: p.id, username: p.username });
+      this.participantResults = this.participantResults.filter((r) => String(r.id) !== String(p.id));
+    },
+    removeParticipant(id: string) {
+      // The booker's own chip is locked (backend requires their presence).
+      if (this.user && String(id) === String(this.user.id)) return;
+      this.confirmParticipants = this.confirmParticipants.filter((p) => String(p.id) !== String(id));
+    },
+    trimParticipants(n?: number) {
+      // Shrinking single↔double drops extras (self is always kept).
+      const target = n ?? this.participantTarget();
+      if (this.confirmParticipants.length <= target) return;
+      const self = this.user ? this.confirmParticipants.filter((p) => String(p.id) === String(this.user.id)) : [];
+      const others = this.confirmParticipants.filter((p) => !this.user || String(p.id) !== String(this.user.id));
+      this.confirmParticipants = [...self, ...others].slice(0, target);
     },
 
     async loadPlatformFooter() {
@@ -2016,16 +2126,43 @@ function app() {
       this.editNotes = b.notes || "";
       this.editRent = b.rentRacquets ?? 0;
       this.editPlayers = b.players === 4 ? "double" : "single";
+      this.confirmPlayers = this.editPlayers; // shared picker cap follows the edit panel
+      // #26: seed the shared picker from the stored list (usernames may be
+      // absent on old rows — fall back to the id prefix).
+      const ids: string[] = b.participant_ids ?? [];
+      const names: Array<string | null> = b.participant_usernames ?? [];
+      this.confirmParticipants = ids.map((id, i) => ({ id, username: names[i] || String(id).slice(0, 8) }));
+      this.participantSearch = "";
+      this.participantResults = [];
+      this.confirmError = "";
     },
 
     cancelEditBooking() { this.editingBooking = null; },
 
     async saveEditBooking(id: string) {
       const token = storedToken();
-      const payload: any = { notes: this.editNotes || null, rent_racquets: this.editRent, players: this.editPlayers === "single" ? 2 : 4 };
+      const playersVal = this.editPlayers === "single" ? 2 : 4;
+      const payload: any = { notes: this.editNotes || null, rent_racquets: this.editRent, players: playersVal };
+      // #26: keep the stored list in sync when the club requires it.
+      if (this.requireParticipants() && this.user?.role !== "admin") {
+        if (this.user && !this.confirmParticipants.some((p) => String(p.id) === String(this.user.id))) {
+          this.confirmParticipants.unshift({ id: this.user.id, username: this.user.username });
+        }
+        this.trimParticipants(playersVal);
+        if (this.confirmParticipants.length !== playersVal) {
+          this.confirmError = `${this.t("booking.participants.required")} (${this.confirmParticipants.length}/${playersVal})`;
+          return;
+        }
+        payload.participant_ids = this.confirmParticipants.map((p) => String(p.id));
+      } else if (this.confirmParticipants.length) {
+        payload.participant_ids = this.confirmParticipants.map((p) => String(p.id));
+      }
       const res = await apiFetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { alert("Edit failed: " + await res.text()); return; }
       this.editingBooking = null;
+      this.confirmParticipants = [];
+      this.participantSearch = "";
+      this.participantResults = [];
       await this.loadBookings();
       if (this.user?.role === "admin") await this.loadAdminBookings();
     },
@@ -2042,6 +2179,9 @@ function app() {
       this.pendingIntent = null;
       this.confirmNotes = "";
       this.confirmRent = 0;
+      this.confirmParticipants = [];
+      this.participantSearch = "";
+      this.participantResults = [];
       this.user = null;
       this.view = "home";
       this.loadAnnouncements();
