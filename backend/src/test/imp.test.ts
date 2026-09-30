@@ -68,6 +68,19 @@ describe("impersonation grants", () => {
     expect(rows[0].firstName).toBe("B");
   });
 
+  it("impersonated sessions get a clear 403 (not 401) on club 2FA routes, attempts are audited", async () => {
+    const g = await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() });
+    const IH = { Authorization: `Bearer ${g.json().token}`, "X-Club-Slug": "green-village", "Content-Type": "application/json" };
+    const code = await app.inject({ method: "POST", url: "/api/settings/2fa/code", headers: IH, payload: { action: "enable" } });
+    expect(code.statusCode).toBe(403);
+    expect(code.json().error).toBe("Not available while impersonating");
+    const confirm = await app.inject({ method: "POST", url: "/api/settings/2fa/confirm", headers: IH, payload: { action: "enable", code: "123456" } });
+    expect(confirm.statusCode).toBe(403);
+    const audit = await app.inject({ method: "GET", url: "/api/platform/audit?limit=50", headers: H() });
+    const blocked = (audit.json().rows as any[]).filter((a: any) => a.action === "platform.impersonate.blocked-write" && String(a.target).includes("2fa"));
+    expect(blocked.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("second grant revokes the first; explicit revoke ends the session", async () => {
     const g1 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();
     const g2 = (await app.inject({ method: "POST", url: "/api/platform/clubs/green-village/grant", headers: H() })).json();

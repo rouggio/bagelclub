@@ -456,9 +456,10 @@ function app() {
           return;
         }
         participantIds = this.confirmParticipants.map((p) => String(p.id));
-      } else if (this.confirmParticipants.length) {
-        participantIds = this.confirmParticipants.map((p) => String(p.id));
       }
+      // NOTE: never send a list when the club does not require it (or for
+      // admins, who bypass): selectSlot always seeds the booker alone, and a
+      // partial list is a 400 server-side. Backend leaves stored rows untouched.
       const payload: any = {
         court_id: this.pendingIntent.courtId,
         date: this.pendingIntent.date,
@@ -2248,8 +2249,6 @@ function app() {
           this.confirmError = `${this.t("booking.participants.required")} (${this.confirmParticipants.length}/${playersVal})`;
           return;
         }
-        payload.participant_ids = this.confirmParticipants.map((p) => String(p.id));
-      } else if (this.confirmParticipants.length) {
         payload.participant_ids = this.confirmParticipants.map((p) => String(p.id));
       }
       const res = await apiFetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });

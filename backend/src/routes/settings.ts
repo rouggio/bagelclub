@@ -3,7 +3,7 @@ import { settingsSchema } from "../types/schemas.js";
 import { appSettings } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { maskSettingsForAdminResponse, getNotifyPolicy } from "../services/notifications.js";
-import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb } from "../services/club.js";
+import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb, rejectImpSelfWrite } from "../services/club.js";
 
 const FALLBACK_INFO = { club_name: "Green Village", club_phone: "3923047417", club_address: "" };
 const FALLBACK_SETTINGS = {
@@ -143,6 +143,9 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, poolDb);
     if (!club) return;
     const db: any = reqDb(req);
+    // Impersonated superadmins manage the club but never an identity: 2FA
+    // challenges are per-admin by construction (was: confusing 401).
+    if (await rejectImpSelfWrite(req, reply, db, club, "2fa")) return;
     const settings = await getClubSettings(db, club.id);
     const on = !!settings?.twoFaEnabled;
     if (action === "enable" && on) return reply.status(400).send({ error: "2FA already enabled" });
@@ -169,6 +172,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, poolDb);
     if (!club) return;
     const db: any = reqDb(req);
+    if (await rejectImpSelfWrite(req, reply, db, club, "2fa")) return;
     const me = (req as any).user;
     const { verifyChallenge } = await import("../services/twoFactor.js");
     try {

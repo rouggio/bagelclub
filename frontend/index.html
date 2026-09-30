@@ -1081,12 +1081,16 @@
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
   <div class="flex items-center justify-between">
   <div>
+  <div class="flex flex-wrap items-center gap-2">
   <div class="font-medium text-sm" x-text="t('admin.2fa.title')"></div>
+  <span class="rounded-lg px-2 py-0.5 text-[11px] font-medium" :class="adminSettings?.two_fa_enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200 text-zinc-600'" x-text="adminSettings?.two_fa_enabled ? t('admin.2fa.active') : t('admin.2fa.inactive')"></span>
+  </div>
   <div class="text-xs text-zinc-500" x-text="adminSettings?.two_fa_enabled ? t('admin.2fa.on') : t('admin.2fa.off')"></div>
   </div>
-  <button x-show="!adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('enable')" class="rounded-lg px-4 py-2 text-xs font-medium bg-emerald-200 border border-emerald-300 text-emerald-900" x-text="t('admin.2fa.enable')"></button>
-  <button x-show="adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('disable')" class="rounded-lg px-4 py-2 text-xs font-medium bg-zinc-200" x-text="t('admin.2fa.disable')"></button>
+  <button x-show="!adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('enable')" :disabled="!!impSession" :title="impSession ? t('admin.2fa.impNote') : ''" class="rounded-lg px-4 py-2 text-xs font-medium bg-emerald-200 border border-emerald-300 text-emerald-900 disabled:opacity-50" x-text="t('admin.2fa.enable')"></button>
+  <button x-show="adminSettings?.two_fa_enabled && !twoFa.pendingAction" @click="requestTwoFaCode('disable')" :disabled="!!impSession" :title="impSession ? t('admin.2fa.impNote') : ''" class="rounded-lg px-4 py-2 text-xs font-medium bg-zinc-200 disabled:opacity-50" x-text="t('admin.2fa.disable')"></button>
   </div>
+  <div x-show="impSession" class="text-xs text-amber-700" x-text="t('admin.2fa.impNote')"></div>
   <div x-show="twoFa.pendingAction" class="flex gap-2">
   <input x-model="twoFa.code" inputmode="numeric" maxlength="6" placeholder="••••••" class="flex-1 rounded-lg border px-3 py-2 text-center font-mono" />
   <button @click="confirmTwoFaCode()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-4 py-2 text-xs font-medium" x-text="t('admin.2fa.confirm')"></button>
