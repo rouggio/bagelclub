@@ -82,6 +82,14 @@ function app() {
     adminUsersError: "" as string,
     adminUsersSearch: "" as string,
     adminUsersRole: "" as string,
+    // Feature requests (#30): shared anonymized board, club admins → platform.
+    featureRequests: [] as Array<{ id: string; title: string; body: string; status: string; reply: string | null; votes: number; mine: boolean; voted: boolean; created_at: string; updated_at: string }>,
+    featureRequestsLoading: false as boolean,
+    featureRequestsError: "" as string,
+    featureRequestsMsg: "" as string,
+    featureRequestForm: { title: "", body: "" } as { title: string; body: string },
+    editingRequestId: null as string | null,
+    editRequestForm: { title: "", body: "" } as { title: string; body: string },
     viewedUser: null as any | null,
     viewedUserBack: "admin-users" as string,
     viewedUserMsg: "" as string,
@@ -138,6 +146,9 @@ function app() {
     platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
     platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
+    platformRequests: [] as Array<{ id: string; title: string; body: string; status: string; reply: string | null; votes: number; club_slug: string | null; club_name: string | null; author: string | null; created_at: string; updated_at: string }>,
+    platformReqEdit: {} as Record<string, { status: string; reply: string }>,
+    platformReqMsg: "" as string,
     // Demo wizard (prospect self-service).
     demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
     demoResult: null as null | { slug: string; name: string; url: string; admin_username: string; admin_password: string; expires_at: string },
@@ -333,6 +344,7 @@ function app() {
         if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
         if (this.view === "admin-notifications" && this.user?.role === "admin") { this.loadAdminSettings(); this.checkTelegramStatus(); }
         if (this.view === "admin-announcements" && this.user?.role === "admin") this.loadAdminAnnouncements();
+        if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
         if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
         if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
@@ -349,6 +361,7 @@ function app() {
       if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
       if (this.view === "admin-notifications" && this.user?.role === "admin") { this.loadAdminSettings(); this.checkTelegramStatus(); }
       if (this.view === "admin-announcements" && this.user?.role === "admin") this.loadAdminAnnouncements();
+      if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
       if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
       if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
     },
@@ -1627,6 +1640,64 @@ function app() {
       await this.loadAnnouncements();
     },
 
+    // ---- Feature requests (#30): shared anonymized board ----
+    reqStatusClass(status: string): string {
+      if (status === "shipped") return "bg-emerald-100 text-emerald-700";
+      if (status === "planned" || status === "acked") return "bg-amber-100 text-amber-700";
+      if (status === "declined") return "bg-zinc-200 text-zinc-600";
+      return "bg-sky-100 text-sky-700";
+    },
+    async loadFeatureRequests() {
+      if (!this.user || this.user.role !== "admin") return;
+      this.featureRequestsLoading = true; this.featureRequestsError = "";
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/feature-requests", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(await res.text());
+        this.featureRequests = await res.json();
+      } catch (e: any) { this.featureRequestsError = e.message || String(e); }
+      finally { this.featureRequestsLoading = false; }
+    },
+    async submitFeatureRequest() {
+      this.featureRequestsError = ""; this.featureRequestsMsg = "";
+      if (!this.featureRequestForm.title.trim() || !this.featureRequestForm.body.trim()) { this.featureRequestsError = this.t("admin.requests.required"); return; }
+      const token = storedToken();
+      const res = await apiFetch("/api/feature-requests", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ title: this.featureRequestForm.title.trim(), body: this.featureRequestForm.body.trim() }) });
+      if (!res.ok) { this.featureRequestsError = (await res.text()).slice(0, 300); return; }
+      this.featureRequestForm = { title: "", body: "" };
+      this.featureRequestsMsg = this.t("admin.requests.saved");
+      await this.loadFeatureRequests();
+    },
+    startEditRequest(r: any) {
+      this.editingRequestId = r.id;
+      this.editRequestForm = { title: r.title || "", body: r.body || "" };
+      this.featureRequestsError = ""; this.featureRequestsMsg = "";
+    },
+    cancelEditRequest() {
+      this.editingRequestId = null;
+      this.editRequestForm = { title: "", body: "" };
+    },
+    async saveEditRequest() {
+      if (!this.editingRequestId) return;
+      this.featureRequestsError = ""; this.featureRequestsMsg = "";
+      if (!this.editRequestForm.title.trim() || !this.editRequestForm.body.trim()) { this.featureRequestsError = this.t("admin.requests.required"); return; }
+      const token = storedToken();
+      const res = await apiFetch(`/api/feature-requests/${this.editingRequestId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ title: this.editRequestForm.title.trim(), body: this.editRequestForm.body.trim() }) });
+      if (!res.ok) { this.featureRequestsError = (await res.text()).slice(0, 300); return; }
+      this.cancelEditRequest();
+      this.featureRequestsMsg = this.t("admin.requests.saved");
+      await this.loadFeatureRequests();
+    },
+    async toggleRequestVote(r: any) {
+      if (!r || r.mine) return;
+      const token = storedToken();
+      const res = await apiFetch(`/api/feature-requests/${r.id}/vote`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      r.voted = data.voted;
+      r.votes = data.votes;
+    },
+
     async loadAdminUsers() {
       if (!this.user || this.user.role !== "admin") return;
       this.adminUsersLoading = true; this.adminUsersError = "";
@@ -2075,6 +2146,30 @@ function app() {
         const res = await platformFetch("/api/platform/demo/cleanup", { method: "POST" });
         if (!res.ok) this.platformError = await res.text();
         else await this.loadPlatformClubs();
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    // ---- Feature requests (#30): platform inbox ----
+    async loadPlatformRequests() {
+      this.platformError = ""; this.platformReqMsg = "";
+      try {
+        const res = await platformFetch("/api/platform/feature-requests");
+        if (!res.ok) throw new Error(await res.text());
+        this.platformRequests = await res.json();
+        const edit: Record<string, { status: string; reply: string }> = {};
+        for (const r of this.platformRequests) edit[r.id] = { status: r.status, reply: r.reply || "" };
+        this.platformReqEdit = edit;
+      } catch (e: any) { this.platformError = e.message || String(e); }
+    },
+    async savePlatformRequest(r: any) {
+      this.platformError = ""; this.platformReqMsg = "";
+      const form = this.platformReqEdit[r.id];
+      if (!form) return;
+      try {
+        const res = await platformFetch(`/api/platform/feature-requests/${r.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: form.status, reply: form.reply.trim() ? form.reply.trim() : null }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || "save failed"; return; }
+        this.platformReqMsg = this.t("platform.requests.saved");
+        await this.loadPlatformRequests();
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
 

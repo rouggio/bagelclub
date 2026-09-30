@@ -396,4 +396,52 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     await audit(db, (req as any).user.id, "platform.admin.reset-password", slug, { user_id });
     return reply.send({ ok: true });
   });
+
+  // Feature requests (#30): platform inbox — full origin + status/reply.
+  fastify.get("/api/platform/feature-requests", { preHandler: pre }, async (req, reply) => {
+    let db: any = reqDb(req);
+    if (!db) return reply.send([]);
+    const { featureRequests, featureRequestVotes } = await import("../db/schema.js");
+    const rows: any[] = await db.select().from(featureRequests).orderBy(desc(featureRequests.createdAt));
+    const votes: any[] = await db.select().from(featureRequestVotes);
+    const counts: Record<string, number> = {};
+    for (const v of votes) counts[String(v.requestId)] = (counts[String(v.requestId)] ?? 0) + 1;
+    const clubRows: any[] = await db.select().from(clubs);
+    const clubById: Record<string, any> = {};
+    for (const c of clubRows) clubById[String(c.id)] = c;
+    const userRows: any[] = await db.select().from(users);
+    const nameById: Record<string, string> = {};
+    for (const u of userRows) nameById[String(u.id)] = u.username;
+    return reply.send(rows.map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      body: r.body,
+      status: r.status,
+      reply: r.reply,
+      votes: counts[String(r.id)] ?? 0,
+      club_slug: clubById[String(r.clubId)]?.slug || null,
+      club_name: clubById[String(r.clubId)]?.name || null,
+      author: r.authorId ? nameById[String(r.authorId)] || null : null,
+      created_at: r.createdAt,
+      updated_at: r.updatedAt,
+    })));
+  });
+
+  fastify.patch("/api/platform/feature-requests/:id", { preHandler: pre }, async (req, reply) => {
+    let db: any = reqDb(req);
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const { featureRequestStatusPatchSchema } = await import("../types/schemas.js");
+    const parsed = featureRequestStatusPatchSchema.safeParse((req as any).body);
+    if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
+    const { featureRequests } = await import("../db/schema.js");
+    const { id } = req.params as any;
+    const rows: any[] = await db.select().from(featureRequests).where(eq(featureRequests.id, id)).limit(1);
+    if (!rows[0]) return reply.status(404).send({ error: "Not found" });
+    const updates: any = { updatedAt: new Date() };
+    if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+    if (parsed.data.reply !== undefined) updates.reply = parsed.data.reply?.trim() ? parsed.data.reply.trim() : null;
+    const [next] = await db.update(featureRequests).set(updates).where(eq(featureRequests.id, id)).returning();
+    await audit(db, (req as any).user.id, "platform.featurereq.status", id, { status: next.status, replied: next.reply ? true : false });
+    return reply.send(next);
+  });
 }

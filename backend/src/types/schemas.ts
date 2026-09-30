@@ -170,5 +170,21 @@ export const announcementSchema = announcementBase.refine((d) => !d.publish_star
 });
 export const announcementPatchSchema = announcementBase.partial();
 
+// Feature requests (#30): shared anonymized board, club admins → platform.
+// Stored as-written (no translations); status transitions validated here.
+export const featureRequestStatusSchema = z.enum(["open", "acked", "planned", "shipped", "declined"]);
+export const featureRequestSchema = z.object({
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(5000),
+});
+export const featureRequestPatchSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  body: z.string().min(1).max(5000).optional(),
+}).refine((d) => d.title !== undefined || d.body !== undefined, { message: "title or body required" });
+export const featureRequestStatusPatchSchema = z.object({
+  status: featureRequestStatusSchema.optional(),
+  reply: z.string().max(5000).nullable().optional(),
+}).refine((d) => d.status !== undefined || d.reply !== undefined, { message: "status or reply required" });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

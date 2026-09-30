@@ -309,6 +309,38 @@ export const bookingParticipants = pgTable(
   ]
 );
 
+// Feature requests (#30): shared cross-club board, club admins → platform.
+// No RLS by design (see 0032): anonymity + scoping enforced in code.
+export const featureRequests = pgTable(
+  "feature_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    title: varchar("title", { length: 200 }).notNull(),
+    body: text("body").notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("open"),
+    reply: text("reply"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("feature_requests_club_idx").on(t.clubId),
+  ]
+);
+
+export const featureRequestVotes = pgTable(
+  "feature_request_votes",
+  {
+    requestId: uuid("request_id").notNull().references(() => featureRequests.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    index("feature_request_votes_request_idx").on(t.requestId),
+  ]
+);
+
 // Impersonation grants: time-boxed superadmin-as-club-admin sessions.
 // Checked in code (assertClubAccess); no RLS, like other platform tables.
 export const impersonationGrants = pgTable("club_impersonation_grants", {

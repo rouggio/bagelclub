@@ -225,6 +225,13 @@
       "when": 1790701200000,
       "tag": "0031_participants",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790704800000,
+      "tag": "0032_feature_requests",
+      "breakpoints": true
     }
   ]
 }

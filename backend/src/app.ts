@@ -23,6 +23,7 @@ import reportsRoutes from "./routes/reports.js";
 import notificationRoutes from "./routes/notifications.js";
 import telegramRoutes from "./routes/telegram.js";
 import announcementRoutes from "./routes/announcements.js";
+import featureRequestRoutes from "./routes/feature-requests.js";
 import clubRoutes from "./routes/clubs.js";
 import platformRoutes from "./routes/platform.js";
 import demoRoutes from "./routes/demo.js";
@@ -100,6 +101,7 @@ export async function buildApp() {
   await app.register(notificationRoutes);
   await app.register(telegramRoutes);
   await app.register(announcementRoutes);
+  await app.register(featureRequestRoutes);
   await app.register(clubRoutes);
   await app.register(platformRoutes);
   await app.register(demoRoutes);

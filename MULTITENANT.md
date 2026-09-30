@@ -289,6 +289,50 @@ outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`
      admin re-links and re-enables. WhatsApp/mobile fallback also covers a
      lost Telegram link without any rescue.
 
+### 13. Feature requests — club admins → platform board (locked 2026-09-30)
+- Shared board across clubs, opposite direction of announcements (§2 analog,
+  mirrored): any club `admin` submits; ALL club admins see ALL requests but
+  origin stays anonymous (no club name/author in admin responses); superadmin
+  sees the origin club+author; other clubs' admins `+1` requests they want.
+- Tables (next migration after `0031`): `feature_requests (id, club_id NOT
+  NULL → clubs cascade = origin, author_id → users SET NULL, title
+  varchar(200), body text, status varchar(20) DEFAULT 'open', reply text
+  NULL, created_at, updated_at)` + `feature_request_votes (request_id →
+  cascade, user_id → cascade, club_id denormalized → cascade, created_at,
+  UNIQUE (request_id, user_id))`. Status enum
+  (`open|acked|planned|shipped|declined`) validated in Zod, not a PG type
+  (fewer moving parts). No translations — stored as-written, read as-is.
+- No RLS (cross-club by design, like platform tables — reviewed exception):
+  anonymity + scoping enforced in code. Admin list strips `club_id/author`;
+  superadmin endpoints require `requireSuperadmin` (`platform.ts:46` pattern).
+- Club endpoints (`routes/feature-requests.ts`, `authenticate` +
+  `requireRole(['admin'])` + `requireRequestClub`, announcements `123-153`
+  pattern): `POST /api/feature-requests {title 1-200, body 1-5000}` (origin =
+  caller's club); `GET /api/feature-requests` (all rows, anonymized
+  `{id,title,body,status,reply,votes,mine,voted,created_at}`, sorted
+  open-first then votes desc then newest); `PATCH /api/feature-requests/:id
+  {title?,body?}` (own club only, only while `open`, else 403/400);
+  `POST /api/feature-requests/:id/vote` (toggle; own-club votes 403;
+  returns `{voted,votes}`).
+- Platform endpoints (`routes/platform.ts`): `GET
+  /api/platform/feature-requests` (full rows + club slug/name, author
+  username, vote count); `PATCH /api/platform/feature-requests/:id {status?,
+  reply?}` (any→any transition; reply visible to all club admins).
+- No delivery push (inbox only, decided): no Brevo/Telegram on create. Audit
+  both sides (`auditLog`: club-scoped create/edit/vote? — create+edit only,
+  votes too noisy — plus `platform.featurereq.status` incl. reply).
+- Frontend: club view `admin-requests` (submit form + board with +1 buttons,
+  status chips, reply display, own-edit; nav next to `admin-announcements`,
+  loader in the `main.ts:317-353` map); platform view `platform-requests`
+  (table + status/reply editor). i18n `admin.requests.*` +
+  `platform.requests.*` × 5 locales, flat keys.
+- Tests (`feature-requests.test.ts`, `cleanSlate` + second club via `seedClub`
+  pattern): anonymity (no club/author leak to admins), origin visible to
+  superadmin, own-club vote/edit 403, vote toggle counts, edit-only-when-open,
+  platform endpoints superadmin-only, validation lengths.
+- Out of scope: associates submitting, attachments, comment threads (single
+  superadmin `reply` field only), email/Telegram pings, translations.
+
 ### 5. Ops (small)
 Same Render service + Neon DB. Env keeps platform secrets only; per-club creds
 live in `app_settings`. Seed becomes "seed club".

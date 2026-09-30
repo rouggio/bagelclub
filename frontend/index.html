@@ -33,6 +33,7 @@
    </div>
    <a href="#admin-reports" class="hover:text-black" x-text="t('admin.reports.title')"></a>
    <a href="#admin-announcements" class="hover:text-black" x-text="t('admin.ann.title')"></a>
+   <a href="#admin-requests" class="hover:text-black" x-text="t('admin.requests.title')"></a>
    </div>
   </template>
   <template x-if="isPlatform && platformUser">
@@ -41,6 +42,7 @@
   <a href="#platform" @click.prevent="view='platform-settings'; loadPlatformSettings()" class="hover:text-black" x-text="t('platform.settings')"></a>
   <a href="#platform" @click.prevent="view='platform-reports'; loadPlatformReports()" class="hover:text-black" x-text="t('platform.reports')"></a>
   <a href="#platform" @click.prevent="view='platform-audit'; loadPlatformClubs(); loadPlatformAudit()" class="hover:text-black" x-text="t('platform.audit')"></a>
+  <a href="#platform" @click.prevent="view='platform-requests'; loadPlatformRequests()" class="hover:text-black" x-text="t('platform.requests.title')"></a>
   </div>
   </template>
    </nav>
@@ -58,6 +60,7 @@
      <a href="#admin-notifications" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.notifications.nav')"></a>
      <a href="#admin-reports" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
      <a href="#admin-announcements" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.ann.title')"></a>
+     <a href="#admin-requests" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.requests.title')"></a>
    </div>
    </div>
   <div class="flex items-center gap-2">
@@ -286,6 +289,42 @@
   <div class="rounded-xl border bg-white p-4">
   <div class="font-semibold" x-text="`${c.name} · ${c.plan}${c.isActive ? '' : ' · suspended'}`"></div>
   <div class="text-xs text-zinc-500" x-text="`users ${c.users} · bookings ${c.bookings} · approved ${c.approved} · revenue ${fmtPrice(c.revenue_cents) || '—'}`"></div>
+  </div>
+  </template>
+  </div>
+  </section>
+  <section x-show="view==='platform-requests'" class="space-y-3">
+  <h2 class="text-xl font-bold" x-text="t('platform.requests.title')"></h2>
+  <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
+  <p x-show="platformReqMsg" class="text-sm text-emerald-600" x-text="platformReqMsg"></p>
+  <p x-show="platformRequests.length===0" class="rounded-xl border bg-white p-6 text-center text-sm text-zinc-500" x-text="t('platform.requests.empty')"></p>
+  <div class="space-y-2">
+  <template x-for="r in platformRequests" :key="r.id">
+  <div class="rounded-xl border bg-white px-3 py-2">
+  <div class="flex flex-wrap items-start justify-between gap-2">
+  <div class="grid gap-0.5 text-sm">
+  <div class="font-semibold leading-tight" x-text="r.title"></div>
+  <div class="text-xs text-zinc-500" x-text="`${r.club_name || r.club_slug || '?'}${r.author ? ' · ' + r.author : ''} · +${r.votes}`"></div>
+  <p class="text-xs text-zinc-600 whitespace-pre-line" x-text="r.body"></p>
+  <div x-show="r.reply" class="text-xs italic text-emerald-700 bg-emerald-50 px-2 py-1 rounded" x-text="r.reply"></div>
+  </div>
+  <span class="rounded-lg px-2 py-1 text-xs font-medium" :class="reqStatusClass(r.status)" x-text="t('admin.requests.status.'+r.status)"></span>
+  </div>
+  <div class="mt-2 grid gap-2 border-t pt-2 md:grid-cols-[1fr_2fr_auto] md:items-end">
+  <label class="block text-xs"><span x-text="t('platform.requests.status')"></span>
+  <select x-model="platformReqEdit[r.id].status" class="mt-1 block w-full rounded-lg border px-2 py-1">
+  <option value="open" x-text="t('admin.requests.status.open')"></option>
+  <option value="acked" x-text="t('admin.requests.status.acked')"></option>
+  <option value="planned" x-text="t('admin.requests.status.planned')"></option>
+  <option value="shipped" x-text="t('admin.requests.status.shipped')"></option>
+  <option value="declined" x-text="t('admin.requests.status.declined')"></option>
+  </select>
+  </label>
+  <label class="block text-xs"><span x-text="t('platform.requests.reply')"></span>
+  <input x-model="platformReqEdit[r.id].reply" :placeholder="t('platform.requests.replyPh')" class="mt-1 block w-full rounded-lg border px-2 py-1" />
+  </label>
+  <button @click="savePlatformRequest(r)" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-3 py-1 text-xs font-medium" x-text="t('platform.requests.save')"></button>
+  </div>
   </div>
   </template>
   </div>
@@ -1266,6 +1305,52 @@
   <button x-show="editingAnnId" @click="updateAnnouncement()" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('btn.update')"></button>
   <button @click="cancelEditAnnouncement()" class="rounded-lg border bg-white px-4 py-2 text-sm" x-text="t('btn.cancel')"></button>
   </div>
+  </div>
+  </section>
+
+  <section x-show="view==='admin-requests'" class="mx-auto max-w-2xl space-y-4">
+  <h2 class="text-xl font-bold" x-text="t('admin.requests.title')"></h2>
+  <p class="text-xs text-zinc-500" x-text="t('admin.requests.desc')"></p>
+  <div class="space-y-3 rounded-xl border bg-white p-4">
+  <input x-model="featureRequestForm.title" maxlength="200" :placeholder="t('admin.requests.titlePh')" class="w-full rounded-lg border px-3 py-2 text-sm" />
+  <textarea x-model="featureRequestForm.body" rows="3" maxlength="5000" :placeholder="t('admin.requests.bodyPh')" class="w-full rounded-lg border px-3 py-2 text-sm"></textarea>
+  <button @click="submitFeatureRequest()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.requests.submit')"></button>
+  </div>
+  <p x-show="featureRequestsError" class="text-sm text-red-600 whitespace-pre-line" x-text="featureRequestsError"></p>
+  <p x-show="featureRequestsMsg" class="text-sm text-emerald-600" x-text="featureRequestsMsg"></p>
+  <p x-show="featureRequestsLoading" class="text-sm text-zinc-500" x-text="t('myBookings.loading')"></p>
+  <p x-show="!featureRequestsLoading && featureRequests.length===0" class="text-xs text-zinc-500 text-center" x-text="t('admin.requests.empty')"></p>
+  <div class="space-y-2">
+  <template x-for="r in featureRequests" :key="r.id">
+  <div class="rounded-xl border bg-white px-3 py-2">
+  <div class="grid grid-cols-[1fr_auto] items-start gap-2">
+  <div class="grid gap-0.5 text-sm">
+  <div class="flex flex-wrap items-center gap-1">
+  <span class="font-semibold leading-tight" x-text="r.title"></span>
+  <span x-show="r.mine" class="rounded-lg px-2 py-0.5 text-[11px] font-medium bg-sky-100 text-sky-700" x-text="t('admin.requests.mine')"></span>
+  </div>
+  <div class="flex items-center gap-1">
+  <span class="rounded-lg px-2 py-0.5 text-[11px] font-medium" :class="reqStatusClass(r.status)" x-text="t('admin.requests.status.'+r.status)"></span>
+  <span class="text-xs text-zinc-500" x-text="'+' + r.votes"></span>
+  </div>
+  <p class="text-xs text-zinc-600 whitespace-pre-line" x-text="r.body"></p>
+  <div x-show="r.reply" class="text-xs italic text-emerald-700 bg-emerald-50 px-2 py-1 rounded"><span class="font-medium not-italic" x-text="t('admin.requests.reply') + ': '"></span><span x-text="r.reply"></span></div>
+  <div x-show="editingRequestId===r.id" class="space-y-2 border-t pt-2">
+  <input x-model="editRequestForm.title" maxlength="200" :placeholder="t('admin.requests.titlePh')" class="w-full rounded-lg border px-2 py-1 text-sm" />
+  <textarea x-model="editRequestForm.body" rows="2" maxlength="5000" :placeholder="t('admin.requests.bodyPh')" class="w-full rounded-lg border px-2 py-1 text-sm"></textarea>
+  <div class="flex gap-2">
+  <button @click="saveEditRequest()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 px-3 py-1 text-xs" x-text="t('admin.requests.update')"></button>
+  <button @click="cancelEditRequest()" class="rounded-lg border px-3 py-1 text-xs" x-text="t('admin.requests.cancel')"></button>
+  </div>
+  </div>
+  </div>
+  <div class="flex flex-col items-end gap-1">
+  <button x-show="!r.mine" @click="toggleRequestVote(r)" class="rounded-lg border px-3 py-1 text-xs font-medium" :class="r.voted ? 'bg-emerald-200 border-emerald-300 text-emerald-900' : 'bg-white hover:bg-zinc-50'" x-text="r.voted ? t('admin.requests.voted') : t('admin.requests.vote')"></button>
+  <button x-show="r.mine && r.status==='open'" @click="startEditRequest(r)" class="rounded-lg border bg-white px-2 py-1 text-xs" x-text="t('admin.requests.edit')"></button>
+  </div>
+  </div>
+  </div>
+  </template>
   </div>
   </section>
    </main>
