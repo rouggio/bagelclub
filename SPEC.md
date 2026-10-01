@@ -184,6 +184,19 @@ Legacy: pending_registration / expired kept for backwards compat but not created
 - No double-booking: DB exclusion constraint + app-level check.
 - `max_advance_days` (e.g., 14 days) — cannot book beyond horizon.
 - `min_cancel_hours` (e.g., 2h before start) — associates can cancel pending/approved up to threshold; admin can always cancel.
+- Cancellation policy, club-defined (locked 2026-10-01): `cancel_policy` =
+  free cancellation until `min_cancel_hours` before start; after the
+  deadline the user cannot self-cancel (admin still can). Admin may mark a
+  kept-but-unused booking as `no_show` for reporting; repeated no-shows are
+  report-only, never auto-ban.
+- Booking payment policy, club-defined (locked 2026-10-01):
+  `booking_payment_mode` = `on_court` (pay at the club, default, always
+  available) or `upfront` (pay online at booking time). `upfront` is
+  selectable only when online payments are live for the club (Go/Pro plan +
+  provider connected, #16); otherwise the club stays `on_court`.
+  `bookings.payment_status` = `unpaid | paid | onsite`; reports split revenue
+  by status. Unpaid-upfront bookings follow #16 checkout expiry, never silent
+  holds.
 - Blocks override everything. Scheduled rules are expanded at query time to generate blocked slots.
 - Timezone: store `TIMESTAMPTZ` in UTC, render in club local timezone (configurable, default `Europe/Rome` or similar). Day boundaries per club TZ.
 - Notifications: email on `pending_approval` → admin, `approved`/`rejected` → user. In-app toast for MVP.

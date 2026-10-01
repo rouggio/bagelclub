@@ -151,7 +151,7 @@ club-info, telegram link/status.
 - SEO: `/` + `/clubs` indexable, per-club pages indexable by slug;
   per-club `public_url` remains the shareable canonical for notifications.
 
-### 8. Pricing — MVP scope (display first, collection deferred)
+### 8. Pricing — usage-based tiers (locked 2026-10-01; thresholds tunable)
 Wider feature list addition (2026-09-27). Online payment collection stays
 deferred per `SPEC.md:20` (non-goal); **pricing display + totals are MVP**.
 
@@ -160,8 +160,77 @@ A. Platform pricing (club pays BagelClub):
   `is_active`, `max_courts` (plan enforcement deferred to validation).
 - Platform landing `/` shows pricing tiers (static content first, no checkout);
   `superadmin` assigns plan per club (`PATCH /api/clubs/:slug`).
+- Pricing surface split: the landing carries SUMMARY info only (tiers from
+  €0 + CTA to the pricing page); a dedicated pricing page past the landing
+  shows the full cards (free €0 / starter €10 / pro €20 monthly, allowances,
+  feature lists, signup/contact CTA). Static content first, no checkout.
+- Comparison matrix on the pricing page: rows = capabilities (booking,
+  courts/timetable, monthly bookings allowance, active users allowance,
+  revenue reports, club 2FA, feature-requests board, locales?, support
+  level), columns = the three tiers, ✓/— cells. Same `platform_settings`
+  source as the gates so the matrix can't contradict enforcement.
 - Billing integration (Stripe/subscriptions/invoices) explicitly **not MVP** —
   manual invoicing until demand.
+
+A2. Usage model (locked 2026-10-01; prices/allowances tunable) — FIXED prices,
+no floating bills:
+- Demo stays outside tiers: showcase + personal 24h runs, ephemeral, free,
+  zero engagement. Marketing cost, not a plan (free-rider re-spins accepted).
+- Every customer gets a created site unconditionally; the plan is chosen
+  upfront from PUBLISHED fixed prices (monthly/annual) — the club always
+  knows its bill in advance. No metered overages, ever.
+- Tiers still mean volume AND features: each tier carries a monthly allowance
+  (bookings created + active users) plus a feature set. Locked prices
+  (monthly, EUR): free €0 lifetime for low traffic (≤ 50 bookings / 30
+  actives, core booking only — no revenue reports, no club 2FA, no
+  feature-requests board); starter ("Go") €10/mo (≤ 300 / 150,
+  everything current, incl. online payments); pro €20/mo (≤ 1000 / 500,
+  online payments (#16, Go+Pro when built) + headroom perks: priority
+  support / custom domain later). Numbers tunable in
+  `platform_settings` without code changes.
+- Outgrowing a tier = UPGRADE conversation, not a bill: at 80% and 100% the
+  system writes audit (`billing.threshold`) + notifies superadmin (and the
+  club admin in-app); the club keeps working, always. Superadmin moves the
+  club to the next tier (`PATCH /api/clubs/:slug`, exists); invoicing stays
+  manual off platform reports. Never block a booking for billing.
+- Metering store: `club_usage_monthly (club_id, month, bookings_created,
+  active_users)` rolled up by the existing in-process cron pattern; platform
+  reports gain per-club usage vs allowance + over-flag; allowances AND prices
+  live in `platform_settings` (per-plan JSON) so numbers change without
+  deploys. Metering exists to price tiers correctly and flag upgrades —
+  never to compute a bill.
+- Club payments (locked 2026-10-01): paid plans are prepaid monthly, invoiced
+  manually. `club_payments (club_id, month, amount_cents, paid_at, recorded_by)`
+  is written by the superadmin when an invoice settles (platform UI action);
+  free clubs expect no payment and are never flagged. On the 1st of each
+  month the nightly job marks paid-plan clubs with the previous month unpaid
+  as `overdue`: writes audit (`billing.overdue`) + emails the superadmin
+  (Telegram ping too, same toggles as thresholds), repeating weekly until
+  paid. Platform reports gain a payment column (paid / overdue / —) so the
+  overdue clubs are visible at a glance.
+- Non-paying clubs degrade to free: while overdue, gates and allowances
+  resolve the club's effective plan as `free` (free feature set + 50/30
+  thresholds), and the club usage card shows the degraded state + pay notice.
+  Recording the missing payment restores the paid plan immediately. Usage
+  overage alone still never blocks or degrades — only an unpaid bill does.
+- Club payment screen (locked 2026-10-01; manual transfer until Stripe):
+  new `admin-billing` view showing plan + monthly amount + due month(s) +
+  history + degraded-state banner when overdue, with payment instructions
+  (bank details from `platform_settings`, superadmin-edited). Per due month
+  a "register payment" button inserts a pending `club_payments` claim
+  (idempotent per month) + notifies the superadmin (mail + Telegram); the
+  superadmin confirms on receipt and the paid plan restores. Stripe later:
+  same table + `provider_ref`, button becomes checkout, webhook confirms.
+- Usage is visible on BOTH sides: the club admin sees their own current
+  month (used vs allowance, % bar) in the admin area; the platform admin
+  sees per-club usage across all clubs in platform reports. Same numbers,
+  no surprises at upgrade time.
+- REWORK NOTE (later): systematic per-plan menus + actions gating. Today
+  only reports/requests nav, the 2FA card, and profile push toggles react
+  to the plan; the rest (blocks, timetable, announcements, users, settings
+  sections, action buttons) is ungated. Goal: every menu entry and mutating
+  action consults `planAllows()`/club `features` so free clubs never see
+  controls that 403 — one pass over `index.html` + loaders when scheduled.
 
 B. Court rental pricing (player pays club, pay-on-site):
 - MVP minimal model: `courts.base_price_cents INT NOT NULL DEFAULT 0` +
