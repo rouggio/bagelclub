@@ -27,6 +27,14 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
     db = reqDb(req) as any;
+    // #32: overdue fee hard-block (opt-in per club; admins/exempt never owe).
+    {
+      const { getClubSettings: feeSettings } = await import("../services/club.js");
+      const { feeBlockedUserIds, todayInTz } = await import("../services/fees.js");
+      const s = await feeSettings(db, club.id);
+      const blocked = await feeBlockedUserIds(db, club, s, [user.id], todayInTz(club.timezone));
+      if (blocked.length) return reply.status(403).send({ error: "fee_overdue" });
+    }
     // Court must belong to the caller's club.
     const courtRows = await db.select().from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
     const court = courtRows[0];
@@ -86,6 +94,12 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     const requireList = (settings as any)?.requireParticipantList ?? false;
     const participantIds = await resolveParticipantIds(db, club, user.id, playersVal, participant_ids, requireList && user.role !== "admin", reply);
     if (!participantIds) return;
+    // #32: everyone on the list must be fee-clear when the club hard-blocks.
+    if (user.role !== "admin" && participantIds.length) {
+      const { feeBlockedUserIds: feeBlockedList, todayInTz: feeToday } = await import("../services/fees.js");
+      const blockedList = await feeBlockedList(db, club, settings, participantIds, feeToday(club.timezone));
+      if (blockedList.length) return reply.status(403).send({ error: "fee_overdue" });
+    }
 
     const [row] = await db
       .insert(bookings)
@@ -127,7 +141,9 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     db = reqDb(req) as any;
     const { mine, status, court_id, date_from, date_to } = (req.query as any) || {};
     let rows = await db.select().from(bookings).where(eq(bookings.clubId, club.id)).orderBy(desc(bookings.createdAt));
-    if (user.role !== "admin" || mine === "true") {
+    // Moderation queue: admins and booking managers see everything (#35);
+    // everyone else sees only their own (or ?mine=true for admins).
+    if ((user.role !== "admin" && user.role !== "manager") || mine === "true") {
       rows = rows.filter((r: any) => String(r.userId) === String(user.id));
     }
     if (status) rows = rows.filter((r: any) => r.status === status);
@@ -220,7 +236,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     return reply.send(enriched);
   });
 
-  fastify.post("/api/bookings/:id/approve", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+  fastify.post("/api/bookings/:id/approve", { preHandler: [fastify.authenticate, fastify.requireRole(["admin", "manager"])] }, async (req, reply) => {
     let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id, status: "approved" });
     const club = await requireRequestClub(req, reply, db);
@@ -239,7 +255,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     return reply.send(row);
   });
 
-  fastify.post("/api/bookings/:id/reject", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+  fastify.post("/api/bookings/:id/reject", { preHandler: [fastify.authenticate, fastify.requireRole(["admin", "manager"])] }, async (req, reply) => {
     let db: any = (fastify as any).db;
     if (!db) return reply.send({ id: (req.params as any).id, status: "rejected" });
     const club = await requireRequestClub(req, reply, db);
@@ -295,6 +311,12 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       const finalPlayers = updates.players ?? (booking as any).players;
       const ids = await resolveParticipantIds(db, club, (booking as any).userId, finalPlayers, body.participant_ids, requireList && user.role !== "admin", reply);
       if (!ids) return;
+      // #32: joining members must also be fee-clear when the club hard-blocks.
+      if (user.role !== "admin" && ids.length) {
+        const { feeBlockedUserIds, todayInTz } = await import("../services/fees.js");
+        const blocked = await feeBlockedUserIds(db, club, settings, ids, todayInTz(club.timezone));
+        if (blocked.length) return reply.status(403).send({ error: "fee_overdue" });
+      }
       participantIds = ids;
     } else if (updates.players !== undefined && user.role !== "admin") {
       // Count changed without a new list: the stored list must still match.

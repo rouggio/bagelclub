@@ -1,251 +1,272 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1790180859467,
-      "tag": "0000_furry_aqueduct",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1790180900000,
-      "tag": "0001_enable_gist_and_seed",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790181216308,
-      "tag": "0002_magical_eternity",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790183433169,
-      "tag": "0003_glamorous_shape",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1790183805694,
-      "tag": "0004_youthful_ser_duncan",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1790235510234,
-      "tag": "0005_left_lila_cheney",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1790320000000,
-      "tag": "0006_club_info",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1790400000000,
-      "tag": "0007_notifications",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1790400001000,
-      "tag": "0008_public_url",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1790400002000,
-      "tag": "0009_make_email_optional",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1790400003000,
-      "tag": "0010_telegram_link_tokens",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1790400004000,
-      "tag": "0011_notifications_options",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1790400005000,
-      "tag": "0012_user_approval_flags",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1790400006000,
-      "tag": "0013_announcements",
-      "breakpoints": true
-    },
-    {
-      "idx": 14,
-      "version": "7",
-      "when": 1790469782813,
-      "tag": "0014_multitenant",
-      "breakpoints": true
-    },
-    {
-      "idx": 15,
-      "version": "7",
-      "when": 1790492457075,
-      "tag": "0015_multitenant_superadmin",
-      "breakpoints": true
-    },
-    {
-      "idx": 16,
-      "version": "7",
-      "when": 1790535276104,
-      "tag": "0016_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 17,
-      "version": "7",
-      "when": 1790592525027,
-      "tag": "0017_abuse",
-      "breakpoints": true
-    },
-    {
-      "idx": 18,
-      "version": "7",
-      "when": 1790607310450,
-      "tag": "0018_platform_settings",
-      "breakpoints": true
-    },
-    {
-      "idx": 19,
-      "version": "7",
-      "when": 1790627512240,
-      "tag": "0019_impersonation",
-      "breakpoints": true
-    },
-    {
-      "idx": 20,
-      "version": "7",
-      "when": 1790628060792,
-      "tag": "0020_login_challenges",
-      "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "7",
-      "when": 1790628831884,
-      "tag": "0021_club_2fa",
-      "breakpoints": true
-    },
-    {
-      "idx": 22,
-      "version": "7",
-      "when": 1790668800000,
-      "tag": "0022_user_last_login",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1790672400000,
-      "tag": "0023_timetable_windows",
-      "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "7",
-      "when": 1790676000000,
-      "tag": "0024_window_price",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "7",
-      "when": 1790679600000,
-      "tag": "0025_show_prices",
-      "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "7",
-      "when": 1790683200000,
-      "tag": "0026_open_signup",
-      "breakpoints": true
-    },
-    {
-      "idx": 27,
-      "version": "7",
-      "when": 1790686800000,
-      "tag": "0027_drop_visitor_role",
-      "breakpoints": true
-    },
-    {
-      "idx": 28,
-      "version": "7",
-      "when": 1790690400000,
-      "tag": "0028_notify_email_prefs",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1790694000000,
-      "tag": "0029_notify_matrix",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1790697600000,
-      "tag": "0030_notify_v2",
-      "breakpoints": true
-    },
-    {
-      "idx": 31,
-      "version": "7",
-      "when": 1790701200000,
-      "tag": "0031_participants",
-      "breakpoints": true
-    },
-    {
-      "idx": 32,
-      "version": "7",
-      "when": 1790704800000,
-      "tag": "0032_feature_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 33,
-      "version": "7",
-      "when": 1790708400000,
-      "tag": "0033_audit_actor_setnull",
-      "breakpoints": true
-    },
-    {
-      "idx": 34,
-      "version": "7",
-      "when": 1790712000000,
-      "tag": "0034_audit_club_setnull",
-      "breakpoints": true
-    }
-  ]
+ "version": "7",
+ "dialect": "postgresql",
+ "entries": [
+  {
+   "idx": 0,
+   "version": "7",
+   "when": 1790180859467,
+   "tag": "0000_furry_aqueduct",
+   "breakpoints": true
+  },
+  {
+   "idx": 1,
+   "version": "7",
+   "when": 1790180900000,
+   "tag": "0001_enable_gist_and_seed",
+   "breakpoints": true
+  },
+  {
+   "idx": 2,
+   "version": "7",
+   "when": 1790181216308,
+   "tag": "0002_magical_eternity",
+   "breakpoints": true
+  },
+  {
+   "idx": 3,
+   "version": "7",
+   "when": 1790183433169,
+   "tag": "0003_glamorous_shape",
+   "breakpoints": true
+  },
+  {
+   "idx": 4,
+   "version": "7",
+   "when": 1790183805694,
+   "tag": "0004_youthful_ser_duncan",
+   "breakpoints": true
+  },
+  {
+   "idx": 5,
+   "version": "7",
+   "when": 1790235510234,
+   "tag": "0005_left_lila_cheney",
+   "breakpoints": true
+  },
+  {
+   "idx": 6,
+   "version": "7",
+   "when": 1790320000000,
+   "tag": "0006_club_info",
+   "breakpoints": true
+  },
+  {
+   "idx": 7,
+   "version": "7",
+   "when": 1790400000000,
+   "tag": "0007_notifications",
+   "breakpoints": true
+  },
+  {
+   "idx": 8,
+   "version": "7",
+   "when": 1790400001000,
+   "tag": "0008_public_url",
+   "breakpoints": true
+  },
+  {
+   "idx": 9,
+   "version": "7",
+   "when": 1790400002000,
+   "tag": "0009_make_email_optional",
+   "breakpoints": true
+  },
+  {
+   "idx": 10,
+   "version": "7",
+   "when": 1790400003000,
+   "tag": "0010_telegram_link_tokens",
+   "breakpoints": true
+  },
+  {
+   "idx": 11,
+   "version": "7",
+   "when": 1790400004000,
+   "tag": "0011_notifications_options",
+   "breakpoints": true
+  },
+  {
+   "idx": 12,
+   "version": "7",
+   "when": 1790400005000,
+   "tag": "0012_user_approval_flags",
+   "breakpoints": true
+  },
+  {
+   "idx": 13,
+   "version": "7",
+   "when": 1790400006000,
+   "tag": "0013_announcements",
+   "breakpoints": true
+  },
+  {
+   "idx": 14,
+   "version": "7",
+   "when": 1790469782813,
+   "tag": "0014_multitenant",
+   "breakpoints": true
+  },
+  {
+   "idx": 15,
+   "version": "7",
+   "when": 1790492457075,
+   "tag": "0015_multitenant_superadmin",
+   "breakpoints": true
+  },
+  {
+   "idx": 16,
+   "version": "7",
+   "when": 1790535276104,
+   "tag": "0016_rls",
+   "breakpoints": true
+  },
+  {
+   "idx": 17,
+   "version": "7",
+   "when": 1790592525027,
+   "tag": "0017_abuse",
+   "breakpoints": true
+  },
+  {
+   "idx": 18,
+   "version": "7",
+   "when": 1790607310450,
+   "tag": "0018_platform_settings",
+   "breakpoints": true
+  },
+  {
+   "idx": 19,
+   "version": "7",
+   "when": 1790627512240,
+   "tag": "0019_impersonation",
+   "breakpoints": true
+  },
+  {
+   "idx": 20,
+   "version": "7",
+   "when": 1790628060792,
+   "tag": "0020_login_challenges",
+   "breakpoints": true
+  },
+  {
+   "idx": 21,
+   "version": "7",
+   "when": 1790628831884,
+   "tag": "0021_club_2fa",
+   "breakpoints": true
+  },
+  {
+   "idx": 22,
+   "version": "7",
+   "when": 1790668800000,
+   "tag": "0022_user_last_login",
+   "breakpoints": true
+  },
+  {
+   "idx": 23,
+   "version": "7",
+   "when": 1790672400000,
+   "tag": "0023_timetable_windows",
+   "breakpoints": true
+  },
+  {
+   "idx": 24,
+   "version": "7",
+   "when": 1790676000000,
+   "tag": "0024_window_price",
+   "breakpoints": true
+  },
+  {
+   "idx": 25,
+   "version": "7",
+   "when": 1790679600000,
+   "tag": "0025_show_prices",
+   "breakpoints": true
+  },
+  {
+   "idx": 26,
+   "version": "7",
+   "when": 1790683200000,
+   "tag": "0026_open_signup",
+   "breakpoints": true
+  },
+  {
+   "idx": 27,
+   "version": "7",
+   "when": 1790686800000,
+   "tag": "0027_drop_visitor_role",
+   "breakpoints": true
+  },
+  {
+   "idx": 28,
+   "version": "7",
+   "when": 1790690400000,
+   "tag": "0028_notify_email_prefs",
+   "breakpoints": true
+  },
+  {
+   "idx": 29,
+   "version": "7",
+   "when": 1790694000000,
+   "tag": "0029_notify_matrix",
+   "breakpoints": true
+  },
+  {
+   "idx": 30,
+   "version": "7",
+   "when": 1790697600000,
+   "tag": "0030_notify_v2",
+   "breakpoints": true
+  },
+  {
+   "idx": 31,
+   "version": "7",
+   "when": 1790701200000,
+   "tag": "0031_participants",
+   "breakpoints": true
+  },
+  {
+   "idx": 32,
+   "version": "7",
+   "when": 1790704800000,
+   "tag": "0032_feature_requests",
+   "breakpoints": true
+  },
+  {
+   "idx": 33,
+   "version": "7",
+   "when": 1790708400000,
+   "tag": "0033_audit_actor_setnull",
+   "breakpoints": true
+  },
+  {
+   "idx": 34,
+   "version": "7",
+   "when": 1790712000000,
+   "tag": "0034_audit_club_setnull",
+   "breakpoints": true
+  },
+  {
+   "idx": 35,
+   "version": "7",
+   "when": 1790715600000,
+   "tag": "0035_fee_payments",
+   "breakpoints": true
+  },
+  {
+   "idx": 36,
+   "version": "7",
+   "when": 1790719200000,
+   "tag": "0036_fee_settings_move",
+   "breakpoints": true
+  },
+  {
+   "idx": 37,
+   "version": "7",
+   "when": 1790722800000,
+   "tag": "0037_manager_role",
+   "breakpoints": true
+  }
+ ]
 }

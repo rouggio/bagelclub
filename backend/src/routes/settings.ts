@@ -81,6 +81,11 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.show_prices !== undefined) updates.showPrices = parsed.data.show_prices;
     if (parsed.data.allow_open_signup !== undefined) updates.allowOpenSignup = parsed.data.allow_open_signup;
     if (parsed.data.require_participant_list !== undefined) updates.requireParticipantList = parsed.data.require_participant_list;
+    if (parsed.data.notify_fee_overdue !== undefined) updates.notifyFeeOverdue = parsed.data.notify_fee_overdue;
+    if (parsed.data.fee_block_booking !== undefined) updates.feeBlockBooking = parsed.data.fee_block_booking;
+    // #32: fee amount (null = off) + cadence, also on app_settings.
+    if (parsed.data.fee_cents !== undefined) updates.feeCents = parsed.data.fee_cents;
+    if (parsed.data.fee_cadence !== undefined) updates.feeCadence = parsed.data.fee_cadence;
     if (parsed.data.club_name !== undefined) updates.clubName = parsed.data.club_name || null;
     if (parsed.data.club_phone !== undefined) updates.clubPhone = parsed.data.club_phone || null;
     if (parsed.data.club_address !== undefined) updates.clubAddress = parsed.data.club_address || null;

@@ -24,6 +24,7 @@ import notificationRoutes from "./routes/notifications.js";
 import telegramRoutes from "./routes/telegram.js";
 import announcementRoutes from "./routes/announcements.js";
 import featureRequestRoutes from "./routes/feature-requests.js";
+import feeRoutes from "./routes/fees.js";
 import clubRoutes from "./routes/clubs.js";
 import platformRoutes from "./routes/platform.js";
 import demoRoutes from "./routes/demo.js";
@@ -102,6 +103,7 @@ export async function buildApp() {
   await app.register(telegramRoutes);
   await app.register(announcementRoutes);
   await app.register(featureRequestRoutes);
+  await app.register(feeRoutes);
   await app.register(clubRoutes);
   await app.register(platformRoutes);
   await app.register(demoRoutes);
@@ -166,6 +168,16 @@ export async function buildApp() {
           app.log.info("demo showcase reset");
         } catch (e) {
           app.log.error(e, "demo reset cron failed");
+        }
+      });
+      // #32: associate-fee overdue reminders, daily 07:00.
+      cron.default.schedule("0 7 * * *", async () => {
+        if (!process.env.DATABASE_URL) return;
+        try {
+          const { runFeeReminders } = await import("./jobs/feeReminders.js");
+          await runFeeReminders();
+        } catch (e) {
+          app.log.error(e, "fee reminders cron failed");
         }
       });
     } catch {

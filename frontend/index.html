@@ -17,23 +17,30 @@
   <a href="#courts" class="hover:text-black" x-text="t('nav.courts')"></a>
   </template>
   <a href="#me" x-show="user && clubSlug" class="hover:text-black" x-text="t('nav.myBookings')"></a>
-  <template x-if="user?.role==='admin' && clubSlug">
+  <template x-if="isStaff() && clubSlug">
   <div class="flex gap-6">
-   <a href="#admin-users" class="hover:text-black" x-text="t('admin.users')"></a>
+   <a x-show="user?.role==='admin'" href="#admin-users" class="hover:text-black" x-text="t('admin.users')"></a>
    <a href="#admin-bookings" class="hover:text-black" x-text="t('admin.bookings')"></a>
-   <div class="relative">
+   <div x-show="user?.role==='admin'" class="relative">
    <button @click="settingsMenuOpen=!settingsMenuOpen" class="flex items-center gap-1 hover:text-black"><span x-text="t('admin.menu.settings')"></span><span class="text-xs" x-text="settingsMenuOpen ? '▲' : '▼'"></span></button>
    <div x-show="settingsMenuOpen" @click.outside="settingsMenuOpen=false" class="absolute left-0 top-6 mt-1 w-48 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
    <a href="#admin-club" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.club.title')"></a>
+   <a href="#admin-params" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.params.title')"></a>
    <a href="#admin-courts" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
    <a href="#admin-timetable" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
    <a href="#admin-blocks" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
    <a href="#admin-notifications" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.notifications.nav')"></a>
+   <a href="#admin-announcements" @click="settingsMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.ann.title')"></a>
    </div>
    </div>
-   <a href="#admin-reports" class="hover:text-black" x-text="t('admin.reports.title')"></a>
-   <a href="#admin-announcements" class="hover:text-black" x-text="t('admin.ann.title')"></a>
-   <a href="#admin-requests" class="hover:text-black" x-text="t('admin.requests.title')"></a>
+   <div x-show="user?.role==='admin'" class="relative">
+   <button @click="reportingMenuOpen=!reportingMenuOpen" class="flex items-center gap-1 hover:text-black"><span x-text="t('admin.menu.reporting')"></span><span class="text-xs" x-text="reportingMenuOpen ? '▲' : '▼'"></span></button>
+   <div x-show="reportingMenuOpen" @click.outside="reportingMenuOpen=false" class="absolute left-0 top-6 mt-1 w-48 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
+   <a href="#admin-reports" @click="reportingMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
+   <a href="#admin-fees" @click="reportingMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.fees.title')"></a>
+   </div>
+   </div>
+   <a x-show="user?.role==='admin'" href="#admin-requests" class="hover:text-black" x-text="t('admin.requests.title')"></a>
    </div>
   </template>
   <template x-if="isPlatform && platformUser">
@@ -48,20 +55,27 @@
   </template>
    </nav>
    <!-- Mobile admin dropdown (top, mobile only) -->
-    <div x-show="user?.role==='admin' && clubSlug" class="md:hidden relative">
+    <div x-show="isStaff() && clubSlug" class="md:hidden relative">
    <button @click="adminMobileOpen=!adminMobileOpen" class="flex items-center gap-1 rounded-lg border bg-white px-3 py-2 text-xs font-medium">Admin <span x-text="adminMobileOpen ? '▲' : '▼'"></span></button>
     <div x-show="adminMobileOpen" @click.outside="adminMobileOpen=false" class="absolute left-0 top-10 mt-1 w-56 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
-     <a href="#admin-users" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.users')"></a>
+     <a x-show="user?.role==='admin'" href="#admin-users" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.users')"></a>
      <a href="#admin-bookings" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.bookings')"></a>
+    <template x-if="user?.role==='admin'">
+    <div class="contents">
     <div class="px-3 pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.menu.settings')"></div>
      <a href="#admin-club" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.club.title')"></a>
+     <a href="#admin-params" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.params.title')"></a>
      <a href="#admin-courts" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.courtsDef')"></a>
      <a href="#admin-timetable" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.menu.slots')"></a>
      <a href="#admin-blocks" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.blocks.short')"></a>
      <a href="#admin-notifications" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.notifications.nav')"></a>
-     <a href="#admin-reports" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
-     <a href="#admin-announcements" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.ann.title')"></a>
+     <a href="#admin-announcements" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.ann.title')"></a>
+    <div class="px-3 pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.menu.reporting')"></div>
+     <a href="#admin-reports" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
+     <a href="#admin-fees" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.fees.title')"></a>
      <a href="#admin-requests" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.requests.title')"></a>
+    </div>
+    </template>
    </div>
    </div>
   <div class="flex items-center gap-2">
@@ -831,7 +845,7 @@
  <div class="flex gap-2 mb-3">
  <input x-model="adminUsersSearch" @input.debounce.500ms="loadAdminUsers()" :placeholder="t('admin.users.searchPlaceholder')" class="flex-1 rounded border px-3 py-2 text-sm" />
  <select x-model="adminUsersRole" @change="loadAdminUsers()" class="rounded border px-3 py-2 text-sm">
-  <option value="" x-text="t('admin.users.allRoles')"></option><option value="associate" x-text="roleName('associate')"></option><option value="admin" x-text="roleName('admin')"></option>
+  <option value="" x-text="t('admin.users.allRoles')"></option><option value="associate" x-text="roleName('associate')"></option><option value="manager" x-text="roleName('manager')"></option><option value="admin" x-text="roleName('admin')"></option>
  </select>
  <button @click="loadAdminUsers()" class="rounded-lg bg-emerald-200 border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-300" x-text="t('btn.refresh')"></button>
  </div>
@@ -870,7 +884,7 @@
  </div>
  <input x-model="adminUserForm.password" type="password" :placeholder="editingUserId ? 'password (leave blank to keep)' : t('auth.passwordHint')" class="w-full rounded-lg border px-3 py-2 text-sm" />
  <select x-model="adminUserForm.role" class="w-full rounded-lg border px-3 py-2 text-sm">
-  <option value="associate" x-text="roleName('associate')"></option><option value="admin" x-text="roleName('admin')"></option>
+  <option value="associate" x-text="roleName('associate')"></option><option value="manager" x-text="roleName('manager')"></option><option value="admin" x-text="roleName('admin')"></option>
  </select>
  <div class="flex gap-2">
  <button x-show="!editingUserId" @click="createAdminUser(); if(!adminUsersError) { view='admin-users'; location.hash='admin-users'; }" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm" x-text="t('btn.create')"></button>
@@ -944,7 +958,7 @@
   <div class="grid gap-0.5 text-sm">
   <div class="font-semibold leading-tight" x-text="courtLabel(b)"></div>
   <div class="text-zinc-600" x-text="`${b.date} · ${b.startTime}–${b.endTime}`"></div>
-   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button></div>
+   <div class="text-xs text-zinc-500"><span x-text="`${b.players===4 ? t('confirm.double') : t('confirm.single')} · ${b.rentRacquets ? b.rentRacquets + ' ' + t('confirm.rent').toLowerCase() : '0 ' + t('confirm.rent').toLowerCase()}${showPrices() && (b.priceCents ?? b.price_cents) ? ' · ' + fmtPrice(b.priceCents ?? b.price_cents) : ''} · `"></span><button x-show="user?.role==='admin'" @click="viewUserById(b.userId)" class="underline hover:text-black hover:decoration-zinc-400" x-text="b.username || String(b.userId||'').slice(0,8)"></button><span x-show="user?.role!=='admin'" x-text="b.username || String(b.userId||'').slice(0,8)"></span></div>
    <div x-show="b.participant_usernames && b.participant_usernames.length" class="text-xs text-zinc-500" x-text="b.participant_usernames.filter(Boolean).join(', ')"></div>
    <div x-show="b.notes" class="text-xs italic text-zinc-600 bg-amber-50 px-2 py-1 rounded" x-text="b.notes"></div>
   </div>
@@ -1072,6 +1086,11 @@
   <input x-model="clubForm.club_address" :placeholder="t('admin.club.address')" class="w-full rounded-lg border px-3 py-2 text-sm" />
   <button @click="saveClubInfo()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.club.save')"></button>
     </div>
+   </section>
+   <section x-show="view==='admin-params'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
+   <h2 class="text-xl font-bold" x-text="t('admin.params.title')"></h2>
+   <p class="text-sm text-zinc-500" x-text="t('admin.params.desc')"></p>
+   <p x-show="clubInfoLoading" class="text-sm text-zinc-500" x-text="t('myBookings.loading')"></p>
   <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
   <div>
   <div class="font-medium text-sm" x-text="t('admin.autoApprove')"></div>
@@ -1378,6 +1397,52 @@
   </div>
   </template>
   </div>
+  </section>
+  <section x-show="view==='admin-fees'" class="mx-auto max-w-2xl space-y-4">
+  <h2 class="text-xl font-bold" x-text="t('admin.fees.title')"></h2>
+  <p class="text-xs text-zinc-500" x-text="t('admin.fees.desc')"></p>
+  <div class="space-y-3 rounded-xl border bg-white p-4">
+  <div class="grid grid-cols-2 gap-3">
+  <label class="block text-sm"><span x-text="t('admin.fees.amount')"></span><input x-model="feeForm.eur" inputmode="decimal" :placeholder="t('admin.fees.amountPh')" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+  <label class="block text-sm"><span x-text="t('admin.fees.cadence')"></span><select x-model="feeForm.cadence" class="mt-1 w-full rounded-lg border px-3 py-2">
+  <option value="monthly" x-text="t('admin.fees.cMonthly')"></option>
+  <option value="bimonthly" x-text="t('admin.fees.cBimonthly')"></option>
+  <option value="semestral" x-text="t('admin.fees.cSemestral')"></option>
+  <option value="yearly" x-text="t('admin.fees.cYearly')"></option>
+  </select></label>
+  </div>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="feeForm.notify" /><span x-text="t('admin.fees.notify')"></span></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" x-model="feeForm.block" /><span x-text="t('admin.fees.block')"></span></label>
+  <button @click="saveFeeConfig()" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm font-medium" x-text="t('admin.fees.save')"></button>
+  </div>
+  <div x-show="fees" class="space-y-3">
+  <div class="flex items-center justify-between rounded-xl border bg-white px-3 py-2">
+  <button @click="shiftFeePeriod(-1)" class="rounded-lg border px-3 py-1 text-sm">←</button>
+  <div class="text-sm font-medium" x-text="`${fees?.period_start} → ${fees?.period_end_exclusive}`"></div>
+  <button @click="shiftFeePeriod(1)" class="rounded-lg border px-3 py-1 text-sm">→</button>
+  </div>
+  <div x-show="fees && !fees.fee_active" class="text-sm text-zinc-500" x-text="t('admin.fees.off')"></div>
+  <div x-show="fees && fees.fee_active" class="text-sm text-zinc-600" x-text="`${fees?.fee_display} · ${t('admin.fees.totals')}: ${fees?.totals.paid}/${fees?.totals.owing} · ${t('admin.fees.overdue')}: ${fees?.totals.overdue}`"></div>
+  <div class="space-y-2">
+  <template x-for="u in fees?.users || []" :key="u.id">
+  <div class="flex items-center justify-between gap-2 rounded-xl border bg-white px-3 py-2 text-sm">
+  <div>
+  <div class="font-medium" x-text="u.name"></div>
+  <div class="text-xs text-zinc-500" x-text="u.email || u.username"></div>
+  </div>
+  <div class="flex items-center gap-2">
+  <span class="rounded px-2 py-1 text-xs" :class="u.exempt ? 'bg-zinc-100 text-zinc-600' : u.paid ? 'bg-emerald-100 text-emerald-700' : u.overdue ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'" x-text="u.exempt ? t('admin.fees.exempt') : u.paid ? t('admin.fees.paid') : u.overdue ? `${t('admin.fees.overdue')} +${u.days_overdue}` : t('admin.fees.unpaid')"></span>
+  <label x-show="fees?.fee_active" class="flex items-center gap-1 text-xs text-zinc-500" :title="t('admin.fees.exempt')"><input type="checkbox" :checked="u.exempt" @change="toggleFeeExempt(u)" /><span x-text="t('admin.fees.exemptShort')"></span></label>
+  <button x-show="fees?.fee_active && !u.exempt && !u.paid" @click="collectFee(u)" class="rounded border px-2 py-1 text-xs text-emerald-700" x-text="t('admin.fees.mark')"></button>
+  <button x-show="fees?.fee_active && !u.exempt && u.paid" @click="uncollectFee(u)" class="rounded border px-2 py-1 text-xs text-zinc-500" x-text="t('admin.fees.unmark')"></button>
+  </div>
+  </div>
+  </template>
+  </div>
+  </div>
+  <p x-show="feesError" class="text-sm text-red-600 whitespace-pre-line" x-text="feesError"></p>
+  <p x-show="feesMsg" class="text-sm text-emerald-600" x-text="feesMsg"></p>
+  <p x-show="feesLoading" class="text-sm text-zinc-500" x-text="t('myBookings.loading')"></p>
   </section>
    </main>
 

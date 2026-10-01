@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, varchar, integer, smallint, boolean, timestamp, date, time, pgEnum, index, unique, char } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-export const userRoleEnum = pgEnum("user_role", ["associate", "admin", "superadmin"]);
+export const userRoleEnum = pgEnum("user_role", ["associate", "manager", "admin", "superadmin"]);
 export const courtTypeEnum = pgEnum("court_type", ["tennis", "padel"]);
 export const bookingStatusEnum = pgEnum("booking_status", [
   "pending_registration",
@@ -57,6 +57,8 @@ export const users = pgTable(
     gender: genderEnum("gender"),
     birthdate: date("birthdate"),
     isVerified: boolean("is_verified").notNull().default(false),
+    // #32: exempt from associate fees (admins never owe regardless).
+    feeExempt: boolean("fee_exempt").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deletedBy: uuid("deleted_by").references((): any => users.id),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -210,6 +212,13 @@ export const appSettings = pgTable("app_settings", {
   showPrices: boolean("show_prices").notNull().default(true),
   allowOpenSignup: boolean("allow_open_signup").notNull().default(true),
   requireParticipantList: boolean("require_participant_list").notNull().default(false),
+  // #32: mail members >7 days overdue (default on); optionally hard-block
+  // booking/joining while overdue (default off); fee amount per period
+  // (null = off) + calendar-anchored cadence.
+  notifyFeeOverdue: boolean("notify_fee_overdue").notNull().default(true),
+  feeBlockBooking: boolean("fee_block_booking").notNull().default(false),
+  feeCents: integer("fee_cents"),
+  feeCadence: text("fee_cadence").notNull().default("monthly"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -306,6 +315,25 @@ export const bookingParticipants = pgTable(
   },
   (t) => [
     index("booking_participants_booking_idx").on(t.bookingId),
+  ]
+);
+
+// Associate fees (#32): one row per collected user-period. club_id
+// denormalized for RLS, like booking_participants.
+export const feePayments = pgTable(
+  "fee_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clubId: uuid("club_id").notNull().references(() => clubs.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    periodStart: date("period_start").notNull(),
+    note: varchar("note", { length: 200 }),
+    collectedAt: timestamp("collected_at", { withTimezone: true }).notNull().defaultNow(),
+    collectedBy: uuid("collected_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    index("fee_payments_club_idx").on(t.clubId),
+    unique("fee_payments_user_period_unique").on(t.userId, t.periodStart),
   ]
 );
 

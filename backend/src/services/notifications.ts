@@ -570,5 +570,9 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     show_prices: s.showPrices ?? true,
     allow_open_signup: s.allowOpenSignup ?? true,
     require_participant_list: (s as any).requireParticipantList ?? false,
+    notify_fee_overdue: (s as any).notifyFeeOverdue ?? true,
+    fee_block_booking: (s as any).feeBlockBooking ?? false,
+    fee_cents: (s as any).feeCents ?? null,
+    fee_cadence: (s as any).feeCadence ?? "monthly",
   };
 }

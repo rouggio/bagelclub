@@ -90,6 +90,13 @@ function app() {
     featureRequestForm: { title: "", body: "" } as { title: string; body: string },
     editingRequestId: null as string | null,
     editRequestForm: { title: "", body: "" } as { title: string; body: string },
+    // Associate fees (#32): overview + config form + selected period.
+    fees: null as null | { fee_cents: number | null; fee_cadence: string; currency: string; fee_active: boolean; fee_display: string | null; notify_fee_overdue: boolean; fee_block_booking: boolean; period_start: string; period_end_exclusive: string; period_ended: boolean; users: Array<{ id: string; username: string; name: string; email: string | null; exempt: boolean; paid: boolean; overdue: boolean; days_overdue: number }>; totals: { owing: number; paid: number; overdue: number } },
+    feeForm: { eur: "", cadence: "monthly", notify: true, block: false } as { eur: string; cadence: string; notify: boolean; block: boolean },
+    feePeriod: "" as string,
+    feesLoading: false as boolean,
+    feesError: "" as string,
+    feesMsg: "" as string,
     viewedUser: null as any | null,
     viewedUserBack: "admin-users" as string,
     viewedUserMsg: "" as string,
@@ -193,6 +200,7 @@ function app() {
     profileLangOpen: false as boolean,
     adminMobileOpen: false as boolean,
     settingsMenuOpen: false as boolean,
+    reportingMenuOpen: false as boolean,
 
     t(key: string): string {
       return translate(this.lang, key);
@@ -203,6 +211,11 @@ function app() {
     roleName(role: string): string {
       const v = this.t(`roles.${role}`);
       return v === `roles.${role}` ? String(role || "") : v;
+    },
+
+    // Booking managers (#35): staff that only moderate the bookings queue.
+    isStaff(): boolean {
+      return this.user?.role === "admin" || this.user?.role === "manager";
     },
 
     // Phone: country code selector + national number → full digits-only
@@ -342,16 +355,20 @@ function app() {
         if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
         if (this.view === "me" && this.user) this.loadBookings();
         if (this.view === "profile" && this.user) this.loadProfile();
-        if (this.view === "admin-bookings" && this.user?.role === "admin") { await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+        if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
         if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
         if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-blocks" && this.user?.role === "admin") { this.loadAdminLessons(); this.loadAdminBlocks(); this.loadAdminCourts(); }
-        if (this.view === "admin-club" && this.user?.role === "admin") { this.loadAdminClubInfo(); this.loadAdminSettings(); }
+      if (this.view === "admin-club" && this.user?.role === "admin") { this.loadAdminClubInfo(); this.loadAdminSettings(); }
+      if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
+        if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
         if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
         if (this.view === "admin-notifications" && this.user?.role === "admin") { this.loadAdminSettings(); this.checkTelegramStatus(); }
         if (this.view === "admin-announcements" && this.user?.role === "admin") this.loadAdminAnnouncements();
-        if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
+      if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
+      if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
+        if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
         if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
         if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
@@ -359,7 +376,7 @@ function app() {
       if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
       if (this.view === "profile" && this.user) this.loadProfile();
       if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
-      if (this.view === "admin-bookings" && this.user?.role === "admin") { await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
       if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
       if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -508,7 +525,7 @@ function app() {
         this.participantSearch = "";
         this.participantResults = [];
         await this.loadBookings();
-        if (this.user?.role === "admin") await this.loadAdminBookings();
+        if (this.isStaff()) await this.loadAdminBookings();
         await this.loadAvailability();
       } finally {
         this.confirmLoading = false;
@@ -584,11 +601,11 @@ function app() {
         return;
       }
       await this.loadBookings();
-      // Admin lands on bookings, others on my bookings
-      if (this.user?.role === "admin") {
+      // Admins and booking managers land on the moderation queue.
+      if (this.isStaff()) {
         this.view = "admin-bookings";
         location.hash = "admin-bookings";
-        this.loadAdminBookings(); this.loadAdminSettings();
+        this.loadAdminBookings(); if (this.user?.role === "admin") this.loadAdminSettings();
       } else {
         this.view = "me";
         location.hash = "me";
@@ -803,7 +820,7 @@ function app() {
     },
 
     async loadAdminBookings() {
-      if (!this.user || this.user.role !== "admin") return;
+      if (!this.isStaff()) return;
       this.adminLoading = true; this.adminError = "";
       try {
         const token = storedToken();
@@ -1705,6 +1722,67 @@ function app() {
       r.voted = data.voted;
       r.votes = data.votes;
     },
+    async loadFees() {
+      if (!this.user || this.user.role !== "admin") return;
+      this.feesLoading = true; this.feesError = "";
+      try {
+        const token = storedToken();
+        const q = this.feePeriod ? `?period=${encodeURIComponent(this.feePeriod)}` : "";
+        const res = await apiFetch(`/api/fees/overview${q}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(await res.text());
+        this.fees = await res.json();
+        this.feePeriod = this.fees?.period_start || "";
+        if (this.fees) {
+          this.feeForm = {
+            eur: this.fees.fee_cents != null ? String(Number(this.fees.fee_cents) / 100) : "",
+            cadence: this.fees.fee_cadence || "monthly",
+            notify: this.fees.notify_fee_overdue ?? true,
+            block: this.fees.fee_block_booking ?? false,
+          };
+        }
+      } catch (e: any) { this.feesError = e.message || String(e); }
+      finally { this.feesLoading = false; }
+    },
+    async saveFeeConfig() {
+      this.feesError = ""; this.feesMsg = "";
+      const eur = this.feeForm.eur.trim();
+      const cents = eur === "" ? null : Math.round(Number(eur) * 100);
+      if (cents !== null && (!Number.isFinite(cents) || cents < 0)) { this.feesError = this.t("admin.fees.invalidAmount"); return; }
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ fee_cents: cents, fee_cadence: this.feeForm.cadence, notify_fee_overdue: this.feeForm.notify, fee_block_booking: this.feeForm.block }) });
+      if (!res.ok) { this.feesError = (await res.text()).slice(0, 300); return; }
+      this.feesMsg = this.t("admin.fees.saved");
+      await this.loadFees();
+    },
+    shiftFeePeriod(dir: number) {
+      const base = this.feePeriod || this.fees?.period_start;
+      if (!base) return;
+      const step = this.fees?.fee_cadence === "yearly" ? 12 : this.fees?.fee_cadence === "semestral" ? 6 : this.fees?.fee_cadence === "bimonthly" ? 2 : 1;
+      const [y, m] = base.split("-").map(Number);
+      const total = y * 12 + (m - 1) + dir * step;
+      this.feePeriod = `${String(Math.floor(total / 12)).padStart(4, "0")}-${String((total % 12) + 1).padStart(2, "0")}-01`;
+      this.loadFees();
+    },
+    async collectFee(u: any) {
+      if (!this.fees) return;
+      const token = storedToken();
+      const res = await apiFetch("/api/fees/collect", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ user_id: u.id, period_start: this.fees.period_start }) });
+      if (!res.ok) { this.feesError = (await res.text()).slice(0, 300); return; }
+      await this.loadFees();
+    },
+    async uncollectFee(u: any) {
+      if (!this.fees) return;
+      const token = storedToken();
+      const res = await apiFetch("/api/fees/uncollect", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ user_id: u.id, period_start: this.fees.period_start }) });
+      if (!res.ok) { this.feesError = (await res.text()).slice(0, 300); return; }
+      await this.loadFees();
+    },
+    async toggleFeeExempt(u: any) {
+      const token = storedToken();
+      const res = await apiFetch(`/api/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ fee_exempt: !u.exempt }) });
+      if (!res.ok) { this.feesError = (await res.text()).slice(0, 300); return; }
+      await this.loadFees();
+    },
 
     async loadAdminUsers() {
       if (!this.user || this.user.role !== "admin") return;
@@ -2290,7 +2368,7 @@ function app() {
       this.participantSearch = "";
       this.participantResults = [];
       await this.loadBookings();
-      if (this.user?.role === "admin") await this.loadAdminBookings();
+      if (this.isStaff()) await this.loadAdminBookings();
     },
 
     async logout() {

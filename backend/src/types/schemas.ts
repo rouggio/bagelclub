@@ -151,6 +151,11 @@ export const settingsSchema = z.object({
   show_prices: z.boolean().optional(),
   allow_open_signup: z.boolean().optional(),
   require_participant_list: z.boolean().optional(),
+  // #32: associate fee config (clubs row) + toggles (app_settings row).
+  fee_cents: z.number().int().min(0).max(100000000).optional().nullable(),
+  fee_cadence: z.enum(["monthly", "bimonthly", "semestral", "yearly"]).optional(),
+  notify_fee_overdue: z.boolean().optional(),
+  fee_block_booking: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

@@ -8,9 +8,10 @@
 | # | Feature | Notes |
 |---|---------|-------|
 | 31 | Usage-based tiers (metering + allowances + gates + soft billing) | SPEC'd 2026-10-01 (`MULTITENANT.md` §8-A2: monthly bookings+actives, 80/100% audit+notify, manual invoice, club-payment overdue → mail + degrade to free, usage overage never blocks), pending build |
-| 32 | Associate fees (monthly / bimonthly / semestral / yearly) — club-level amount (nullable = off) + cadence, per-user per-period collected flag, overdue report, >7-day mail reminder behind a club admin toggle | SPEC'd 2026-10-01: `clubs.fee_cents` nullable + `clubs.fee_cadence` (monthly|bimonthly|semestral|yearly) + `fee_payments(user,period_start,collected_at,by)` + `notify_fee_overdue` club toggle (default on); admin marks collected per user/period; overdue = past period unpaid while fee set; report lists overdue; nightly job mails users >7 days overdue iff toggle on; soft by default with optional `fee_block_booking` club toggle (default off) that hard-blocks booking/joining while overdue, pending build |
+| 32 | Associate fees (monthly / bimonthly / semestral / yearly) — club-level amount (nullable = off) + cadence, per-user per-period collected flag, overdue report, >7-day mail reminder behind a club admin toggle | SPEC'd 2026-10-01: `app_settings.fee_cents` nullable + `fee_cadence` (monthly|bimonthly|semestral|yearly, calendar-anchored) + `users.fee_exempt` + `fee_payments(user,period_start,collected_at,by)` + `notify_fee_overdue` club toggle (default on); associates owe, admins never; amount per period in club currency, no prorating; admin marks collected per user/period in dedicated `admin-fees` view; reminder mail once per period at >7 days overdue; optional `fee_block_booking` (default off) hard-blocks booking/joining after the same 7-day grace; all plans, audited, building |
 | 33 | Medical certificate requirement — club toggle; cert valid 1 year from emission; admin uploads scan + expiry per player; missing/expired cert blocks booking AND joining; expiry reminder mail to player + admin 1 month ahead | SPEC'd 2026-10-01: `clubs.require_medical_cert` toggle (default off) + `user.medical_cert_{scan,expires_at,verified_by}`; booking create + participant-join paths reject with `medical_cert_required/expired` when toggle on; nightly job mails player + club admin at 30 days to expiry (once); unlike fees this gates booking by design, pending build |
 | 34 | Club booking policy — admin-defined cancellation rules + payment mode (upfront online vs pay on court) | SPEC'd 2026-10-01 (`SPEC.md` §4.4): free cancel until `min_cancel_hours`, no self-cancel after deadline, admin `no-show` marking (report-only); `booking_payment_mode` on_court default, upfront only when online payments live (#16, Go/Pro); `bookings.payment_status` unpaid\|paid\|onsite, pending build |
+| 35 | Booking manager role — staff that can only approve/reject bookings | Admin assigns `manager`; queue + approve/reject only, everything else 403; managers never owe fees; no mod notifications (admins still pinged) |
 | 16 | Online payment collection (Stripe/subscriptions/player checkout) | later candidate, was `SPEC.md:20` non-goal |
 | 17 | Peak/off-peak price rules, discounts, memberships | later candidate |
 | 18 | Tournaments (brackets, scheduling, court assignment, entries) | later candidate |
@@ -45,6 +46,7 @@
 
 ## Rules
 
+- Lines starting with `feat:` are logged here, never built immediately.
 - New feature requests land here first (top table) before any design doc grows.
 - Tests are incremental: every feature ships with its vitest coverage, no big-bang test phase.
 - `MULTITENANT.md` stays a design doc for features 5–15, not the list itself.

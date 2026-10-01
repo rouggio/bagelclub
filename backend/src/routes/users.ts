@@ -14,6 +14,7 @@ function safeUser(r: any) {
     preferred_language: r.preferredLanguage, preferred_sport: r.preferredSport,
     first_name: r.firstName, last_name: r.lastName, mobile: r.mobile,
     telegram_chat_id: r.telegramChatId, gender: r.gender, birthdate: r.birthdate,
+    fee_exempt: !!r.feeExempt,
     notify_email: true, notify_push_master: r.notifyPushMaster ?? true,
     notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
   };
@@ -265,7 +266,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (term) {
       rows = rows.filter((r: any) => [r.username, r.email, r.firstName, r.lastName, r.mobile].some((v: any) => v && String(v).toLowerCase().includes(term)));
     }
-    if (role && ["associate","admin"].includes(role)) {
+    if (role && ["associate","manager","admin"].includes(role)) {
       rows = rows.filter((r: any) => r.role === role);
     }
     return reply.send(rows.map(safeUser));
@@ -300,7 +301,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     db = reqDb(req) as any;
     const { id } = req.params as any;
     const { role } = (req as any).body as any;
-    if (!["associate", "admin"].includes(role)) return reply.status(400).send({ error: "Invalid role" });
+    if (!["associate", "manager", "admin"].includes(role)) return reply.status(400).send({ error: "Invalid role" });
     const targetRows = await db.select().from(users).where(and(eq(users.id, id), eq(users.clubId, club.id), live())).limit(1);
     const target = targetRows[0];
     if (!target) return reply.status(404).send({ error: "Not found" });
@@ -313,7 +314,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     const [row] = await db.update(users).set({ role }).where(eq(users.id, id)).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
-      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: role === "admin" ? "admin.role.grant" : "admin.role.revoke", target: id, meta: JSON.stringify({ from: target.role, to: role, username: target.username }) });
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: (role === "admin" || (role === "manager" && target.role === "associate") ? "admin.role.grant" : "admin.role.revoke"), target: id, meta: JSON.stringify({ from: target.role, to: role, username: target.username }) });
     } catch {}
     return reply.send({ id: row.id, role: row.role });
   });
@@ -327,7 +328,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (!club) return;
     db = reqDb(req) as any;
     const { password, ...data } = parsed.data as any;
-    const role = (req.body as any).role && ["associate","admin"].includes((req.body as any).role) ? (req.body as any).role : "associate";
+    const role = (req.body as any).role && ["associate","manager","admin"].includes((req.body as any).role) ? (req.body as any).role : "associate";
     const passwordHash = await bcrypt.hash(password, 10);
     const emailVal = (data.email as string | null | undefined) ? String(data.email).toLowerCase() : null;
     const uname = String(data.username);
@@ -346,7 +347,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
       }
     }
     try {
-      const [user] = await db.insert(users).values({ clubId: club.id, username: uname, email: emailVal, mobile: (data as any).mobile ?? null, passwordHash, firstName: data.first_name, lastName: data.last_name, role, preferredLanguage: data.preferred_language ?? "it" }).returning();
+      const [user] = await db.insert(users).values({ clubId: club.id, username: uname, email: emailVal, mobile: (data as any).mobile ?? null, passwordHash, firstName: data.first_name, lastName: data.last_name, role, preferredLanguage: data.preferred_language ?? "it", feeExempt: !!((req.body as any).fee_exempt) }).returning();
       return reply.status(201).send({ id: user.id, username: user.username, email: user.email, role: user.role });
     } catch (e: any) {
       if (String(e.code) === "23505") return reply.status(409).send({ error: "username or email already taken" });
@@ -391,7 +392,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (body.telegram_chat_id !== undefined) updates.telegramChatId = body.telegram_chat_id || null;
     if (body.gender !== undefined) updates.gender = body.gender;
     if (body.birthdate !== undefined) updates.birthdate = body.birthdate || null;
-    if (role && ["associate","admin"].includes(role)) updates.role = role;
+    if (role && ["associate","manager","admin"].includes(role)) updates.role = role;
+    // #32: per-user fee exemption (raw body, like role).
+    if ((req.body as any).fee_exempt !== undefined) updates.feeExempt = !!((req.body as any).fee_exempt);
     if ((req.body as any).password) updates.passwordHash = await bcrypt.hash((req.body as any).password, 10);
     if (Object.keys(updates).length === 0) return reply.status(400).send({ error: "No fields to update" });
     updates.updatedAt = new Date();
@@ -415,10 +418,10 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (!row) return reply.status(404).send({ error: "Not found" });
       if ((updates as any).role && (updates as any).role !== prevRole) {
         try {
-          await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: (updates as any).role === "admin" ? "admin.role.grant" : "admin.role.revoke", target: id, meta: JSON.stringify({ from: prevRole, to: (updates as any).role, username: row.username }) });
+          await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: ((updates as any).role === "admin" || ((updates as any).role === "manager" && prevRole === "associate") ? "admin.role.grant" : "admin.role.revoke"), target: id, meta: JSON.stringify({ from: prevRole, to: (updates as any).role, username: row.username }) });
         } catch {}
       }
-      const out: any = { id: row.id, username: row.username, email: row.email, role: row.role };
+      const out: any = { id: row.id, username: row.username, email: row.email, role: row.role, fee_exempt: !!(row as any).feeExempt };
       if (guard.disabled) out.two_fa_disabled = true;
       return reply.send(out);
     } catch (e: any) {
