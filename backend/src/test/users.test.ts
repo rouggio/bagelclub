@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { cleanSlate, buildTestApp, loginAs, authHeaders, testDb } from "./helpers.js";
-import { users, bookings, courts, loginChallenges } from "../db/schema.js";
+import { users, bookings, courts, loginChallenges, auditLog } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 describe("users (soft delete)", () => {
@@ -110,5 +110,26 @@ describe("users (soft delete)", () => {
   it("admin cannot delete themselves", async () => {
     const del = await app.inject({ method: "DELETE", url: `/api/users/${admin.user.id}`, headers: H() });
     expect(del.statusCode).toBe(400);
+  });
+
+  it("role grant/revoke + delete/restore are audited", async () => {
+    const created = await app.inject({
+      method: "POST", url: "/api/users", headers: { ...H(), "Content-Type": "application/json" },
+      payload: { username: "audited", password: "Test1234!", first_name: "A", last_name: "U" },
+    });
+    expect(created.statusCode).toBe(201);
+    const id = created.json().id;
+    const grant = await app.inject({ method: "PATCH", url: `/api/users/${id}/role`, headers: { ...H(), "Content-Type": "application/json" }, payload: { role: "admin" } });
+    expect(grant.statusCode).toBe(200);
+    const revoke = await app.inject({ method: "PATCH", url: `/api/users/${id}/role`, headers: { ...H(), "Content-Type": "application/json" }, payload: { role: "associate" } });
+    expect(revoke.statusCode).toBe(200);
+    expect((await app.inject({ method: "DELETE", url: `/api/users/${id}`, headers: H() })).statusCode).toBe(204);
+    expect((await app.inject({ method: "POST", url: `/api/users/${id}/restore`, headers: H() })).statusCode).toBe(200);
+    const { db, pool } = await testDb();
+    const rows = await db.select().from(auditLog);
+    await pool.end();
+    const acts = rows.filter((a: any) => String(a.target) === String(id)).map((a: any) => a.action);
+    expect(acts).toEqual(expect.arrayContaining(["admin.role.grant", "admin.role.revoke", "admin.user.delete", "admin.user.restore"]));
+    expect(rows.filter((a: any) => String(a.target) === String(id)).every((a: any) => String(a.actorId) === String(admin.user.id))).toBe(true);
   });
 });

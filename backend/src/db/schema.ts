@@ -215,8 +215,8 @@ export const appSettings = pgTable("app_settings", {
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
-  clubId: uuid("club_id").references(() => clubs.id),
-  actorId: uuid("actor_id").references(() => users.id),
+  clubId: uuid("club_id").references(() => clubs.id, { onDelete: "set null" }),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
   action: varchar("action", { length: 50 }).notNull(),
   target: varchar("target", { length: 100 }).notNull(),
   meta: text("meta"),

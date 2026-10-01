@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { bookingIntentSchema } from "../types/schemas.js";
 import { randomUUID } from "crypto";
-import { bookings, bookingParticipants, timetables, courts } from "../db/schema.js";
+import { bookings, bookingParticipants, timetables, courts, auditLog } from "../db/schema.js";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { requireRequestClub, getClubSettings, reqDb } from "../services/club.js";
 
@@ -230,6 +230,9 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     const [row] = await db.update(bookings).set({ status: "approved" as any, reviewedBy: (req as any).user.id }).where(and(eq(bookings.id, id), eq(bookings.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
     try {
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: "booking.approve", target: id, meta: null });
+    } catch {}
+    try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
       await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "approved"));
     } catch {}
@@ -245,6 +248,9 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     const { id } = req.params as any;
     const [row] = await db.update(bookings).set({ status: "rejected" as any, reviewedBy: (req as any).user.id }).where(and(eq(bookings.id, id), eq(bookings.clubId, club.id))).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
+    try {
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: "booking.reject", target: id, meta: null });
+    } catch {}
     try {
       const { notifyUserBookingDecision } = await import("../services/notifications.js");
       await settleNotify(notifyUserBookingDecision((fastify as any).db, row, "rejected"));

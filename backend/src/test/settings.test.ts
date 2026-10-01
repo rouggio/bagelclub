@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { cleanSlate, buildTestApp, loginAs, authHeaders } from "./helpers.js";
+import { cleanSlate, buildTestApp, loginAs, authHeaders, testDb } from "./helpers.js";
+import { auditLog } from "../db/schema.js";
 
 describe("club settings toggles", () => {
   cleanSlate();
@@ -19,6 +20,12 @@ describe("club settings toggles", () => {
     expect(get2.json().show_prices).toBe(false);
     const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
     expect(info.json().show_prices).toBe(false);
+    const { db, pool } = await testDb();
+    const rows = await db.select().from(auditLog);
+    await pool.end();
+    const logged = rows.find((a: any) => a.action === "club.settings");
+    expect(logged).toBeTruthy();
+    expect(JSON.parse(logged.meta).keys).toContain("show_prices");
   });
 
   it("closed signup 403s public registration, open allows it", async () => {

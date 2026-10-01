@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { cleanSlate, buildTestApp, loginAs, authHeaders, testDb, seedClub } from "./helpers.js";
-import { courts } from "../db/schema.js";
+import { courts, auditLog } from "../db/schema.js";
 
 const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
@@ -72,5 +72,21 @@ describe("bookings (club-scoped)", () => {
       payload: { court_id: courtId, date: "2020-01-01", start_time: "10:00" },
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("admin approve/reject are audited", async () => {
+    const mh = authHeaders(member.token, "green-village");
+    const ah = authHeaders(admin.token, "green-village");
+    const mk = (t: string) => app.inject({ method: "POST", url: "/api/bookings", headers: mh, payload: { court_id: courtId, date: tomorrow(), start_time: t } });
+    const b1 = (await mk("10:00")).json().id;
+    const b2 = (await mk("12:00")).json().id;
+    expect((await app.inject({ method: "POST", url: `/api/bookings/${b1}/approve`, headers: ah })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: `/api/bookings/${b2}/reject`, headers: ah })).statusCode).toBe(200);
+    const { db, pool } = await testDb();
+    const rows = await db.select().from(auditLog);
+    await pool.end();
+    const byTarget = (id: string) => rows.filter((a: any) => String(a.target) === String(id)).map((a: any) => a.action);
+    expect(byTarget(b1)).toContain("booking.approve");
+    expect(byTarget(b2)).toContain("booking.reject");
   });
 });

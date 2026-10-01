@@ -214,7 +214,7 @@ export default async function platformRoutes(fastify: FastifyInstance) {
   fastify.get("/api/platform/audit", { preHandler: pre }, async (req, reply) => {    let db: any = reqDb(req);
     if (!db) return reply.send({ rows: [], total: 0 });
     const { users } = await import("../db/schema.js");
-    const { gte, lte, sql } = await import("drizzle-orm");
+    const { gte, lte, sql, inArray } = await import("drizzle-orm");
     const q = (req.query as any) || {};
     const limit = Math.min(Math.max(Number(q.limit) || 50, 1), 200);
     const offset = Math.max(Number(q.offset) || 0, 0);
@@ -229,6 +229,11 @@ export default async function platformRoutes(fastify: FastifyInstance) {
       const crows = await db.select().from(clubs).where(eq(clubs.slug, String(q.club)));
       if (!crows[0]) return reply.send({ rows: [], total: 0, limit, offset });
       conds.push(eq(auditLog.clubId, crows[0].id));
+    }
+    // Feed filter for the notifications screen: ?actions=a,b,c.
+    if (q.actions) {
+      const list = String(q.actions).split(",").map((s) => s.trim()).filter(Boolean).slice(0, 20);
+      if (list.length) conds.push(inArray(auditLog.action, list));
     }
     const where = conds.length ? and(...conds) : undefined;
     const totalRows: any[] = await db.select({ n: sql`count(*)` }).from(auditLog).where(where);
@@ -265,12 +270,14 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     return reply.send({
       base_url: (await getPlatformSetting(db, "base_url")) || "",
       footer_text: (await getPlatformSetting(db, "footer_text")) || "",
+      notify_demo_start: ((await getPlatformSetting(db, "notify_demo_start")) ?? "true") !== "false",
+      notify_demo_start_telegram: ((await getPlatformSetting(db, "notify_demo_start_telegram")) ?? "true") !== "false",
     });
   });
 
   fastify.put("/api/platform/settings", { preHandler: pre }, async (req, reply) => {
     const db: any = reqDb(req);
-    const { base_url, footer_text } = (req as any).body as any;
+    const { base_url, footer_text, notify_demo_start, notify_demo_start_telegram } = (req as any).body as any;
     if (base_url !== undefined && base_url !== null && base_url !== "") {
       try {
         const u = new URL(String(base_url));
@@ -285,10 +292,18 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     if (footer_text !== undefined) {
       await setPlatformSetting(db, "footer_text", String(footer_text).slice(0, 500) || null);
     }
+    if (notify_demo_start !== undefined) {
+      await setPlatformSetting(db, "notify_demo_start", notify_demo_start ? "true" : "false");
+    }
+    if (notify_demo_start_telegram !== undefined) {
+      await setPlatformSetting(db, "notify_demo_start_telegram", notify_demo_start_telegram ? "true" : "false");
+    }
     await audit(db, (req as any).user.id, "platform.settings", "base_url+footer_text", { base_url: v });
     return reply.send({
       base_url: (await getPlatformSetting(db, "base_url")) || "",
       footer_text: (await getPlatformSetting(db, "footer_text")) || "",
+      notify_demo_start: ((await getPlatformSetting(db, "notify_demo_start")) ?? "true") !== "false",
+      notify_demo_start_telegram: ((await getPlatformSetting(db, "notify_demo_start_telegram")) ?? "true") !== "false",
     });
   });
 

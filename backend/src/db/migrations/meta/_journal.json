@@ -232,6 +232,20 @@
       "when": 1790704800000,
       "tag": "0032_feature_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790708400000,
+      "tag": "0033_audit_actor_setnull",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790712000000,
+      "tag": "0034_audit_club_setnull",
+      "breakpoints": true
     }
   ]
 }

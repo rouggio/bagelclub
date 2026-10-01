@@ -143,7 +143,7 @@ function app() {
     // Impersonation session (superadmin acting as club admin).
     impSession: null as null | { clubSlug: string; expiresAt: number },
     impNow: 0 as number,
-    platformSettings: { base_url: "" as string, footer_text: "" as string } as { base_url: string; footer_text: string },
+    platformSettings: { base_url: "" as string, footer_text: "" as string, notify_demo_start: true as boolean, notify_demo_start_telegram: true as boolean } as { base_url: string; footer_text: string; notify_demo_start?: boolean; notify_demo_start_telegram?: boolean },
     platformSettingsMsg: "" as string,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     platformRequests: [] as Array<{ id: string; title: string; body: string; status: string; reply: string | null; votes: number; club_slug: string | null; club_name: string | null; author: string | null; created_at: string; updated_at: string }>,
@@ -2079,6 +2079,19 @@ function app() {
         "platform.club.delete": "auditClubDelete",
         "platform.impersonate.blocked-write": "auditImpBlocked",
         "platform.admin.reset-password": "auditAdminReset",
+        "platform.featurereq.status": "auditFeatStatus",
+        "featurereq.create": "auditFeatCreate",
+        "featurereq.edit": "auditFeatEdit",
+        "demo.start": "auditDemoStart",
+        "club.2fa.enabled": "audit2faEnabled",
+        "club.2fa.disabled": "audit2faDisabled",
+        "admin.role.grant": "auditRoleGrant",
+        "admin.role.revoke": "auditRoleRevoke",
+        "admin.user.delete": "auditUserDelete",
+        "admin.user.restore": "auditUserRestore",
+        "booking.approve": "auditBookingApprove",
+        "booking.reject": "auditBookingReject",
+        "club.settings": "auditClubSettings",
       };
       const key = map[action];
       if (!key) return action;
@@ -2114,6 +2127,17 @@ function app() {
         if (!res.ok) { this.platformSettingsMsg = data.error || "save failed"; return; }
         this.platformSettings = data;
       } catch (e: any) { this.platformSettingsMsg = e.message || String(e); }
+    },
+    // ---- Notifications screen: mail toggles (email + telegram per line) ----
+    async toggleNotifFlag(key: "notify_demo_start" | "notify_demo_start_telegram") {
+      this.platformError = "";
+      this.platformSettings[key] = !(this.platformSettings[key] ?? true);
+      try {
+        const res = await platformFetch("/api/platform/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [key]: this.platformSettings[key] }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { this.platformError = data.error || "save failed"; return; }
+        this.platformSettings = { ...this.platformSettings, ...data };
+      } catch (e: any) { this.platformError = e.message || String(e); }
     },
     async loadPlatformReports() {
       this.platformError = "";

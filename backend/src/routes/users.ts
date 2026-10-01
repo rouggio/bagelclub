@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { users, appSettings } from "../db/schema.js";
+import { users, appSettings, auditLog } from "../db/schema.js";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
 import { profileSchema, adminCreateUserSchema } from "../types/schemas.js";
 import { requireRequestClub, getClubSettings, getPlatformSetting, clubLocales, reqDb } from "../services/club.js";
@@ -312,6 +312,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
     }
     const [row] = await db.update(users).set({ role }).where(eq(users.id, id)).returning();
     if (!row) return reply.status(404).send({ error: "Not found" });
+    try {
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: role === "admin" ? "admin.role.grant" : "admin.role.revoke", target: id, meta: JSON.stringify({ from: target.role, to: role, username: target.username }) });
+    } catch {}
     return reply.send({ id: row.id, role: row.role });
   });
 
@@ -407,8 +410,14 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (!targetRows[0]) return reply.status(404).send({ error: "Not found" });
       const guard = await guardAdminContactChange(db, club, targetRows[0], body, (req as any).body?.two_fa_code);
       if (guard.error) return reply.status(401).send({ error: guard.error });
+      const prevRole = targetRows[0].role;
       const [row] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
       if (!row) return reply.status(404).send({ error: "Not found" });
+      if ((updates as any).role && (updates as any).role !== prevRole) {
+        try {
+          await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: (updates as any).role === "admin" ? "admin.role.grant" : "admin.role.revoke", target: id, meta: JSON.stringify({ from: prevRole, to: (updates as any).role, username: row.username }) });
+        } catch {}
+      }
       const out: any = { id: row.id, username: row.username, email: row.email, role: row.role };
       if (guard.disabled) out.two_fa_disabled = true;
       return reply.send(out);
@@ -437,6 +446,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (admins.length <= 1) return reply.status(400).send({ error: "Cannot delete the last admin" });
     }
     await db.update(users).set({ deletedAt: new Date(), deletedBy: user.id, updatedAt: new Date() }).where(eq(users.id, id));
+    try {
+      await db.insert(auditLog).values({ actorId: user.id, clubId: club.id, action: "admin.user.delete", target: id, meta: JSON.stringify({ username: target.username, role: target.role }) });
+    } catch {}
     return reply.status(204).send();
   });
 
@@ -461,6 +473,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
       if (clashMail[0]) return reply.status(409).send({ error: "email already taken by an active user" });
     }
     const [row] = await db.update(users).set({ deletedAt: null, deletedBy: null, updatedAt: new Date() }).where(eq(users.id, id)).returning();
+    try {
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: "admin.user.restore", target: id, meta: JSON.stringify({ username: row.username }) });
+    } catch {}
     return reply.send(safeUser(row));
   });
 

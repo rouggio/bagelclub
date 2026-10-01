@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { settingsSchema } from "../types/schemas.js";
-import { appSettings } from "../db/schema.js";
+import { appSettings, auditLog } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { maskSettingsForAdminResponse, getNotifyPolicy } from "../services/notifications.js";
 import { resolveClubSlug, requireClub, requireRequestClub, getClubSettings, clubLocales, reqDb, rejectImpSelfWrite } from "../services/club.js";
@@ -130,6 +130,10 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       ? (await qdb.update(appSettings).set(updates).where(eq(appSettings.clubId, club.id)).returning())[0]
       : (await qdb.insert(appSettings).values({ clubId: club.id, ...updates }).returning())[0];
     const policy = await getNotifyPolicy(qdb, club.id);
+    try {
+      const keys = Object.keys(parsed.data).filter((k) => k !== "two_fa_enabled" && (parsed.data as any)[k] !== undefined);
+      await qdb.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: "club.settings", target: club.slug, meta: JSON.stringify({ keys }) });
+    } catch {}
     return reply.send(maskSettingsForAdminResponse(row, policy));
   });
 
@@ -192,6 +196,9 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid or expired code" });
     }
     await db.update(appSettings).set({ twoFaEnabled: action === "enable", updatedAt: new Date() }).where(eq(appSettings.clubId, club.id));
+    try {
+      await db.insert(auditLog).values({ actorId: me.id, clubId: club.id, action: action === "enable" ? "club.2fa.enabled" : "club.2fa.disabled", target: club.slug, meta: null });
+    } catch {}
     const s = await getClubSettings(db, club.id);
     return reply.send(maskSettingsForAdminResponse(s, await getNotifyPolicy(db, club.id)));
   });

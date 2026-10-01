@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { cleanSlate, buildTestApp, loginAs, authHeaders, testDb } from "./helpers.js";
-import { users, appSettings } from "../db/schema.js";
+import { users, appSettings, auditLog } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 describe("club-admin 2fa", () => {
@@ -44,6 +44,10 @@ describe("club-admin 2fa", () => {
     const confirm = await app.inject({ method: "POST", url: "/api/settings/2fa/confirm", headers: { ...H(), "Content-Type": "application/json" }, payload: { action: "enable", code: otp, challenge_id: code.json().challenge_id } });
     expect(confirm.statusCode).toBe(200);
     expect(confirm.json().two_fa_enabled).toBe(true);
+    const { db: dbA, pool: poolA } = await testDb();
+    const audits = await dbA.select().from(auditLog);
+    await poolA.end();
+    expect(audits.some((a: any) => a.action === "club.2fa.enabled" && String(a.actorId) === String(admin.user.id))).toBe(true);
   });
 
   it("admin login requires OTP while enforced", async () => {
