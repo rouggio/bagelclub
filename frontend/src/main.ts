@@ -101,8 +101,8 @@ function app() {
     viewedUserBack: "admin-users" as string,
     viewedUserMsg: "" as string,
     viewedUserMsgOk: false as boolean,
-    // #33: medical-cert upload form for the viewed user.
-    medcertForm: { expires_at: "", file: null as null | { name: string; mime: string; b64: string }, fileLoading: false as boolean, msg: "", loading: false },
+    // #33: medical-cert expiry form for the viewed user.
+    medcertForm: { expires_at: "", msg: "", loading: false },
     adminLoading: false as boolean,
     adminError: "" as string,
     adminFilter: "pending_approval" as string,
@@ -1042,42 +1042,16 @@ function app() {
       await this.loadAdminUsers();
       const u = (this.adminUsers as any[]).find((x: any) => String(x.id) === String(this.viewedUser.id));
       if (u) this.viewedUser = u;
-      this.medcertForm = { expires_at: (this.viewedUser as any)?.medical_cert?.expires_at || "", file: null as null | { name: string; mime: string; b64: string }, fileLoading: false, msg: "", loading: false };
-    },
-    pickMedcertFile(ev: any) {
-      this.medcertForm.msg = "";
-      const f = ev?.target?.files?.[0];
-      if (!f) { this.medcertForm.file = null; return; }
-      if (f.size > 5 * 1024 * 1024) { this.medcertForm.msg = this.t("admin.medcert.tooBig"); this.medcertForm.file = null; return; }
-      // FileReader is async: flag it so Upload stays disabled until ready.
-      this.medcertForm.file = null;
-      this.medcertForm.fileLoading = true;
-      this.medcertForm.msg = this.t("admin.medcert.loadingFile");
-      const rd = new FileReader();
-      rd.onload = () => {
-        const dataUrl = String(rd.result || "");
-        const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-        this.medcertForm.file = { name: f.name, mime: f.type || "application/octet-stream", b64 };
-        this.medcertForm.fileLoading = false;
-        this.medcertForm.msg = f.name;
-      };
-      rd.onerror = () => {
-        this.medcertForm.fileLoading = false;
-        this.medcertForm.msg = this.t("admin.medcert.readError");
-      };
-      rd.readAsDataURL(f);
+      this.medcertForm = { expires_at: (this.viewedUser as any)?.medical_cert?.expires_at || "", msg: "", loading: false };
     },
     async uploadMedcert() {
       if (!this.viewedUser?.id) return;
       this.medcertForm.msg = "";
-      if (this.medcertForm.fileLoading) { this.medcertForm.msg = this.t("admin.medcert.loadingFile"); return; }
       if (!this.medcertForm.expires_at) { this.medcertForm.msg = this.t("admin.medcert.needExpiry"); return; }
       this.medcertForm.loading = true;
       try {
         const token = storedToken();
-        const body: any = { expires_at: this.medcertForm.expires_at };
-        if (this.medcertForm.file) { body.scan_base64 = this.medcertForm.file.b64; body.mime = this.medcertForm.file.mime; }
-        const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+        const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ expires_at: this.medcertForm.expires_at }) });
         if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 300); return; }
         this.medcertForm.msg = this.t("admin.medcert.saved");
         await this.refreshViewedUser();
@@ -1090,16 +1064,6 @@ function app() {
       if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 300); return; }
       this.medcertForm.msg = this.t("admin.medcert.removed");
       await this.refreshViewedUser();
-    },
-    async downloadMedcert() {
-      if (!this.viewedUser?.id) return;
-      const token = storedToken();
-      const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert/scan`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 200); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
     },
     // #26b: participant picker — search club members, pick up to N.
     participantTarget(): number {
@@ -1931,7 +1895,7 @@ function app() {
     viewUser(u: any) {
       this.viewedUserBack = this.view;
       this.viewedUser = u;
-      this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, fileLoading: false, msg: "", loading: false };
+      this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", msg: "", loading: false };
       this.view = "admin-view-user";
       location.hash = "admin-view-user";
     },
@@ -1953,7 +1917,7 @@ function app() {
       if (u) {
         // viewUser will set viewedUserBack, but we already set it — avoid double overwrite
         this.viewedUser = u;
-        this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, fileLoading: false, msg: "", loading: false };
+        this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", msg: "", loading: false };
         this.view = "admin-view-user";
         location.hash = "admin-view-user";
       } else {

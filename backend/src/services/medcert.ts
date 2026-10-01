@@ -7,9 +7,6 @@ export { todayInTz } from "./fees.js";
 
 /** Days before expiry the reminder goes out. */
 export const MEDCERT_REMINDER_DAYS = 30;
-/** Scan cap: ~5MB binary as base64 (≈6.8M chars). */
-export const MEDCERT_MAX_SCAN_CHARS = 7_000_000;
-export const MEDCERT_MIMES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 export type CertStatus = "missing" | "expired" | "expiring" | "valid";
 

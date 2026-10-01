@@ -274,6 +274,13 @@
    "when": 1790726400000,
    "tag": "0038_medical_cert",
    "breakpoints": true
+  },
+  {
+   "idx": 39,
+   "version": "7",
+   "when": 1790730000000,
+   "tag": "0039_medcert_no_scan",
+   "breakpoints": true
   }
  ]
 }

@@ -63,24 +63,15 @@ describe("medical certificates #33", () => {
     expect(MEDCERT_REMINDER_DAYS).toBe(30);
   });
 
-  it("admin sets/removes/downloads; validation rejects junk", async () => {
+  it("admin sets/removes expiry; associates cannot touch certs", async () => {
     const ah = { ...authHeaders(admin.token, "green-village"), "Content-Type": "application/json" };
-    const badMime = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "aGk=", mime: "text/plain" } });
-    expect(badMime.statusCode).toBe(400);
-    const badB64 = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "!!!not-base64!!!", mime: "application/pdf" } });
-    expect(badB64.statusCode).toBe(400);
-    // Phone photos (HEIC) are accepted too.
-    const heic = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "aGk=", mime: "image/heic" } });
-    expect(heic.statusCode).toBe(200);
-    const set = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "aGk=", mime: "application/pdf" } });
+    const badDate = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: "not-a-date" } });
+    expect(badDate.statusCode).toBe(400);
+    const set = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300) } });
     expect(set.statusCode).toBe(200);
-    expect(set.json()).toMatchObject({ ok: true, has_scan: true });
-    const dl = await app.inject({ method: "GET", url: `/api/users/${member.user.id}/medical-cert/scan`, headers: authHeaders(admin.token, "green-village") });
-    expect(dl.statusCode).toBe(200);
+    expect(set.json()).toMatchObject({ ok: true });
     const rm = await app.inject({ method: "DELETE", url: `/api/users/${member.user.id}/medical-cert`, headers: authHeaders(admin.token, "green-village") });
     expect(rm.statusCode).toBe(200);
-    const dl2 = await app.inject({ method: "GET", url: `/api/users/${member.user.id}/medical-cert/scan`, headers: authHeaders(admin.token, "green-village") });
-    expect(dl2.statusCode).toBe(404);
     // Associate cannot touch certs.
     const mh = { ...authHeaders(member.token, "green-village"), "Content-Type": "application/json" };
     expect((await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: mh, payload: { expires_at: plusDays(300) } })).statusCode).toBe(403);
@@ -128,7 +119,6 @@ describe("medical certificates #33", () => {
     await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300) } });
     const list = await app.inject({ method: "GET", url: "/api/users", headers: authHeaders(admin.token, "green-village") });
     const row = list.json().find((u: any) => u.username === "member");
-    expect(row.medical_cert).toMatchObject({ has_scan: false });
     expect(row.medical_cert.expires_at).toBeTruthy();
   });
 });

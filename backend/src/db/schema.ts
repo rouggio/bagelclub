@@ -59,10 +59,8 @@ export const users = pgTable(
     isVerified: boolean("is_verified").notNull().default(false),
     // #32: exempt from associate fees (admins never owe regardless).
     feeExempt: boolean("fee_exempt").notNull().default(false),
-    // #33: medical certificate (scan as base64 text + expiry + verifier stamp).
+    // #33: medical certificate expiry + verifier stamp (no scans stored).
     medicalCertExpiresAt: date("medical_cert_expires_at"),
-    medicalCertScan: text("medical_cert_scan"),
-    medicalCertMime: varchar("medical_cert_mime", { length: 100 }),
     medicalCertVerifiedBy: uuid("medical_cert_verified_by").references((): any => users.id, { onDelete: "set null" }),
     medicalCertVerifiedAt: timestamp("medical_cert_verified_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

@@ -922,10 +922,8 @@
   </div>
   <div class="text-xs text-zinc-500" x-text="viewedUser?.medical_cert?.expires_at ? t('admin.medcert.expires') + ' ' + viewedUser.medical_cert.expires_at : t('admin.medcert.missing')"></div>
   <label class="block text-xs"><span x-text="t('admin.medcert.expiry')"></span><input type="date" x-model="medcertForm.expires_at" class="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm" /></label>
-  <label class="block text-xs"><span x-text="t('admin.medcert.file')"></span><input type="file" @change="pickMedcertFile($event)" accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif" class="mt-1 w-full text-xs" /></label>
   <div class="flex gap-2">
-  <button @click="uploadMedcert()" :disabled="medcertForm.loading || medcertForm.fileLoading" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 text-xs font-medium disabled:opacity-50" x-text="medcertForm.fileLoading ? t('admin.medcert.loadingFile') : t('admin.medcert.upload')"></button>
-  <button x-show="viewedUser?.medical_cert?.has_scan" @click="downloadMedcert()" class="flex-1 rounded-lg border py-2 text-xs" x-text="t('admin.medcert.download')"></button>
+  <button @click="uploadMedcert()" :disabled="medcertForm.loading" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 text-xs font-medium disabled:opacity-50" x-text="t('admin.medcert.upload')"></button>
   <button x-show="viewedUser?.medical_cert?.expires_at" @click="removeMedcert()" class="flex-1 rounded-lg border py-2 text-xs text-red-600" x-text="t('admin.medcert.remove')"></button>
   </div>
   <div x-show="medcertForm.msg" class="text-xs text-zinc-600" x-text="medcertForm.msg"></div>

@@ -17,7 +17,6 @@ function safeUser(r: any) {
     fee_exempt: !!r.feeExempt,
     medical_cert: {
       expires_at: r.medicalCertExpiresAt ? String(r.medicalCertExpiresAt).slice(0, 10) : null,
-      has_scan: !!r.medicalCertScan,
     },
     notify_email: true, notify_push_master: r.notifyPushMaster ?? true,
     notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
