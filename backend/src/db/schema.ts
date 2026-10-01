@@ -59,6 +59,12 @@ export const users = pgTable(
     isVerified: boolean("is_verified").notNull().default(false),
     // #32: exempt from associate fees (admins never owe regardless).
     feeExempt: boolean("fee_exempt").notNull().default(false),
+    // #33: medical certificate (scan as base64 text + expiry + verifier stamp).
+    medicalCertExpiresAt: date("medical_cert_expires_at"),
+    medicalCertScan: text("medical_cert_scan"),
+    medicalCertMime: varchar("medical_cert_mime", { length: 100 }),
+    medicalCertVerifiedBy: uuid("medical_cert_verified_by").references((): any => users.id, { onDelete: "set null" }),
+    medicalCertVerifiedAt: timestamp("medical_cert_verified_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     deletedBy: uuid("deleted_by").references((): any => users.id),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -219,6 +225,8 @@ export const appSettings = pgTable("app_settings", {
   feeBlockBooking: boolean("fee_block_booking").notNull().default(false),
   feeCents: integer("fee_cents"),
   feeCadence: text("fee_cadence").notNull().default("monthly"),
+  // #33: medical certificate required to book/join (default off).
+  requireMedicalCert: boolean("require_medical_cert").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

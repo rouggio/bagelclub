@@ -574,5 +574,6 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     fee_block_booking: (s as any).feeBlockBooking ?? false,
     fee_cents: (s as any).feeCents ?? null,
     fee_cadence: (s as any).feeCadence ?? "monthly",
+    require_medical_cert: (s as any).requireMedicalCert ?? false,
   };
 }

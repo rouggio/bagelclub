@@ -15,6 +15,10 @@ function safeUser(r: any) {
     first_name: r.firstName, last_name: r.lastName, mobile: r.mobile,
     telegram_chat_id: r.telegramChatId, gender: r.gender, birthdate: r.birthdate,
     fee_exempt: !!r.feeExempt,
+    medical_cert: {
+      expires_at: r.medicalCertExpiresAt ? String(r.medicalCertExpiresAt).slice(0, 10) : null,
+      has_scan: !!r.medicalCertScan,
+    },
     notify_email: true, notify_push_master: r.notifyPushMaster ?? true,
     notify_whatsapp: r.notifyWhatsapp ?? true, notify_telegram: r.notifyTelegram ?? true,
   };

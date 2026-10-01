@@ -25,6 +25,7 @@ import telegramRoutes from "./routes/telegram.js";
 import announcementRoutes from "./routes/announcements.js";
 import featureRequestRoutes from "./routes/feature-requests.js";
 import feeRoutes from "./routes/fees.js";
+import medcertRoutes from "./routes/medcert.js";
 import clubRoutes from "./routes/clubs.js";
 import platformRoutes from "./routes/platform.js";
 import demoRoutes from "./routes/demo.js";
@@ -104,6 +105,7 @@ export async function buildApp() {
   await app.register(announcementRoutes);
   await app.register(featureRequestRoutes);
   await app.register(feeRoutes);
+  await app.register(medcertRoutes);
   await app.register(clubRoutes);
   await app.register(platformRoutes);
   await app.register(demoRoutes);
@@ -178,6 +180,16 @@ export async function buildApp() {
           await runFeeReminders();
         } catch (e) {
           app.log.error(e, "fee reminders cron failed");
+        }
+      });
+      // #33: medical-cert expiry reminders, daily 07:30.
+      cron.default.schedule("30 7 * * *", async () => {
+        if (!process.env.DATABASE_URL) return;
+        try {
+          const { runMedcertReminders } = await import("./jobs/medcertReminders.js");
+          await runMedcertReminders();
+        } catch (e) {
+          app.log.error(e, "medcert reminders cron failed");
         }
       });
     } catch {

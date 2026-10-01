@@ -156,6 +156,7 @@ export const settingsSchema = z.object({
   fee_cadence: z.enum(["monthly", "bimonthly", "semestral", "yearly"]).optional(),
   notify_fee_overdue: z.boolean().optional(),
   fee_block_booking: z.boolean().optional(),
+  require_medical_cert: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

@@ -267,6 +267,13 @@
    "when": 1790722800000,
    "tag": "0037_manager_role",
    "breakpoints": true
+  },
+  {
+   "idx": 38,
+   "version": "7",
+   "when": 1790726400000,
+   "tag": "0038_medical_cert",
+   "breakpoints": true
   }
  ]
 }

@@ -83,6 +83,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.require_participant_list !== undefined) updates.requireParticipantList = parsed.data.require_participant_list;
     if (parsed.data.notify_fee_overdue !== undefined) updates.notifyFeeOverdue = parsed.data.notify_fee_overdue;
     if (parsed.data.fee_block_booking !== undefined) updates.feeBlockBooking = parsed.data.fee_block_booking;
+    if (parsed.data.require_medical_cert !== undefined) updates.requireMedicalCert = parsed.data.require_medical_cert;
     // #32: fee amount (null = off) + cadence, also on app_settings.
     if (parsed.data.fee_cents !== undefined) updates.feeCents = parsed.data.fee_cents;
     if (parsed.data.fee_cadence !== undefined) updates.feeCadence = parsed.data.fee_cadence;

@@ -858,6 +858,7 @@
   </div>
   <div class="flex items-center gap-2">
    <span class="rounded px-2 py-1 text-xs" :class="u.role==='admin' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'" x-text="roleName(u.role)"></span>
+   <span class="rounded px-2 py-1 text-xs" :class="certClass(certStatusOf(u))" :title="u.medical_cert?.expires_at || ''" x-text="t('admin.medcert.'+certStatusOf(u))"></span>
   <button @click.stop="startEditUser(u); view='admin-create-user'; location.hash='admin-create-user'" class="rounded border px-2 py-1 text-xs" x-text="t('btn.edit')"></button>
    <button @click.stop="deleteAdminUser(u.id)" :disabled="u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1" :class="(u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1) ? 'opacity-40 cursor-not-allowed' : ''" :title="u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1 ? t('admin.users.lastAdmin') : ''" class="rounded border px-2 py-1 text-xs text-red-600" x-text="t('btn.delete')"></button>
   </div>
@@ -913,6 +914,21 @@
   <img :src="viewedUser ? flagUrl(viewedUser.preferred_language || viewedUser.preferredLanguage || 'it') : ''" class="h-3 w-4 object-cover rounded-sm" :alt="viewedUser?.preferred_language" />
   <span x-text="viewedUser ? t('lang.'+(viewedUser.preferred_language || viewedUser.preferredLanguage || 'it')) : ''"></span>
   </div>
+  </div>
+  <div class="rounded-xl border bg-zinc-50 p-4 space-y-2">
+  <div class="flex items-center justify-between">
+  <div class="font-medium text-sm" x-text="t('admin.medcert.title')"></div>
+  <span class="rounded px-2 py-1 text-xs" :class="certClass(certStatusOf(viewedUser))" x-text="t('admin.medcert.'+certStatusOf(viewedUser))"></span>
+  </div>
+  <div class="text-xs text-zinc-500" x-text="viewedUser?.medical_cert?.expires_at ? t('admin.medcert.expires') + ' ' + viewedUser.medical_cert.expires_at : t('admin.medcert.missing')"></div>
+  <label class="block text-xs"><span x-text="t('admin.medcert.expiry')"></span><input type="date" x-model="medcertForm.expires_at" class="mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm" /></label>
+  <label class="block text-xs"><span x-text="t('admin.medcert.file')"></span><input type="file" @change="pickMedcertFile($event)" accept=".pdf,.jpg,.jpeg,.png,.webp" class="mt-1 w-full text-xs" /></label>
+  <div class="flex gap-2">
+  <button @click="uploadMedcert()" :disabled="medcertForm.loading" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 text-xs font-medium disabled:opacity-50" x-text="t('admin.medcert.upload')"></button>
+  <button x-show="viewedUser?.medical_cert?.has_scan" @click="downloadMedcert()" class="flex-1 rounded-lg border py-2 text-xs" x-text="t('admin.medcert.download')"></button>
+  <button x-show="viewedUser?.medical_cert?.expires_at" @click="removeMedcert()" class="flex-1 rounded-lg border py-2 text-xs text-red-600" x-text="t('admin.medcert.remove')"></button>
+  </div>
+  <div x-show="medcertForm.msg" class="text-xs text-zinc-600" x-text="medcertForm.msg"></div>
   </div>
   <div class="flex gap-2">
   <button @click="startEditUser(viewedUser); view='admin-create-user'; location.hash='admin-create-user'" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm" x-text="t('btn.edit')"></button>
@@ -1118,6 +1134,13 @@
   <div class="text-xs text-zinc-500" x-text="requireParticipants() ? t('admin.requireParticipants.on') : t('admin.requireParticipants.off')"></div>
   </div>
   <button @click="toggleRequireParticipants()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="requireParticipants() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="requireParticipants() ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.medcert.title')"></div>
+  <div class="text-xs text-zinc-500" x-text="requireMedicalCert() ? t('admin.medcert.reqOn') : t('admin.medcert.reqOff')"></div>
+  </div>
+  <button @click="toggleRequireMedicalCert()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="requireMedicalCert() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="requireMedicalCert() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
   <div class="flex items-center justify-between">

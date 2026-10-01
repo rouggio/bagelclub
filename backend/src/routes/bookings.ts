@@ -100,6 +100,16 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       const blockedList = await feeBlockedList(db, club, settings, participantIds, feeToday(club.timezone));
       if (blockedList.length) return reply.status(403).send({ error: "fee_overdue" });
     }
+    // #33: booker + listed players need a valid medical cert when required.
+    if (user.role !== "admin") {
+      const { medcertBlockedUserIds, todayInTz: certToday } = await import("../services/medcert.js");
+      const certBlocked = await medcertBlockedUserIds(db, club, settings, [...new Set([String(user.id), ...participantIds])], certToday(club.timezone));
+      if (certBlocked.length) {
+        const { users: certUsers } = await import("../db/schema.js");
+        const hit = (await db.select({ exp: certUsers.medicalCertExpiresAt }).from(certUsers).where(eq(certUsers.id, certBlocked[0])).limit(1))[0];
+        return reply.status(403).send({ error: hit?.exp ? "medical_cert_expired" : "medical_cert_required" });
+      }
+    }
 
     const [row] = await db
       .insert(bookings)
@@ -316,6 +326,16 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         const { feeBlockedUserIds, todayInTz } = await import("../services/fees.js");
         const blocked = await feeBlockedUserIds(db, club, settings, ids, todayInTz(club.timezone));
         if (blocked.length) return reply.status(403).send({ error: "fee_overdue" });
+      }
+      // #33: everyone added to the list needs a valid medical cert.
+      if (user.role !== "admin" && ids.length) {
+        const { medcertBlockedUserIds, todayInTz: certToday } = await import("../services/medcert.js");
+        const certBlocked = await medcertBlockedUserIds(db, club, settings, ids, certToday(club.timezone));
+        if (certBlocked.length) {
+          const { users: certUsers } = await import("../db/schema.js");
+          const hit = (await db.select({ exp: certUsers.medicalCertExpiresAt }).from(certUsers).where(eq(certUsers.id, certBlocked[0])).limit(1))[0];
+          return reply.status(403).send({ error: hit?.exp ? "medical_cert_expired" : "medical_cert_required" });
+        }
       }
       participantIds = ids;
     } else if (updates.players !== undefined && user.role !== "admin") {

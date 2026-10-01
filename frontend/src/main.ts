@@ -101,6 +101,8 @@ function app() {
     viewedUserBack: "admin-users" as string,
     viewedUserMsg: "" as string,
     viewedUserMsgOk: false as boolean,
+    // #33: medical-cert upload form for the viewed user.
+    medcertForm: { expires_at: "", file: null as null | { name: string; mime: string; b64: string }, msg: "", loading: false },
     adminLoading: false as boolean,
     adminError: "" as string,
     adminFilter: "pending_approval" as string,
@@ -110,7 +112,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
@@ -1011,6 +1013,84 @@ function app() {
       (this.adminSettings as any).require_participant_list = next;
       if (this.clubInfo) (this.clubInfo as any).require_participant_list = next;
     },
+    // #33: per-club medical-cert requirement (booking/joining gate).
+    requireMedicalCert(): boolean {
+      return !!((this.adminSettings as any)?.require_medical_cert ?? false);
+    },
+    async toggleRequireMedicalCert() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).require_medical_cert ?? false);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ require_medical_cert: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).require_medical_cert = next;
+    },
+    // #33: cert status from the admin user row (safeUser medical_cert).
+    certStatusOf(u: any): string {
+      const exp = u?.medical_cert?.expires_at ? String(u.medical_cert.expires_at).slice(0, 10) : null;
+      if (!exp) return "missing";
+      const today = new Date().toISOString().slice(0, 10);
+      if (exp <= today) return "expired";
+      if (Date.parse(exp + "T00:00:00Z") - Date.parse(today + "T00:00:00Z") <= 30 * 86400000) return "expiring";
+      return "valid";
+    },
+    certClass(s: string): string {
+      return s === "valid" ? "bg-emerald-100 text-emerald-700" : s === "expiring" ? "bg-amber-100 text-amber-700" : s === "expired" ? "bg-red-100 text-red-700" : "bg-zinc-200 text-zinc-600";
+    },
+    async refreshViewedUser() {
+      if (!this.viewedUser?.id) return;
+      await this.loadAdminUsers();
+      const u = (this.adminUsers as any[]).find((x: any) => String(x.id) === String(this.viewedUser.id));
+      if (u) this.viewedUser = u;
+      this.medcertForm = { expires_at: (this.viewedUser as any)?.medical_cert?.expires_at || "", file: null as null | { name: string; mime: string; b64: string }, msg: "", loading: false };
+    },
+    pickMedcertFile(ev: any) {
+      this.medcertForm.msg = "";
+      const f = ev?.target?.files?.[0];
+      if (!f) { this.medcertForm.file = null; return; }
+      if (f.size > 5 * 1024 * 1024) { this.medcertForm.msg = this.t("admin.medcert.tooBig"); this.medcertForm.file = null; return; }
+      const rd = new FileReader();
+      rd.onload = () => {
+        const dataUrl = String(rd.result || "");
+        const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+        this.medcertForm.file = { name: f.name, mime: f.type || "application/octet-stream", b64 };
+        this.medcertForm.msg = f.name;
+      };
+      rd.readAsDataURL(f);
+    },
+    async uploadMedcert() {
+      if (!this.viewedUser?.id) return;
+      this.medcertForm.msg = "";
+      if (!this.medcertForm.expires_at) { this.medcertForm.msg = this.t("admin.medcert.needExpiry"); return; }
+      this.medcertForm.loading = true;
+      try {
+        const token = storedToken();
+        const body: any = { expires_at: this.medcertForm.expires_at };
+        if (this.medcertForm.file) { body.scan_base64 = this.medcertForm.file.b64; body.mime = this.medcertForm.file.mime; }
+        const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+        if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 300); return; }
+        this.medcertForm.msg = this.t("admin.medcert.saved");
+        await this.refreshViewedUser();
+      } finally { this.medcertForm.loading = false; }
+    },
+    async removeMedcert() {
+      if (!this.viewedUser?.id) return;
+      const token = storedToken();
+      const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 300); return; }
+      this.medcertForm.msg = this.t("admin.medcert.removed");
+      await this.refreshViewedUser();
+    },
+    async downloadMedcert() {
+      if (!this.viewedUser?.id) return;
+      const token = storedToken();
+      const res = await apiFetch(`/api/users/${this.viewedUser.id}/medical-cert/scan`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 200); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    },
     // #26b: participant picker — search club members, pick up to N.
     participantTarget(): number {
       return this.confirmPlayers === "double" ? 4 : 2;
@@ -1841,6 +1921,7 @@ function app() {
     viewUser(u: any) {
       this.viewedUserBack = this.view;
       this.viewedUser = u;
+      this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, msg: "", loading: false };
       this.view = "admin-view-user";
       location.hash = "admin-view-user";
     },
@@ -1862,6 +1943,7 @@ function app() {
       if (u) {
         // viewUser will set viewedUserBack, but we already set it — avoid double overwrite
         this.viewedUser = u;
+        this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, msg: "", loading: false };
         this.view = "admin-view-user";
         location.hash = "admin-view-user";
       } else {

@@ -45,6 +45,8 @@ const requiredColumns: Array<[string, string]> = [
   ["users", "last_login_at"],
   ["users", "notify_push_master"],
   ["users", "fee_exempt"],
+  ["users", "medical_cert_expires_at"],
+  ["app_settings", "require_medical_cert"],
   ["app_settings", "fee_cents"],
   ["app_settings", "fee_cadence"],
   ["app_settings", "notify_fee_overdue"],
