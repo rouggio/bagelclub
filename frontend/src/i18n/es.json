@@ -117,6 +117,8 @@
   "admin.blocks.short": "Bloqueos",
   "admin.users.searchPlaceholder": "Buscar usuario, email, nombre…",
   "admin.users.allRoles": "Todos los roles",
+  "roles.associate": "associate",
+  "roles.admin": "admin",
   "admin.users.registered": "Usuarios registrados",
   "admin.users.noUsers": "Sin usuarios",
   "admin.courts.number": "Número",

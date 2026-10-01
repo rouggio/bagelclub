@@ -117,6 +117,8 @@
   "admin.blocks.short": "Sperren",
   "admin.users.searchPlaceholder": "Benutzername, E-Mail, Name suchen…",
   "admin.users.allRoles": "Alle Rollen",
+  "roles.associate": "associate",
+  "roles.admin": "admin",
   "admin.users.registered": "Registrierte Benutzer",
   "admin.users.noUsers": "Keine Benutzer",
   "admin.courts.number": "Nummer",

@@ -831,7 +831,7 @@
  <div class="flex gap-2 mb-3">
  <input x-model="adminUsersSearch" @input.debounce.500ms="loadAdminUsers()" :placeholder="t('admin.users.searchPlaceholder')" class="flex-1 rounded border px-3 py-2 text-sm" />
  <select x-model="adminUsersRole" @change="loadAdminUsers()" class="rounded border px-3 py-2 text-sm">
- <option value="" x-text="t('admin.users.allRoles')"></option><option value="associate">associate</option><option value="admin">admin</option>
+  <option value="" x-text="t('admin.users.allRoles')"></option><option value="associate" x-text="roleName('associate')"></option><option value="admin" x-text="roleName('admin')"></option>
  </select>
  <button @click="loadAdminUsers()" class="rounded-lg bg-emerald-200 border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-300" x-text="t('btn.refresh')"></button>
  </div>
@@ -840,10 +840,10 @@
   <div @click="viewUser(u)" class="flex items-center justify-between rounded border px-3 py-2 text-sm cursor-pointer hover:bg-zinc-50">
   <div>
   <div class="font-medium" x-text="`${u.username} (${u.first_name} ${u.last_name})`"></div>
-   <div class="text-xs text-zinc-500" x-text="`${u.email ? u.email + ' · ' : ''}${u.role}${u.mobile ? ' · ' + u.mobile : ''}`"></div>
+   <div class="text-xs text-zinc-500" x-text="`${u.email ? u.email + ' · ' : ''}${roleName(u.role)}${u.mobile ? ' · ' + u.mobile : ''}`"></div>
   </div>
   <div class="flex items-center gap-2">
-   <span class="rounded px-2 py-1 text-xs" :class="u.role==='admin' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'" x-text="u.role"></span>
+   <span class="rounded px-2 py-1 text-xs" :class="u.role==='admin' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'" x-text="roleName(u.role)"></span>
   <button @click.stop="startEditUser(u); view='admin-create-user'; location.hash='admin-create-user'" class="rounded border px-2 py-1 text-xs" x-text="t('btn.edit')"></button>
    <button @click.stop="deleteAdminUser(u.id)" :disabled="u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1" :class="(u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1) ? 'opacity-40 cursor-not-allowed' : ''" :title="u.role==='admin' && adminUsers.filter(a=>a.role==='admin').length<=1 ? t('admin.users.lastAdmin') : ''" class="rounded border px-2 py-1 text-xs text-red-600" x-text="t('btn.delete')"></button>
   </div>
@@ -870,7 +870,7 @@
  </div>
  <input x-model="adminUserForm.password" type="password" :placeholder="editingUserId ? 'password (leave blank to keep)' : t('auth.passwordHint')" class="w-full rounded-lg border px-3 py-2 text-sm" />
  <select x-model="adminUserForm.role" class="w-full rounded-lg border px-3 py-2 text-sm">
- <option value="associate">associate</option><option value="admin">admin</option>
+  <option value="associate" x-text="roleName('associate')"></option><option value="admin" x-text="roleName('admin')"></option>
  </select>
  <div class="flex gap-2">
  <button x-show="!editingUserId" @click="createAdminUser(); if(!adminUsersError) { view='admin-users'; location.hash='admin-users'; }" class="flex-1 rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 py-2 text-sm" x-text="t('btn.create')"></button>
@@ -882,7 +882,7 @@
     <section x-show="view==='admin-view-user'" class="mx-auto max-w-md space-y-4 rounded-xl border bg-white p-6">
     <div class="flex items-center gap-2">
    <h2 class="text-lg font-bold" x-text="viewedUser?.username || ''"></h2>
-  <span class="ml-auto rounded px-2 py-1 text-xs" :class="viewedUser?.role==='admin' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'" x-text="viewedUser?.role || ''"></span>
+  <span class="ml-auto rounded px-2 py-1 text-xs" :class="viewedUser?.role==='admin' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'" x-text="roleName(viewedUser?.role || '')"></span>
   </div>
   <div class="space-y-3">
   <input :value="viewedUser?.username || ''" disabled class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.username')" />

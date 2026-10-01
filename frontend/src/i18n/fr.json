@@ -117,6 +117,8 @@
   "admin.blocks.short": "Blocages",
   "admin.users.searchPlaceholder": "Rechercher nom d'utilisateur, email, nom…",
   "admin.users.allRoles": "Tous les rôles",
+  "roles.associate": "associate",
+  "roles.admin": "admin",
   "admin.users.registered": "Utilisateurs inscrits",
   "admin.users.noUsers": "Aucun utilisateur",
   "admin.courts.number": "Numéro",

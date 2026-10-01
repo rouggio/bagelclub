@@ -198,6 +198,13 @@ function app() {
       return translate(this.lang, key);
     },
 
+    // Display label for a stored role value (associate/admin/superadmin).
+    // Logic still compares raw values; only rendered text is localized.
+    roleName(role: string): string {
+      const v = this.t(`roles.${role}`);
+      return v === `roles.${role}` ? String(role || "") : v;
+    },
+
     // Phone: country code selector + national number → full digits-only
     // E.164 without "+" (e.g. +39 + 3331234567 → 393331234567), as persisted in users.mobile.
     fullMobile(code: string, number: string): string {

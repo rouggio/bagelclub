@@ -117,6 +117,8 @@
   "admin.blocks.short": "Blocks",
   "admin.users.searchPlaceholder": "Search username, email, name…",
   "admin.users.allRoles": "All roles",
+  "roles.associate": "associate",
+  "roles.admin": "admin",
   "admin.users.registered": "Registered users",
   "admin.users.noUsers": "No users",
   "admin.courts.number": "Number",
