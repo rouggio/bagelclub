@@ -102,7 +102,7 @@ function app() {
     viewedUserMsg: "" as string,
     viewedUserMsgOk: false as boolean,
     // #33: medical-cert upload form for the viewed user.
-    medcertForm: { expires_at: "", file: null as null | { name: string; mime: string; b64: string }, msg: "", loading: false },
+    medcertForm: { expires_at: "", file: null as null | { name: string; mime: string; b64: string }, fileLoading: false as boolean, msg: "", loading: false },
     adminLoading: false as boolean,
     adminError: "" as string,
     adminFilter: "pending_approval" as string,
@@ -1042,25 +1042,35 @@ function app() {
       await this.loadAdminUsers();
       const u = (this.adminUsers as any[]).find((x: any) => String(x.id) === String(this.viewedUser.id));
       if (u) this.viewedUser = u;
-      this.medcertForm = { expires_at: (this.viewedUser as any)?.medical_cert?.expires_at || "", file: null as null | { name: string; mime: string; b64: string }, msg: "", loading: false };
+      this.medcertForm = { expires_at: (this.viewedUser as any)?.medical_cert?.expires_at || "", file: null as null | { name: string; mime: string; b64: string }, fileLoading: false, msg: "", loading: false };
     },
     pickMedcertFile(ev: any) {
       this.medcertForm.msg = "";
       const f = ev?.target?.files?.[0];
       if (!f) { this.medcertForm.file = null; return; }
       if (f.size > 5 * 1024 * 1024) { this.medcertForm.msg = this.t("admin.medcert.tooBig"); this.medcertForm.file = null; return; }
+      // FileReader is async: flag it so Upload stays disabled until ready.
+      this.medcertForm.file = null;
+      this.medcertForm.fileLoading = true;
+      this.medcertForm.msg = this.t("admin.medcert.loadingFile");
       const rd = new FileReader();
       rd.onload = () => {
         const dataUrl = String(rd.result || "");
         const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
         this.medcertForm.file = { name: f.name, mime: f.type || "application/octet-stream", b64 };
+        this.medcertForm.fileLoading = false;
         this.medcertForm.msg = f.name;
+      };
+      rd.onerror = () => {
+        this.medcertForm.fileLoading = false;
+        this.medcertForm.msg = this.t("admin.medcert.readError");
       };
       rd.readAsDataURL(f);
     },
     async uploadMedcert() {
       if (!this.viewedUser?.id) return;
       this.medcertForm.msg = "";
+      if (this.medcertForm.fileLoading) { this.medcertForm.msg = this.t("admin.medcert.loadingFile"); return; }
       if (!this.medcertForm.expires_at) { this.medcertForm.msg = this.t("admin.medcert.needExpiry"); return; }
       this.medcertForm.loading = true;
       try {
@@ -1921,7 +1931,7 @@ function app() {
     viewUser(u: any) {
       this.viewedUserBack = this.view;
       this.viewedUser = u;
-      this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, msg: "", loading: false };
+      this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, fileLoading: false, msg: "", loading: false };
       this.view = "admin-view-user";
       location.hash = "admin-view-user";
     },
@@ -1943,7 +1953,7 @@ function app() {
       if (u) {
         // viewUser will set viewedUserBack, but we already set it — avoid double overwrite
         this.viewedUser = u;
-        this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, msg: "", loading: false };
+        this.medcertForm = { expires_at: u?.medical_cert?.expires_at || "", file: null, fileLoading: false, msg: "", loading: false };
         this.view = "admin-view-user";
         location.hash = "admin-view-user";
       } else {

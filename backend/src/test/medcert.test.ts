@@ -69,6 +69,9 @@ describe("medical certificates #33", () => {
     expect(badMime.statusCode).toBe(400);
     const badB64 = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "!!!not-base64!!!", mime: "application/pdf" } });
     expect(badB64.statusCode).toBe(400);
+    // Phone photos (HEIC) are accepted too.
+    const heic = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "aGk=", mime: "image/heic" } });
+    expect(heic.statusCode).toBe(200);
     const set = await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(300), scan_base64: "aGk=", mime: "application/pdf" } });
     expect(set.statusCode).toBe(200);
     expect(set.json()).toMatchObject({ ok: true, has_scan: true });
