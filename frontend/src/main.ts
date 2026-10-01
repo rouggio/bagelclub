@@ -103,6 +103,10 @@ function app() {
     viewedUserMsgOk: false as boolean,
     // #33: medical-cert expiry form for the viewed user.
     medcertForm: { expires_at: "", msg: "", loading: false },
+    // #33: expiry report under Reporting.
+    medcerts: null as null | { required: boolean; users: Array<{ id: string; username: string; name: string; email: string | null; role: string; expires_at: string | null; status: string }>; totals: { expired: number; expiring: number; missing: number } },
+    medcertsLoading: false as boolean,
+    medcertsError: "" as string,
     adminLoading: false as boolean,
     adminError: "" as string,
     adminFilter: "pending_approval" as string,
@@ -370,7 +374,7 @@ function app() {
         if (this.view === "admin-announcements" && this.user?.role === "admin") this.loadAdminAnnouncements();
       if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
       if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
-        if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
+      if (this.view === "admin-medcerts" && this.user?.role === "admin") this.loadMedcerts();
         if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
         if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
@@ -384,10 +388,13 @@ function app() {
       if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-blocks" && this.user?.role === "admin") { this.loadAdminLessons(); this.loadAdminBlocks(); this.loadAdminCourts(); }
       if (this.view === "admin-club" && this.user?.role === "admin") { this.loadAdminClubInfo(); this.loadAdminSettings(); }
+      if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
       if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
       if (this.view === "admin-notifications" && this.user?.role === "admin") { this.loadAdminSettings(); this.checkTelegramStatus(); }
       if (this.view === "admin-announcements" && this.user?.role === "admin") this.loadAdminAnnouncements();
       if (this.view === "admin-requests" && this.user?.role === "admin") this.loadFeatureRequests();
+      if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
+      if (this.view === "admin-medcerts" && this.user?.role === "admin") this.loadMedcerts();
       if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
       if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
     },
@@ -1064,6 +1071,17 @@ function app() {
       if (!res.ok) { this.medcertForm.msg = (await res.text()).slice(0, 300); return; }
       this.medcertForm.msg = this.t("admin.medcert.removed");
       await this.refreshViewedUser();
+    },
+    async loadMedcerts() {
+      if (!this.user || this.user.role !== "admin") return;
+      this.medcertsLoading = true; this.medcertsError = "";
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/medcert/overview", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(await res.text());
+        this.medcerts = await res.json();
+      } catch (e: any) { this.medcertsError = e.message || String(e); }
+      finally { this.medcertsLoading = false; }
     },
     // #26b: participant picker — search club members, pick up to N.
     participantTarget(): number {

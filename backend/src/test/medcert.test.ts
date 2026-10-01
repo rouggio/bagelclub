@@ -121,4 +121,18 @@ describe("medical certificates #33", () => {
     const row = list.json().find((u: any) => u.username === "member");
     expect(row.medical_cert.expires_at).toBeTruthy();
   });
+
+  it("overview ranks expired/expiring/missing and is admin-only", async () => {
+    const ah = { ...authHeaders(admin.token, "green-village"), "Content-Type": "application/json" };
+    await app.inject({ method: "POST", url: `/api/users/${member.user.id}/medical-cert`, headers: ah, payload: { expires_at: plusDays(-5) } });
+    const ov = await app.inject({ method: "GET", url: "/api/medcert/overview", headers: authHeaders(admin.token, "green-village") });
+    expect(ov.statusCode).toBe(200);
+    const body = ov.json();
+    expect(body.required).toBe(false);
+    const row = body.users.find((u: any) => u.username === "member");
+    expect(row.status).toBe("expired");
+    expect(body.users[0].status).toBe("expired");
+    expect(body.totals.expired).toBeGreaterThanOrEqual(1);
+    expect((await app.inject({ method: "GET", url: "/api/medcert/overview", headers: authHeaders(member.token, "green-village") })).statusCode).toBe(403);
+  });
 });
