@@ -5,14 +5,14 @@ import { eq, and, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const url = process.env.OWNER_DATABASE_URL || process.env.DATABASE_URL;
-const email = (process.env.PLATFORM_ADMIN_EMAIL || "").toLowerCase();
-const password = process.env.PLATFORM_ADMIN_PASSWORD || "";
+const email = (process.env.SUPERADMIN_EMAIL || "").toLowerCase();
+const password = process.env.SUPERADMIN_PASSWORD || "";
 if (!url) {
   console.error("DATABASE_URL not set");
   process.exit(1);
 }
 if (!email || password.length < 16) {
-  console.error("PLATFORM_ADMIN_EMAIL + PLATFORM_ADMIN_PASSWORD (min 16 chars) required");
+  console.error("SUPERADMIN_EMAIL + SUPERADMIN_PASSWORD (min 16 chars) required");
   process.exit(1);
 }
 

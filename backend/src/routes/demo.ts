@@ -30,11 +30,11 @@ export default async function demoRoutes(fastify: FastifyInstance) {
         });
       } catch {}
       // Platform pings (fire-and-forget): a prospect just created a club.
-      // Email goes to SUPERADMIN_EMAIL (fallback PLATFORM_ADMIN_EMAIL);
-      // Telegram to the superadmin chat. Each gated by its platform toggle.
-      // Skipped without addresses; never fails the 201.
+      // Email goes to SUPERADMIN_EMAIL; Telegram to the superadmin chat.
+      // Each gated by its platform toggle. Skipped without addresses;
+      // never fails the 201.
       try {
-        const to = ((process.env.SUPERADMIN_EMAIL || process.env.PLATFORM_ADMIN_EMAIL) || "").toLowerCase();
+        const to = (process.env.SUPERADMIN_EMAIL || "").toLowerCase();
         const { getPlatformSetting } = await import("../services/club.js");
         const flag = async (k: string) => ((await getPlatformSetting(db, k).catch(() => null)) ?? "true") !== "false";
         const courtsTxt = d.courts.filter((c) => c.count > 0).map((c) => `${c.count} ${c.type}`).join(" + ") || "—";

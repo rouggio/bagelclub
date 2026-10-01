@@ -74,8 +74,8 @@ describe("demo start platform ping", () => {
       sent.push({ url: String(url), body: JSON.parse(init?.body || "{}") });
       return { ok: true, json: async () => ({}) };
     }) as any);
-    for (const k of ["SUPERADMIN_EMAIL", "PLATFORM_ADMIN_EMAIL", "BREVO_API_KEY", "BREVO_VERIFIED_EMAIL", "SUPERADMIN_TELEGRAM_BOT_TOKEN", "SUPERADMIN_TELEGRAM_CHAT_ID"]) keep[k] = process.env[k];
-    delete process.env.PLATFORM_ADMIN_EMAIL;
+    for (const k of ["SUPERADMIN_EMAIL", "BREVO_API_KEY", "BREVO_VERIFIED_EMAIL", "SUPERADMIN_TELEGRAM_BOT_TOKEN", "SUPERADMIN_TELEGRAM_CHAT_ID"]) keep[k] = process.env[k];
+    delete process.env.PLATFORM_ADMIN_EMAIL; // legacy name: must stay dead
     process.env.SUPERADMIN_EMAIL = "boss@t.local";
     process.env.BREVO_API_KEY = "dummy";
     process.env.BREVO_VERIFIED_EMAIL = "from@test.local";
@@ -84,7 +84,7 @@ describe("demo start platform ping", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
-    for (const k of ["SUPERADMIN_EMAIL", "PLATFORM_ADMIN_EMAIL", "BREVO_API_KEY", "BREVO_VERIFIED_EMAIL", "SUPERADMIN_TELEGRAM_BOT_TOKEN", "SUPERADMIN_TELEGRAM_CHAT_ID"]) {
+    for (const k of ["SUPERADMIN_EMAIL", "BREVO_API_KEY", "BREVO_VERIFIED_EMAIL", "SUPERADMIN_TELEGRAM_BOT_TOKEN", "SUPERADMIN_TELEGRAM_CHAT_ID"]) {
       if (keep[k] !== undefined) process.env[k] = keep[k] as string;
       else delete process.env[k];
     }
@@ -161,19 +161,6 @@ describe("demo start platform ping", () => {
     await pool2.end();
   });
 
-  it("falls back to PLATFORM_ADMIN_EMAIL without SUPERADMIN_EMAIL", async () => {
-    delete process.env.SUPERADMIN_EMAIL;
-    process.env.PLATFORM_ADMIN_EMAIL = "fallback@t.local";
-    const r = await app.inject({
-      method: "POST", url: "/api/demo/start",
-      payload: { courts: [{ type: "tennis", count: 1 }] },
-    });
-    expect(r.statusCode).toBe(201);
-    const mails = sent.filter((s) => String(s.url).includes("api.brevo.com"));
-    expect(mails).toHaveLength(1);
-    expect(mails[0].body.to).toEqual([{ email: "fallback@t.local" }]);
-  });
-
   it("platform audit actions filter narrows the feed", async () => {
     const { db, pool } = await testDb();
     await db.insert(users).values({
@@ -225,7 +212,6 @@ describe("demo start platform ping", () => {
 
   it("still 201s silently without an admin address (no mail, no 501)", async () => {
     delete process.env.SUPERADMIN_EMAIL;
-    delete process.env.PLATFORM_ADMIN_EMAIL;
     const r = await app.inject({
       method: "POST", url: "/api/demo/start",
       payload: { courts: [{ type: "padel", count: 2 }] },

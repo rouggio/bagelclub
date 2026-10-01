@@ -75,7 +75,7 @@ env (`CLUB_TIMEZONE`), and there is one Telegram bot / one WhatsApp sender.
     WHATSAPP_TOKEN/PHONE_NUMBER_ID/ADMIN_PHONE, FRONTEND_URL/PUBLIC_URL` in
     `notifications.ts:76,234-238`, `telegram.ts:25`) are **removed**, not kept
     as last resort — any shared fallback is a crosstalk gun.
-  - New global: `PLATFORM_ADMIN_EMAIL/PASSWORD` (superadmin bootstrap).
+  - New global: `SUPERADMIN_EMAIL/PASSWORD` (superadmin bootstrap).
   - Hardcoded single-club defaults to replace: `"Green Village",
     "3923047417", empanadel.onrender.com` (`settings.ts:11-45`, `brand.ts`,
     `notifications.ts:76`).
@@ -180,7 +180,7 @@ B. Court rental pricing (player pays club, pay-on-site):
 Role name (locked): `superadmin`. One role added to `user_role` enum; sits
 outside club scoping (`club_id NULL`, JWT `{id, role: superadmin, clubId: null}`).
 
-- Bootstrap: seeded from env (`PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD`
+- Bootstrap: seeded from env (`SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`
   hashed) via `npm run seed:platform`; public `POST /api/auth/register` can
   never create it (forces `associate` + `club_id`).
 - Auth: same login endpoint, no slug required; `authenticate` accepts
