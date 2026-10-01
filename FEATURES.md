@@ -1,9 +1,9 @@
-# Features — wanted, done, out of scope
+# Features
 
 > Index only. Deep design lives in `SPEC.md` (single-club baseline) and
 > `MULTITENANT.md` (multitenancy design).
 
-## Wanted (not built yet)
+## Pending
 
 | # | Feature | Notes |
 |---|---------|-------|
@@ -43,20 +43,9 @@
 - #26 explicit participant lists (per-club `require_participant_list`, member search, confirm/edit picker)
 - #30 feature requests (shared anonymized board + `+1` votes, tracked statuses + reply; club + platform UI)
 
-## Out of scope (dropped)
-
-- #21 calendar sync, native apps, realtime chat
-- #22 memberships join table — consequence: multi-club players keep one login per club
-
-## Notes — Massimo (prospect, next release)
-
-- #23–#26 are **per-club admin options**, never global mandates: each club toggles them in settings; defaults keep current behaviour.
-- #24 covered three shapes: fully custom slots, constant grids, midday break (multiple open windows per day).
-- #27 was needed in any case (support + onboarding), independent of notification content.
-- #28 was the infrastructure prerequisite: no SMTP on Render, Brevo chosen.
-
 ## Rules
 
 - New feature requests land here first (top table) before any design doc grows.
 - Tests are incremental: every feature ships with its vitest coverage, no big-bang test phase.
 - `MULTITENANT.md` stays a design doc for features 5–15, not the list itself.
+- Club features ship as per-club toggles with safe defaults, never global mandates.
