@@ -249,6 +249,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (e: any) {
       return reply.status(401).send({ error: "Invalid or expired code" });
     }
+    // Highest-privilege session in the system: leave a trace (success only;
+    // failures feed the abuse shield + challenge lockout instead).
+    if (user.role === "superadmin") {
+      try {
+        const { auditLog } = await import("../db/schema.js");
+        await db.insert(auditLog).values({ actorId: user.id, clubId: null, action: "platform.auth.login", target: "login", meta: null });
+      } catch {}
+    }
     const token = signAccess(fastify, user, clubSlug);
     await touchLastLogin(db, user.id);
     reply.setCookie?.("refresh_token", (fastify.jwt.sign as any)({ id: user.id }, { expiresIn: REFRESH_EXPIRES_IN }), refreshCookieOpts());

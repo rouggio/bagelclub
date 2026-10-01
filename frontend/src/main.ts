@@ -2079,6 +2079,7 @@ function app() {
         "platform.club.delete": "auditClubDelete",
         "platform.impersonate.blocked-write": "auditImpBlocked",
         "platform.admin.reset-password": "auditAdminReset",
+        "platform.auth.login": "auditAuthLogin",
         "platform.featurereq.status": "auditFeatStatus",
         "featurereq.create": "auditFeatCreate",
         "featurereq.edit": "auditFeatEdit",

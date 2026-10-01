@@ -366,6 +366,7 @@
   "platform.auditImpGrant": "Accesso impersonato",
   "platform.auditImpRevoke": "Impersonificazione revocata",
   "platform.auditAdminReset": "Password admin resettata",
+  "platform.auditAuthLogin": "Accesso superadmin",
   "auth.otpHint": "Inserisci il codice che ti abbiamo appena inviato.",
   "admin.2fa.title": "Autenticazione a due fattori (solo admin)",
   "admin.2fa.enable": "Attiva",

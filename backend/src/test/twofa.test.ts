@@ -76,4 +76,18 @@ describe("superadmin 2fa (telegram otp)", () => {
     const r = await app.inject({ method: "POST", url: "/api/auth/verify-2fa", payload: { challenge_id: cid, code } });
     expect(r.statusCode).toBe(401);
   });
+
+  it("successful superadmin login is audited (failures are not)", async () => {
+    const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "boss@t.local", password: "Test1234!" } });
+    await app.inject({ method: "POST", url: "/api/auth/verify-2fa", payload: { challenge_id: login.json().challenge_id, code: "000000" } });
+    const ok = await app.inject({ method: "POST", url: "/api/auth/verify-2fa", payload: { challenge_id: login.json().challenge_id, code: codeFromLastSms() } });
+    expect(ok.statusCode).toBe(200);
+    const { db, pool } = await testDb();
+    const { auditLog } = await import("../db/schema.js");
+    const rows = await db.select().from(auditLog);
+    await pool.end();
+    const logins = rows.filter((a: any) => a.action === "platform.auth.login");
+    expect(logins).toHaveLength(1);
+    expect(String(logins[0].actorId)).toBe(String(ok.json().user.id));
+  });
 });
