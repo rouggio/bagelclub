@@ -38,6 +38,7 @@ function app() {
     user: null as null | { id: string; username: string; role: string; preferred_language?: Lang },
     filterType: "" as string,
     selectedDate: new Date().toISOString().slice(0, 10),
+    dateRange: 3 as number,
     courts: [] as Court[],
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
     pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number; participants?: Array<{ id: string; username: string }> },
@@ -399,13 +400,34 @@ function app() {
       if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
     },
 
-    isPastSlot(slot: { start: string }): boolean {
+    isPastSlot(slot: { start: string }, date?: string): boolean {
       const tz = this.clubTimezone || "Europe/Rome";
       const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
-      if (this.selectedDate < today) return true;
-      if (this.selectedDate > today) return false;
+      const day = date || this.selectedDate;
+      if (day < today) return true;
+      if (day > today) return false;
       const now = new Date().toLocaleTimeString("en-GB", { timeZone: tz, hour12: false }).slice(0, 5);
       return slot.start < now;
+    },
+
+    courtTypes(): string[] {
+      return [...new Set(this.courts.map((c) => c.type).filter(Boolean))];
+    },
+
+    visibleDates(): string[] {
+      const out: string[] = [];
+      const [y, m, d] = this.selectedDate.split("-").map(Number);
+      const base = Date.UTC(y, m - 1, d);
+      for (let i = 0; i < (this.dateRange || 3); i++) {
+        out.push(new Date(base + i * 86400000).toISOString().slice(0, 10));
+      }
+      return out;
+    },
+
+    dayLabel(date: string): string {
+      try {
+        return new Date(date + "T12:00:00").toLocaleDateString(this.lang || "it", { weekday: "short", day: "numeric", month: "numeric" });
+      } catch { return date; }
     },
 
     filteredCourts() {
@@ -426,33 +448,37 @@ function app() {
     },
 
     async loadAvailability() {
-      // One shot for all courts (batched court_id list).
+      // One shot per day for all courts (batched court_id list, days in parallel).
       const list = this.filteredCourts();
-      if (!list.length) return;
-      try {
-        const ids = list.map((c: any) => c.id).join(",");
-        const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${this.selectedDate}`);
-        const data = res.ok ? await res.json() : null;
-        const byCourt: Record<string, any[]> = data?.courts
-          || (data?.slots ? { [list[0].id]: data.slots } : null)
-          || {};
-        for (const c of list) {
-          this.availability[c.id] = byCourt[c.id] || demoSlots();
+      const days = this.visibleDates();
+      if (!list.length || !days.length) return;
+      const ids = list.map((c: any) => c.id).join(",");
+      await Promise.all(days.map(async (day) => {
+        try {
+          const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${day}`);
+          const data = res.ok ? await res.json() : null;
+          const byCourt: Record<string, any[]> = data?.courts
+            || (data?.slots ? { [list[0].id]: data.slots } : null)
+            || {};
+          for (const c of list) {
+            this.availability[`${c.id}|${day}`] = byCourt[c.id] || demoSlots();
+          }
+        } catch {
+          for (const c of list) this.availability[`${c.id}|${day}`] = demoSlots();
         }
-      } catch {
-        for (const c of list) this.availability[c.id] = demoSlots();
-      }
+      }));
     },
 
-    async selectSlot(court: Court, slot: { start: string; end: string; status: string; bookingId?: string | null }) {
+    async selectSlot(court: Court, slot: { start: string; end: string; status: string; bookingId?: string | null }, date?: string) {
+      const day = date || this.selectedDate;
       // Admin clicking any booked/pending slot → show approve/reject inline (can reject any booking)
       const isBookedSlot = (slot as any).status === "pending_approval" || (slot as any).status === "booked";
       if (isBookedSlot && this.user?.role === "admin" && (slot as any).bookingId) {
-        this.timetableAdminSelected = { bookingId: (slot as any).bookingId, courtId: court.id, date: this.selectedDate, startTime: slot.start, status: (slot as any).status };
+        this.timetableAdminSelected = { bookingId: (slot as any).bookingId, courtId: court.id, date: day, startTime: slot.start, status: (slot as any).status };
         return;
       }
       const defaultPlayers = court.type === "padel" ? "double" as const : "single" as const;
-      this.pendingIntent = { courtId: court.id, date: this.selectedDate, startTime: slot.start, courtLabel: `${court.name || `Court ${court.number}`} · ${court.type}`, courtType: court.type, priceCents: (slot as any).price_cents ?? null };
+      this.pendingIntent = { courtId: court.id, date: day, startTime: slot.start, courtLabel: `${court.name || `Court ${court.number}`} · ${court.type}`, courtType: court.type, priceCents: (slot as any).price_cents ?? null };
       this.confirmNotes = "";
       this.confirmRent = 0;
       this.confirmPlayers = defaultPlayers;
