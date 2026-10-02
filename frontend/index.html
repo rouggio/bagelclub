@@ -392,10 +392,10 @@
   <select x-show="courtTypes().length > 1" x-model="filterType" @change="loadAvailability()" class="rounded-lg border px-3 py-2 text-sm">
   <option value="" x-text="t('filter.all')"></option><option value="tennis">Tennis</option><option value="padel">Padel</option>
   </select>
-  <select x-model.number="dateRange" @change="loadAvailability()" class="rounded-lg border px-3 py-2 text-sm">
+  <select x-model.number="dateRange" @change="customDay=false; loadAvailability()" class="rounded-lg border px-3 py-2 text-sm">
   <option value="1" x-text="t('courts.today')"></option><option value="3" x-text="t('courts.days3')"></option><option value="7" x-text="t('courts.days7')"></option>
   </select>
-  <input type="date" x-model="selectedDate" @change="loadAvailability()" :min="new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' })" class="rounded-lg border px-3 py-2 text-sm" />
+  <input type="date" x-model="selectedDate" @change="customDay=true; loadAvailability()" :min="new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' })" class="rounded-lg border px-3 py-2 text-sm" />
   </div>
  </div>
  <div x-show="user?.role==='admin' && timetableAdminSelected" class="rounded-xl border p-4 flex flex-wrap items-center justify-between gap-2" :class="timetableAdminSelected?.status==='pending_approval' ? 'border-amber-300 bg-amber-50' : 'border-red-300 bg-red-50'">

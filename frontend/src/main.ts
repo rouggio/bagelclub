@@ -39,6 +39,7 @@ function app() {
     filterType: "" as string,
     selectedDate: new Date().toISOString().slice(0, 10),
     dateRange: 3 as number,
+    customDay: false as boolean,
     courts: [] as Court[],
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
     pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number; participants?: Array<{ id: string; username: string }> },
@@ -415,6 +416,8 @@ function app() {
     },
 
     visibleDates(): string[] {
+      // A hand-picked date shows that single day; the range selector restarts ranges.
+      if (this.customDay) return [this.selectedDate];
       const out: string[] = [];
       const [y, m, d] = this.selectedDate.split("-").map(Number);
       const base = Date.UTC(y, m - 1, d);
