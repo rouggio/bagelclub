@@ -428,7 +428,7 @@
   class="rounded-lg border px-2 py-2 text-xs font-medium"
   :class="isPastSlot(slot, d) ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : ((slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? ' border-2 !border-red-700 ring-1 ring-red-700 font-bold ' : '') + (slot.status==='available' ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200' : slot.status==='booked' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' : slot.status==='pending_approval' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : slot.status==='lesson' ? 'bg-red-50 text-red-700 border-red-200' : slot.status==='blocked' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-400'))"
   :title="slot.label || ''"
-   x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slot.start}–${String(slot.end || '').slice(0, 5)} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${showPrices() && slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
+   x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + (slot.status==='lesson' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : slot.status==='blocked' ? `${t('status.unavailable')}: ${slot.label || t('status.blocked')}` : `${slotLabel(slot)} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${showPrices() && slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
   ></button>
   </template>
   </div>
@@ -1152,6 +1152,14 @@
   <div class="text-xs text-zinc-500" x-text="requireMedicalCert() ? t('admin.medcert.reqOn') : t('admin.medcert.reqOff')"></div>
   </div>
   <button @click="toggleRequireMedicalCert()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="requireMedicalCert() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="requireMedicalCert() ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
+  <div class="font-medium text-sm" x-text="t('admin.params.slotTime')"></div>
+  <select :value="slotTimeFormat()" @change="saveSlotTimeFormat($event.target.value)" class="w-full rounded-lg border bg-white px-3 py-2 text-sm">
+  <option value="start" x-text="t('admin.params.slotStart')"></option>
+  <option value="start_duration" x-text="t('admin.params.slotStartDur')"></option>
+  <option value="start_end" x-text="t('admin.params.slotStartEnd')"></option>
+  </select>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings && (clubInfo?.plan || 'starter')!=='free'">
   <div class="flex items-center justify-between">

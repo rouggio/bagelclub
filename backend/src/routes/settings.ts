@@ -43,6 +43,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         allow_open_signup: s?.allowOpenSignup ?? true,
         require_participant_list: (s as any)?.requireParticipantList ?? false,
         plan: club.plan || "starter",
+        slot_time_format: (s as any)?.slotTimeFormat ?? "start_end",
       });
     } catch {
       return reply.send(FALLBACK_INFO);
@@ -85,6 +86,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (parsed.data.notify_fee_overdue !== undefined) updates.notifyFeeOverdue = parsed.data.notify_fee_overdue;
     if (parsed.data.fee_block_booking !== undefined) updates.feeBlockBooking = parsed.data.fee_block_booking;
     if (parsed.data.require_medical_cert !== undefined) updates.requireMedicalCert = parsed.data.require_medical_cert;
+    if (parsed.data.slot_time_format !== undefined) updates.slotTimeFormat = parsed.data.slot_time_format;
     // #32: fee amount (null = off) + cadence, also on app_settings.
     if (parsed.data.fee_cents !== undefined) updates.feeCents = parsed.data.fee_cents;
     if (parsed.data.fee_cadence !== undefined) updates.feeCadence = parsed.data.fee_cadence;

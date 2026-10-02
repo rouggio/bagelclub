@@ -281,6 +281,13 @@
    "when": 1790730000000,
    "tag": "0039_medcert_no_scan",
    "breakpoints": true
+  },
+  {
+   "idx": 40,
+   "version": "7",
+   "when": 1790733600000,
+   "tag": "0040_slot_time_format",
+   "breakpoints": true
   }
  ]
 }

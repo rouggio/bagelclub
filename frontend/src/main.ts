@@ -117,7 +117,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; slot_time_format?: string; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
@@ -428,6 +428,24 @@ function app() {
       try {
         return new Date(date + "T12:00:00").toLocaleDateString(this.lang || "it", { weekday: "short", day: "numeric", month: "numeric" });
       } catch { return date; }
+    },
+
+    slotTimeFormat(): string {
+      return (this.clubInfo as any)?.slot_time_format || (this.adminSettings as any)?.slot_time_format || "start_end";
+    },
+
+    slotLabel(slot: any): string {
+      const start = String(slot?.start || "").slice(0, 5);
+      const end = String(slot?.end || "").slice(0, 5);
+      const mode = this.slotTimeFormat();
+      if (mode === "start") return start;
+      if (mode === "start_duration" && end) {
+        const [sh, sm] = start.split(":").map(Number);
+        const [eh, em] = end.split(":").map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm);
+        return mins > 0 ? `${start} (${mins}')` : start;
+      }
+      return end ? `${start}–${end}` : start;
     },
 
     filteredCourts() {
@@ -1064,6 +1082,15 @@ function app() {
       const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ require_medical_cert: next }) });
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       (this.adminSettings as any).require_medical_cert = next;
+    },
+    async saveSlotTimeFormat(v: string) {
+      if (!this.adminSettings) return;
+      if (!["start", "start_duration", "start_end"].includes(v)) return;
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ slot_time_format: v }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).slot_time_format = v;
+      if (this.clubInfo) (this.clubInfo as any).slot_time_format = v;
     },
     // #33: cert status from the admin user row (safeUser medical_cert).
     certStatusOf(u: any): string {

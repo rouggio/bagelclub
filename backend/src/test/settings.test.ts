@@ -45,4 +45,16 @@ describe("club settings toggles", () => {
     const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
     expect(info.json().allow_open_signup).toBe(true);
   });
+
+  it("slot_time_format round-trips via PUT and surfaces in club-info", async () => {
+    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
+    expect(get1.json().slot_time_format).toBe("start_end");
+    const bad = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { slot_time_format: "nope" } });
+    expect(bad.statusCode).toBe(400);
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { slot_time_format: "start" } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().slot_time_format).toBe("start");
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().slot_time_format).toBe("start");
+  });
 });

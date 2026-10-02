@@ -575,5 +575,6 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     fee_cents: (s as any).feeCents ?? null,
     fee_cadence: (s as any).feeCadence ?? "monthly",
     require_medical_cert: (s as any).requireMedicalCert ?? false,
+    slot_time_format: (s as any).slotTimeFormat ?? "start_end",
   };
 }

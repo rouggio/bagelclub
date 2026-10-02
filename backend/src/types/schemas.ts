@@ -157,6 +157,7 @@ export const settingsSchema = z.object({
   notify_fee_overdue: z.boolean().optional(),
   fee_block_booking: z.boolean().optional(),
   require_medical_cert: z.boolean().optional(),
+  slot_time_format: z.enum(["start", "start_duration", "start_end"]).optional(),
 });
 
 const announcementTranslationEntry = z.object({

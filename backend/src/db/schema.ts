@@ -225,6 +225,8 @@ export const appSettings = pgTable("app_settings", {
   feeCadence: text("fee_cadence").notNull().default("monthly"),
   // #33: medical certificate required to book/join (default off).
   requireMedicalCert: boolean("require_medical_cert").notNull().default(false),
+  // Slot time display: start | start_duration | start_end (default range).
+  slotTimeFormat: text("slot_time_format").notNull().default("start_end"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
