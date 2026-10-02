@@ -42,6 +42,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         show_prices: s?.showPrices ?? true,
         allow_open_signup: s?.allowOpenSignup ?? true,
         require_participant_list: (s as any)?.requireParticipantList ?? false,
+        plan: club.plan || "starter",
       });
     } catch {
       return reply.send(FALLBACK_INFO);
@@ -156,6 +157,10 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     // Impersonated superadmins manage the club but never an identity: 2FA
     // challenges are per-admin by construction (was: confusing 401).
     if (await rejectImpSelfWrite(req, reply, db, club, "2fa")) return;
+    // Feature matrix: club 2FA is a paid-plan feature (free clubs hide it).
+    if (action === "enable" && (club as any).plan === "free") {
+      return reply.status(403).send({ error: "plan_gated", feature: "club2fa", plan: "free" });
+    }
     const settings = await getClubSettings(db, club.id);
     const on = !!settings?.twoFaEnabled;
     if (action === "enable" && on) return reply.status(400).send({ error: "2FA already enabled" });
@@ -183,6 +188,10 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
     if (!club) return;
     const db: any = reqDb(req);
     if (await rejectImpSelfWrite(req, reply, db, club, "2fa")) return;
+    // Feature matrix: enabling club 2FA needs a paid plan (disable always allowed).
+    if (action === "enable" && (club as any).plan === "free") {
+      return reply.status(403).send({ error: "plan_gated", feature: "club2fa", plan: "free" });
+    }
     const me = (req as any).user;
     const { verifyChallenge } = await import("../services/twoFactor.js");
     try {

@@ -38,7 +38,7 @@
    <div x-show="reportingMenuOpen" @click.outside="reportingMenuOpen=false" class="absolute left-0 top-6 mt-1 w-48 rounded-lg border bg-white shadow-lg z-50 overflow-hidden">
    <a href="#admin-reports" @click="reportingMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
    <a href="#admin-fees" @click="reportingMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.fees.title')"></a>
-   <a href="#admin-medcerts" @click="reportingMenuOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.medcerts.title')"></a>
+   <a href="#admin-medcerts" @click="reportingMenuOpen=false" x-show="adminSettings?.require_medical_cert" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.medcerts.title')"></a>
    </div>
    </div>
    <a x-show="user?.role==='admin'" href="#admin-requests" class="hover:text-black" x-text="t('admin.requests.title')"></a>
@@ -74,7 +74,7 @@
     <div class="px-3 pt-2 text-xs font-semibold text-zinc-500" x-text="t('admin.menu.reporting')"></div>
      <a href="#admin-reports" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.reports.title')"></a>
      <a href="#admin-fees" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.fees.title')"></a>
-     <a href="#admin-medcerts" @click="adminMobileOpen=false" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.medcerts.title')"></a>
+     <a href="#admin-medcerts" @click="adminMobileOpen=false" x-show="adminSettings?.require_medical_cert" class="block px-5 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.medcerts.title')"></a>
      <a href="#admin-requests" @click="adminMobileOpen=false" class="block px-3 py-2 text-sm hover:bg-zinc-50" x-text="t('admin.requests.title')"></a>
     </div>
     </template>
@@ -1143,7 +1143,7 @@
   </div>
   <button @click="toggleRequireMedicalCert()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="requireMedicalCert() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="requireMedicalCert() ? 'ON' : 'OFF'"></button>
   </div>
-  <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings">
+  <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings && (clubInfo?.plan || 'starter')!=='free'">
   <div class="flex items-center justify-between">
   <div>
   <div class="flex flex-wrap items-center gap-2">

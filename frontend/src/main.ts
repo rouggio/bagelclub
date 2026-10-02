@@ -128,7 +128,7 @@ function app() {
     reportsData: null as null | { period: string; refDate: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }>; timeline: Array<{ label: string; startDate: string; endDate: string; count: number }> },
     reportsSliceData: null as null | { period: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }> },
     reportsSelectedLabel: "" as string,
-    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean },
+    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; plan?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean },
     clubSlug: "" as string,
     clubTimezone: "Europe/Rome" as string,
     clubLocales: [] as string[],

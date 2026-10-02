@@ -50,6 +50,15 @@ describe("club-admin 2fa", () => {
     expect(audits.some((a: any) => a.action === "club.2fa.enabled" && String(a.actorId) === String(admin.user.id))).toBe(true);
   });
 
+  it("free-plan clubs cannot enable 2fa (feature matrix)", async () => {
+    const { db, pool } = await testDb();
+    const { clubs } = await import("../db/schema.js");
+    await db.update(clubs).set({ plan: "free" as any }).where(eq(clubs.slug, "green-village"));
+    await pool.end();
+    const code = await app.inject({ method: "POST", url: "/api/settings/2fa/code", headers: { ...H(), "Content-Type": "application/json" }, payload: { action: "enable" } });
+    expect(code.statusCode).toBe(403);
+    expect(code.json()).toMatchObject({ error: "plan_gated", feature: "club2fa" });
+  });
   it("admin login requires OTP while enforced", async () => {
     // Enable first.
     const code = await app.inject({ method: "POST", url: "/api/settings/2fa/code", headers: { ...H(), "Content-Type": "application/json" }, payload: { action: "enable" } });
