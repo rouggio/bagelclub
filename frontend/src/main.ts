@@ -415,6 +415,14 @@ function app() {
       return [...new Set(this.courts.map((c) => c.type).filter(Boolean))];
     },
 
+    onRangeChange() {
+      this.customDay = false;
+      // "Today" jumps the picker back to today; other ranges restart from the picked date.
+      if (Number(this.dateRange) === 1) {
+        this.selectedDate = new Date().toLocaleDateString("en-CA", { timeZone: this.clubTimezone || "Europe/Rome" });
+      }
+      this.loadAvailability();
+    },
     visibleDates(): string[] {
       // A hand-picked date shows that single day; the range selector restarts ranges.
       if (this.customDay) return [this.selectedDate];
