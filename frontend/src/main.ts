@@ -36,11 +36,16 @@ function app() {
     view: "home" as string,
     lang: "it" as Lang,
     user: null as null | { id: string; username: string; role: string; preferred_language?: Lang },
+    meLoading: false as boolean,
     filterType: "" as string,
     selectedDate: new Date().toISOString().slice(0, 10),
     dateRange: 3 as number,
     customDay: false as boolean,
     courts: [] as Court[],
+    courtsLoading: false as boolean,
+    availabilityLoading: false as boolean,
+    availabilityKey: "" as string,
+    availabilityAt: 0 as number,
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
     pendingIntent: null as null | { courtId: string; date: string; startTime: string; courtLabel?: string; courtType?: string; priceCents?: number | null; notes?: string; rentRacquets?: number; players?: number; participants?: Array<{ id: string; username: string }> },
     confirmLoading: false as boolean,
@@ -118,8 +123,9 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-    adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; slot_time_format?: string; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+        adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; slot_time_format?: string; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
+    adminSettingsLoading: false as boolean,
     notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
     notifyPrefs: null as null | { channels: any; usable: any; push_master: boolean; prefs: Array<{ event: string; push: boolean }> },
@@ -130,7 +136,7 @@ function app() {
     reportsData: null as null | { period: string; refDate: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }>; timeline: Array<{ label: string; startDate: string; endDate: string; count: number }> },
     reportsSliceData: null as null | { period: string; startDate: string; endDate: string; overall: number; byUser: Array<{ userId: string; username: string; count: number }>; cancellationsByUser: Array<{ userId: string; username: string; count: number }> },
     reportsSelectedLabel: "" as string,
-    clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; plan?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean },
+        clubInfo: null as null | { club_name: string; club_phone: string; club_address: string; slug?: string; timezone?: string; plan?: string; locales?: string[]; default_locale?: string; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean },
     clubSlug: "" as string,
     clubTimezone: "Europe/Rome" as string,
     clubLocales: [] as string[],
@@ -172,6 +178,7 @@ function app() {
     clubInfoLoading: false as boolean,
     clubInfoError: "" as string,
     clubInfoSuccess: "" as string,
+    clubInfoSlug: "" as string,
     clubForm: { club_name: "" as string, club_phone: "" as string, club_address: "" as string } as { club_name: string; club_phone: string; club_address: string },
     adminCourts: [] as Court[],
     adminCourtsLoading: false as boolean,
@@ -311,11 +318,12 @@ function app() {
       try { this.pendingIntent = JSON.parse(storedIntent() || "null"); } catch { this.pendingIntent = null; }
       if (this.clubSlug) {
         await this.loadClubInfo();
-        await this.loadCourts();
         this.loadAnnouncements();
       }
       const token = storedToken();
-      if (token) {
+      // Single /me per session start: concurrent or repeat inits no-op.
+      if (token && !this.meLoading && !this.user) {
+        this.meLoading = true;
         try {
           let res: Response | null = await apiFetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } });
           if (res.status === 401) {
@@ -347,10 +355,12 @@ function app() {
       this.checkImpSession();
           }
         } catch {}
+        finally { this.meLoading = false; }
       }
-      // Renew the access token when the tab becomes visible again (sleep/wake).
+      // Renew the access token when the tab becomes visible again (sleep/wake) —
+      // but only when it is actually expiring, not on every focus.
       document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible" && this.user) this.refreshToken();
+        if (document.visibilityState === "visible" && this.user && this.tokenExpiresSoon()) this.refreshToken();
       });
       this.checkImpSession();
       const hash = location.hash.replace("#", "").split("?")[0];
@@ -361,11 +371,10 @@ function app() {
         this.syncHighlight();
         if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
         if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
-        if (this.view === "me" && this.user) this.loadBookings();
+        if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
         if (this.view === "profile" && this.user) this.loadProfile();
-      if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
       if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
-        if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
         if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
         if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -382,11 +391,12 @@ function app() {
         if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
         if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
-      if (this.view === "me" && this.user) this.loadBookings();
+      if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
       if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
       if (this.view === "profile" && this.user) this.loadProfile();
       if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
-      if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
       if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
       if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -471,12 +481,17 @@ function app() {
     },
 
     async loadCourts() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.courtsLoading) return;
+      this.courtsLoading = true;
       try {
         const res = await apiFetch("/api/courts");
         if (res.ok) this.courts = await res.json();
         else this.courts = demoCourts;
       } catch {
         this.courts = demoCourts;
+      } finally {
+        this.courtsLoading = false;
       }
       // Availability is NOT loaded here: only the courts view needs it
       // (see the courts entries in hashchange/init). Keeps landing free
@@ -484,26 +499,49 @@ function app() {
       if (this.view === "courts") this.loadAvailability();
     },
 
-    async loadAvailability() {
-      // One shot per day for all courts (batched court_id list, days in parallel).
+    // Courts metadata only where court names/prices render (courts, confirm,
+    // me, admin-bookings). Landing and other views skip it entirely.
+    async ensureCourts() {
+      if (this.courts.length) return;
+      await this.loadCourts();
+    },
+
+    async loadAvailability(force = false) {
+      // Single parametric call: all courts × N days from the start date.
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.availabilityLoading) return;
+      this.availabilityLoading = true;
       const list = this.filteredCourts();
       const days = this.visibleDates();
-      if (!list.length || !days.length) return;
+      if (!list.length || !days.length) { this.availabilityLoading = false; return; }
+      // Sequential double entries (init + hashchange race) with identical
+      // params collapse too — unless forced (post-mutation reloads always run).
+      const key = `${list.map((c: any) => c.id).join(",")}|${days[0]}|${days.length}`;
+      if (!force && key === this.availabilityKey && Date.now() - this.availabilityAt < 2000) { this.availabilityLoading = false; return; }
+      this.availabilityKey = key;
+      this.availabilityAt = Date.now();
       const ids = list.map((c: any) => c.id).join(",");
-      await Promise.all(days.map(async (day) => {
-        try {
-          const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${day}`);
-          const data = res.ok ? await res.json() : null;
-          const byCourt: Record<string, any[]> = data?.courts
-            || (data?.slots ? { [list[0].id]: data.slots } : null)
-            || {};
-          for (const c of list) {
-            this.availability[`${c.id}|${day}`] = byCourt[c.id] || demoSlots();
+      try {
+        const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${days[0]}&days=${days.length}`);
+        const data = res.ok ? await res.json() : null;
+        const grids: Record<string, any> = data?.courts || {};
+        for (const c of list) {
+          const perCourt = grids[c.id];
+          for (const day of days) {
+            // New shape: courts[court][day]; legacy fallbacks: courts[court]
+            // as a day-0 array, or a bare single-court {slots}.
+            let slots: any[] | null = null;
+            if (Array.isArray(perCourt)) slots = day === days[0] ? perCourt : null;
+            else if (perCourt) slots = perCourt[day] || null;
+            if (!slots && data?.slots && day === days[0] && String(list[0].id) === String(c.id)) slots = data.slots;
+            this.availability[`${c.id}|${day}`] = slots || demoSlots();
           }
-        } catch {
-          for (const c of list) this.availability[`${c.id}|${day}`] = demoSlots();
         }
-      }));
+      } catch {
+        for (const c of list) for (const day of days) this.availability[`${c.id}|${day}`] = demoSlots();
+      } finally {
+        this.availabilityLoading = false;
+      }
     },
 
     async selectSlot(court: Court, slot: { start: string; end: string; status: string; bookingId?: string | null }, date?: string) {
@@ -603,9 +641,9 @@ function app() {
         this.confirmParticipants = [];
         this.participantSearch = "";
         this.participantResults = [];
-        await this.loadBookings();
-        if (this.isStaff()) await this.loadAdminBookings();
-        await this.loadAvailability();
+      await this.loadBookings();
+      if (this.isStaff()) await this.loadAdminBookings();
+      await this.loadAvailability(true);
       } finally {
         this.confirmLoading = false;
       }
@@ -834,6 +872,8 @@ function app() {
 
     async loadBookings() {
       if (!this.user) { this.bookings = []; return; }
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.bookingsLoading) return;
       this.bookingsLoading = true; this.bookingsError = "";
       try {
         const token = storedToken();
@@ -869,7 +909,7 @@ function app() {
       const res = await apiFetch(`/api/bookings/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Cancel failed: " + await res.text()); return; }
       await this.loadBookings();
-      await this.loadAvailability();
+      await this.loadAvailability(true);
     },
 
     // Booking-date range for the admin queue (club timezone, Monday-start weeks).
@@ -900,6 +940,8 @@ function app() {
 
     async loadAdminBookings() {
       if (!this.isStaff()) return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminLoading) return;
       this.adminLoading = true; this.adminError = "";
       try {
         const token = storedToken();
@@ -942,7 +984,7 @@ function app() {
       const token = storedToken();
       const res = await apiFetch(`/api/bookings/${id}/approve`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Approve failed: " + await res.text()); return; }
-      await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability();
+      await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability(true);
     },
 
     async rejectBooking(id: string) {
@@ -950,7 +992,7 @@ function app() {
       const token = storedToken();
       const res = await apiFetch(`/api/bookings/${id}/reject`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Reject failed: " + await res.text()); return; }
-      await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability();
+      await this.loadAdminBookings(); await this.loadBookings(); await this.loadAvailability(true);
     },
 
     // Preset the bookings queue to what needs attention: with auto-approve on,
@@ -970,6 +1012,9 @@ function app() {
     },
     async loadAdminSettings() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminSettingsLoading) return;
+      this.adminSettingsLoading = true;
       this.checkTelegramStatus();
       try {
         const token = storedToken();
@@ -989,6 +1034,7 @@ function app() {
           };
         }
       } catch {}
+      finally { this.adminSettingsLoading = false; }
     },
     async saveNotificationSettings() {
       const token = storedToken();
@@ -1278,9 +1324,15 @@ function app() {
       return this.clubsList;
     },
 
-    async loadClubInfo() {
+    async loadClubInfo(force = false) {
+      // Single call per slug: concurrent or repeat loads no-op.
+      const slug = getClubSlug() || this.clubSlug;
+      if (!force) {
+        if (this.clubInfoLoading) return;
+        if (slug && slug === this.clubInfoSlug && this.clubInfo) return;
+      }
+      this.clubInfoLoading = true;
       try {
-        const slug = getClubSlug() || this.clubSlug;
         const res = await apiFetch(`/api/club-info${slug ? `?slug=${encodeURIComponent(slug)}` : ""}`);
         if (res.ok) {
           const info = await res.json();
@@ -1300,8 +1352,10 @@ function app() {
             localStorage.setItem("lang", this.lang);
           }
           this.clubForm = { club_name: this.clubInfo?.club_name || "", club_phone: this.clubInfo?.club_phone || "", club_address: this.clubInfo?.club_address || "" };
+          this.clubInfoSlug = slug || "";
         }
       } catch {}
+      finally { this.clubInfoLoading = false; }
     },
     async loadAdminClubInfo() {
       if (!this.user || this.user.role !== "admin") return;
@@ -1344,7 +1398,7 @@ function app() {
       }
       this.clubInfoSuccess = this.t("admin.club.saved");
       await this.loadAdminClubInfo();
-      await this.loadClubInfo();
+      await this.loadClubInfo(true);
       setTimeout(() => { this.clubInfoSuccess = ""; }, 3000);
     },
 
@@ -1487,9 +1541,9 @@ function app() {
           try {
             await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ flexible_slots: true }) });
             await this.loadAdminSettings();
-          } catch {}
-        }
-        await this.loadAvailability();
+    } catch {}
+    }
+    await this.loadAvailability(true);
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }
     },
@@ -1573,7 +1627,7 @@ function app() {
       const res = await apiFetch("/api/blocking-rules", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
       this.adminLessonForm.reason = "";
-      await this.loadAdminLessons(); await this.loadAvailability();
+      await this.loadAdminLessons(); await this.loadAvailability(true);
     },
 
     startEditLesson(l: any) {
@@ -1603,7 +1657,7 @@ function app() {
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
       this.editingLessonId = null;
       this.adminLessonForm = { courtId: "", dayOfWeek: 1, startTime: "15:00", endTime: "17:00", reason: "" };
-      await this.loadAdminLessons(); await this.loadAvailability();
+      await this.loadAdminLessons(); await this.loadAvailability(true);
     },
 
     // Ad-hoc blocks CRUD
@@ -1626,7 +1680,7 @@ function app() {
       const res = await apiFetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminBlockError = await res.text(); return; }
       this.adminBlockForm.reason = "";
-      await this.loadAdminBlocks(); await this.loadAvailability();
+      await this.loadAdminBlocks(); await this.loadAvailability(true);
     },
     startEditBlock(b: any) {
       this.editingBlockId = b.id;
@@ -1654,14 +1708,14 @@ function app() {
       if (!res.ok) { this.adminBlockError = await res.text(); return; }
       this.editingBlockId = null;
       this.adminBlockForm = { courtId: "", date: "", startTime: "10:00", endTime: "12:00", reason: "" };
-      await this.loadAdminBlocks(); await this.loadAvailability();
+      await this.loadAdminBlocks(); await this.loadAvailability(true);
     },
     async deleteBlock(id: string) {
       if (!confirm(this.t("confirm.deleteBlock"))) return;
       const token = storedToken();
       const res = await apiFetch(`/api/blocks/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
-      await this.loadAdminBlocks(); await this.loadAvailability();
+      await this.loadAdminBlocks(); await this.loadAvailability(true);
     },
 
     async deleteLesson(id: string) {
@@ -1669,20 +1723,21 @@ function app() {
       const token = storedToken();
       const res = await apiFetch(`/api/blocking-rules/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
-      await this.loadAdminLessons(); await this.loadAvailability();
+      await this.loadAdminLessons(); await this.loadAvailability(true);
     },
 
     async toggleLesson(id: string, current: boolean) {
       const token = storedToken();
       const res = await apiFetch(`/api/blocking-rules/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ is_active: !current }) });
       if (!res.ok) { alert("Toggle failed: " + await res.text()); return; }
-      await this.loadAdminLessons(); await this.loadAvailability();
+      await this.loadAdminLessons(); await this.loadAvailability(true);
     },
 
     announcements: [] as Array<{ id: string; title: string; body: string; visibility: string; position: number; publish_start: string | null; publish_end: string | null }>,
     adminAnns: [] as Array<{ id: string; title: string; body: string; visibility: string; position: number; publish_start: string | null; publish_end: string | null; translations: Record<string, { title: string; body: string }> }>,
     annLoading: false as boolean,
     annError: "" as string,
+    annLang: "" as string,
     adminAnnLoading: false as boolean,
     adminAnnError: "" as string,
     adminAnnSuccess: "" as string,
@@ -1707,16 +1762,21 @@ function app() {
       if (a.publish_end && today > a.publish_end) return "expired";
       return "active";
     },
-    async loadAnnouncements() {
+    async loadAnnouncements(force = false) {
+      // One single call per language: skip when this exact feed is loaded,
+      // unless forced (admin CRUD) or a load is already in flight.
+      if (this.annLoading) return;
+      const lang = this.user?.preferred_language || (this.user as any)?.preferredLanguage || this.lang;
+      if (!force && lang === this.annLang && this.announcements.length) return;
       this.annLoading = true; this.annError = "";
       try {
         const headers: any = {};
         const token = storedToken();
         if (token) headers.Authorization = `Bearer ${token}`;
         // Logged-in users read articles in their profile language, not the UI language.
-        const lang = this.user?.preferred_language || (this.user as any)?.preferredLanguage || this.lang;
         const res = await apiFetch(`/api/announcements?lang=${lang}`, { headers });
         if (!res.ok) throw new Error(await res.text());
+        this.annLang = lang;
         this.announcements = (await res.json()).map((r: any) => this.normAnn(r));
       } catch (e: any) { this.annError = e.message || String(e); }
       finally { this.annLoading = false; }
@@ -1765,7 +1825,7 @@ function app() {
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); return; }
       this.adminAnnSuccess = this.t("admin.ann.saved");
       this.resetAnnForm();
-      await this.loadAdminAnnouncements(); await this.loadAnnouncements();
+      await this.loadAdminAnnouncements(); await this.loadAnnouncements(true);
       this.view = "admin-announcements";
       location.hash = "admin-announcements";
     },
@@ -1796,7 +1856,7 @@ function app() {
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); return; }
       this.adminAnnSuccess = this.t("admin.ann.saved");
       this.resetAnnForm();
-      await this.loadAdminAnnouncements(); await this.loadAnnouncements();
+      await this.loadAdminAnnouncements(); await this.loadAnnouncements(true);
       this.view = "admin-announcements";
       location.hash = "admin-announcements";
     },
@@ -1806,7 +1866,7 @@ function app() {
       const res = await apiFetch(`/api/announcements/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) { alert("Delete failed: " + await res.text()); return; }
       if (this.editingAnnId === id) this.resetAnnForm();
-      await this.loadAdminAnnouncements(); await this.loadAnnouncements();
+      await this.loadAdminAnnouncements(); await this.loadAnnouncements(true);
     },
     async moveAnnouncement(id: string, dir: -1 | 1) {
       const ids = this.adminAnns.map((a) => a.id);
@@ -1820,7 +1880,7 @@ function app() {
       const res = await apiFetch("/api/announcements/reorder", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ ordered_ids: ids }) });
       if (!res.ok) { this.adminAnnError = (await res.text()).slice(0, 300); await this.loadAdminAnnouncements(); return; }
       this.adminAnns = (await res.json()).map((r: any) => this.normAnn(r));
-      await this.loadAnnouncements();
+      await this.loadAnnouncements(true);
     },
 
     // ---- Feature requests (#30): shared anonymized board ----
@@ -1944,6 +2004,8 @@ function app() {
 
     async loadAdminUsers() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminUsersLoading) return;
       this.adminUsersLoading = true; this.adminUsersError = "";
       try {
         const token = storedToken();
@@ -2134,6 +2196,9 @@ function app() {
       // with the browser refresh cookie (it belongs to another identity and
       // would silently replace the imp session).
       try { if ((decodeToken(storedToken()) as any)?.imp) return true; } catch {}
+      // Economy: skip the call when the current token is still fresh
+      // (expired/dead tokens always proceed to the refresh attempt).
+      if (!this.tokenExpiresSoon()) return !!storedToken();
       if (this._refreshing) return !!storedToken();
       this._refreshing = true;
       try {
@@ -2164,6 +2229,14 @@ function app() {
     startTokenRefresh() {
       this.stopTokenRefresh();
       this._refreshTimer = window.setInterval(() => { this.refreshToken(); }, 10 * 60 * 1000);
+    },
+    // True when the stored access token expires within `sec` (or is missing/unreadable).
+    tokenExpiresSoon(sec = 300): boolean {
+      try {
+        const p = decodeToken(storedToken()) as any;
+        if (!p?.exp) return true;
+        return p.exp * 1000 - Date.now() < sec * 1000;
+      } catch { return true; }
     },
     stopTokenRefresh() {
       if (this._refreshTimer) clearInterval(this._refreshTimer);
@@ -2548,6 +2621,8 @@ function app() {
       this.participantResults = [];
       this.user = null;
       this.view = "home";
+      // Language may revert to anonymous: reset the feed marker so it reloads once.
+      this.annLang = "";
       this.loadAnnouncements();
     },
   };

@@ -12,6 +12,8 @@
 - **Spec**: `SPEC.md:3` v0.1.0→v0.1.7+ (add via `neon.ts` etc.).
 
 ## 2. Git & Deploy — CRITICAL HABIT
+- **Commits**: commit + push on `pd` ONLY — never after a single prompt. Work stays uncommitted in the tree until the user says `pd`.
+- **Economise traffic**: minimise REST calls and DB queries per iteration — batch endpoints, hoist queries out of loops, gate loaders by view, verify with the fewest requests possible.
 - **Remote**: `origin git@github.com:rouggio/bagelclub.git` (renamed from `rouggio/empanadel` 2026-09-26) `push.autoSetupRemote=true` branch `main`.
 - **Commits**: inspect `git status`, `git diff`, `git log --oneline -10` before committing; stage only intended files; never commit secrets; concise commit message matching repo style.
 - **NEVER push to production (origin/main) nor trigger Render deploy unless explicitly requested by user** — keep all work on feature branches (`feat/*`) and local commits; only after user says `push`, `merge to main and push to render`, `deploy`, or shorthand `pd` (= push+deploy) you may `git push` + `POST` the deploy hook URL from `.env.local` (`RENDER_DEPLOY_HOOK`, never committed). All recent fixes (`93cdfcf` etc.) were pushed before this rule; from now on hold back.
