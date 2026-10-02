@@ -118,7 +118,7 @@
   "admin.users.searchPlaceholder": "Cerca username, email, nome…",
   "admin.users.allRoles": "Tutti i ruoli",
   "roles.associate": "socio",
-  "roles.manager": "Gestore",
+  "roles.manager": "gestore",
   "roles.admin": "admin",
   "admin.users.registered": "Utenti registrati",
   "admin.users.noUsers": "Nessun utente",

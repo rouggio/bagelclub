@@ -21,6 +21,7 @@ const createClubSchema = z.object({
 
 const patchClubSchema = z.object({
   name: z.string().min(2).max(100).optional(),
+  slug: z.string().min(1).max(50).optional(),
   timezone: z.string().min(1).max(50).optional(),
   plan: z.enum(["free", "starter", "pro"]).optional(),
   is_active: z.boolean().optional(),
@@ -107,14 +108,26 @@ export default async function platformRoutes(fastify: FastifyInstance) {
     if (d.timezone !== undefined && !validTimezone(d.timezone)) return reply.status(400).send({ error: "Invalid IANA timezone" });
     const updates: any = { updatedAt: new Date() };
     if (d.name !== undefined) updates.name = d.name;
+    // Slug edit: normalized like on create (lowercase, dashes, alphanum).
+    if (d.slug !== undefined && d.slug !== club.slug) {
+      const next = slugify(d.slug);
+      const slugErr = validateSlug(next);
+      if (slugErr) return reply.status(400).send({ error: slugErr });
+      updates.slug = next;
+    }
     if (d.timezone !== undefined) updates.timezone = d.timezone;
     if (d.plan !== undefined) updates.plan = d.plan;
     if (d.is_active !== undefined) updates.isActive = d.is_active;
     if (d.is_listed !== undefined) updates.isListed = d.is_listed;
     if (d.max_courts !== undefined) updates.maxCourts = d.max_courts;
-    const [row] = await db.update(clubs).set(updates).where(eq(clubs.id, club.id)).returning();
-    await audit(db, (req as any).user.id, "platform.club.patch", slug, d);
-    return reply.send(row);
+    try {
+      const [row] = await db.update(clubs).set(updates).where(eq(clubs.id, club.id)).returning();
+      await audit(db, (req as any).user.id, "platform.club.patch", slug, { ...d, ...(updates.slug ? { slug_from: slug, slug_to: updates.slug } : {}) });
+      return reply.send(row);
+    } catch (e: any) {
+      if (String(e.code) === "23505") return reply.status(409).send({ error: "slug already taken" });
+      throw e;
+    }
   });
 
   fastify.post("/api/platform/clubs/:slug/seed", { preHandler: pre }, async (req, reply) => {

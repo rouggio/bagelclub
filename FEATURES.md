@@ -9,6 +9,7 @@
 |---|---------|-------|
 | 31 | Usage-based tiers (metering + allowances + gates + soft billing) | SPEC'd 2026-10-01 (`MULTITENANT.md` §8-A2: monthly bookings+actives, 80/100% audit+notify, manual invoice, club-payment overdue → mail + degrade to free, usage overage never blocks), mostly built on parked `feat/usage-tiers`, pending merge |
 | 34 | Club booking policy — admin-defined cancellation rules + payment mode (upfront online vs pay on court) | SPEC'd 2026-10-01 (`SPEC.md` §4.4): free cancel until `min_cancel_hours`, no self-cancel after deadline, admin `no-show` marking (report-only); `booking_payment_mode` on_court default, upfront only when online payments live (#16, Go/Pro); `bookings.payment_status` unpaid\|paid\|onsite, pending build |
+| 36 | Roles and permissions matrix — one page/doc mapping associate/manager/admin/superadmin × endpoints and views | Logged 2026-10-01, pending spec |
 | 16 | Online payment collection (Stripe/subscriptions/player checkout) | later candidate, was `SPEC.md:20` non-goal |
 | 17 | Peak/off-peak price rules, discounts, memberships | later candidate |
 | 18 | Tournaments (brackets, scheduling, court assignment, entries) | later candidate |

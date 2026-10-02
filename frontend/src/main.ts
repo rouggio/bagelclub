@@ -2182,7 +2182,7 @@ function app() {
       try {
         const res = await platformFetch("/api/platform/clubs");
         if (!res.ok) throw new Error(await res.text());
-        this.platformClubs = await res.json();
+        this.platformClubs = (await res.json()).map((c: any) => ({ ...c, slugEdit: c.slug }));
       } catch (e: any) { this.platformError = e.message || String(e); }
       finally { this.platformLoading = false; }
     },
@@ -2200,7 +2200,7 @@ function app() {
     async savePlatformClub(c: any) {
       this.platformError = "";
       try {
-        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: c.plan, is_active: c.isActive, is_listed: c.isListed }) });
+        const res = await platformFetch(`/api/platform/clubs/${c.slug}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: c.plan, is_active: c.isActive, is_listed: c.isListed, slug: c.slugEdit || c.slug }) });
         if (!res.ok) this.platformError = await res.text();
         else await this.loadPlatformClubs();
       } catch (e: any) { this.platformError = e.message || String(e); }
