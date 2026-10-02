@@ -340,8 +340,8 @@ function app() {
             // Preset timetable filter from preferred sport (not mandatory)
             if (me.preferred_sport && ["tennis","padel"].includes(me.preferred_sport)) {
               this.filterType = me.preferred_sport;
-              // reload availability with preset filter
-              this.loadAvailability();
+              // reload availability with preset filter (courts view only)
+              if (this.view === "courts") this.loadAvailability();
             }
             this.startTokenRefresh();
       this.checkImpSession();
@@ -363,7 +363,9 @@ function app() {
         if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
         if (this.view === "me" && this.user) this.loadBookings();
         if (this.view === "profile" && this.user) this.loadProfile();
-        if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "admin-bookings" && this.isStaff()) { if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
+      if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
+        if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
         if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
         if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -473,11 +475,13 @@ function app() {
         const res = await apiFetch("/api/courts");
         if (res.ok) this.courts = await res.json();
         else this.courts = demoCourts;
-        if (this.courts.length) this.loadAvailability();
       } catch {
         this.courts = demoCourts;
-        this.loadAvailability();
       }
+      // Availability is NOT loaded here: only the courts view needs it
+      // (see the courts entries in hashchange/init). Keeps landing free
+      // of pointless availability requests.
+      if (this.view === "courts") this.loadAvailability();
     },
 
     async loadAvailability() {
