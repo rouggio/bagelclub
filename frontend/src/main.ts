@@ -1232,8 +1232,15 @@ function app() {
         const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const s = await res.json();
-          this.clubForm = { club_name: s.club_name || "", club_phone: s.club_phone || "", club_address: s.club_address || "" };
-          this.clubInfo = { club_name: s.club_name, club_phone: s.club_phone, club_address: s.club_address, show_prices: s.show_prices ?? (this.clubInfo as any)?.show_prices ?? true, allow_open_signup: s.allow_open_signup ?? (this.clubInfo as any)?.allow_open_signup ?? true };
+          // Merge, never wipe: unset settings fields (null) keep the values
+          // already loaded from public club-info.
+          const prev: any = this.clubInfo || {};
+          this.clubForm = {
+            club_name: s.club_name ?? prev.club_name ?? "",
+            club_phone: s.club_phone ?? prev.club_phone ?? "",
+            club_address: s.club_address ?? prev.club_address ?? "",
+          };
+          this.clubInfo = { ...prev, club_name: this.clubForm.club_name, club_phone: this.clubForm.club_phone, club_address: this.clubForm.club_address, show_prices: s.show_prices ?? prev.show_prices ?? true, allow_open_signup: s.allow_open_signup ?? prev.allow_open_signup ?? true };
         }
       } catch (e: any) { this.clubInfoError = e.message || String(e); }
       finally { this.clubInfoLoading = false; }
