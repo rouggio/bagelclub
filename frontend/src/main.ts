@@ -426,7 +426,7 @@ function app() {
 
     dayLabel(date: string): string {
       try {
-        return new Date(date + "T12:00:00").toLocaleDateString(this.lang || "it", { weekday: "short", day: "numeric", month: "numeric" });
+        return new Date(date + "T12:00:00").toLocaleDateString(this.lang || "it", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
       } catch { return date; }
     },
 
