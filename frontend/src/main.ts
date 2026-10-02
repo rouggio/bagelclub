@@ -426,14 +426,21 @@ function app() {
     },
 
     async loadAvailability() {
-      for (const c of this.filteredCourts()) {
-        try {
-          const res = await apiFetch(`/api/availability?court_id=${c.id}&date=${this.selectedDate}`);
-          const data = res.ok ? await res.json() : null;
-          this.availability[c.id] = data?.slots || demoSlots();
-        } catch {
-          this.availability[c.id] = demoSlots();
+      // One shot for all courts (batched court_id list).
+      const list = this.filteredCourts();
+      if (!list.length) return;
+      try {
+        const ids = list.map((c: any) => c.id).join(",");
+        const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${this.selectedDate}`);
+        const data = res.ok ? await res.json() : null;
+        const byCourt: Record<string, any[]> = data?.courts
+          || (data?.slots ? { [list[0].id]: data.slots } : null)
+          || {};
+        for (const c of list) {
+          this.availability[c.id] = byCourt[c.id] || demoSlots();
         }
+      } catch {
+        for (const c of list) this.availability[c.id] = demoSlots();
       }
     },
 
