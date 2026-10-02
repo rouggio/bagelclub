@@ -410,15 +410,15 @@
  </div>
  </div>
  <div class="grid gap-3 md:grid-cols-2">
- <template x-for="court in filteredCourts()" :key="court.id">
- <div class="rounded-xl border bg-white p-4">
+  <template x-for="court in filteredCourts()" :key="court.id">
+  <div x-show="courtHasSlots(court)" class="rounded-xl border bg-white p-4">
  <div class="flex items-center justify-between">
   <div><div class="font-semibold" x-text="`${court.name || `Court ${court.number}`} · ${court.type}`"></div><div class="text-xs text-zinc-500" x-text="court.name ? `#${court.number} · ${court.surface || court.type}` : (court.surface || '')"></div></div>
  <span class="rounded-lg px-2 py-1 text-xs" :class="court.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100'"> <span x-text="court.is_active ? t('court.active') : t('court.inactive')"></span></span>
  </div>
   <div class="mt-3 space-y-3">
   <template x-for="d in visibleDates()" :key="d">
-  <div>
+  <div x-show="(availability[court.id + '|' + d] || []).length">
   <div class="mb-1 text-xs font-semibold text-zinc-500" x-text="dayLabel(d)"></div>
   <div class="grid grid-cols-4 gap-2">
   <template x-for="slot in availability[court.id + '|' + d] || []" :key="slot.start">

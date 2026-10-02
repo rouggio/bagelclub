@@ -441,6 +441,10 @@ function app() {
       } catch { return date; }
     },
 
+    courtHasSlots(court: any): boolean {
+      return this.visibleDates().some((d) => ((this.availability[`${court.id}|${d}`] || []).length > 0));
+    },
+
     slotTimeFormat(): string {
       return (this.clubInfo as any)?.slot_time_format || (this.adminSettings as any)?.slot_time_format || "start_end";
     },
