@@ -129,6 +129,7 @@ function app() {
     notifyAdminTab: "users" as "users" | "alerts",
     notificationTestResult: "" as string,
     notifyPrefs: null as null | { channels: any; usable: any; push_master: boolean; prefs: Array<{ event: string; push: boolean }> },
+    notifyPrefsLoading: false as boolean,
     reportsPeriod: "weekly" as "weekly" | "monthly" | "yearly",
     reportsDate: new Date().toISOString().slice(0, 10) as string,
     reportsLoading: false as boolean,
@@ -155,21 +156,27 @@ function app() {
     platformError: "" as string,
     platformNew: { name: "", slug: "", timezone: "Europe/Rome", plan: "starter", admin_username: "", admin_email: "", admin_password: "" } as { name: string; slug: string; timezone: string; plan: string; admin_username: string; admin_email: string; admin_password: string },
     platformAudit: [] as any[],
+    platformAuditLoading: false as boolean,
     auditTotal: 0 as number,
     auditPage: 1 as number,
     auditFrom: "" as string,
     auditTo: "" as string,
     auditClub: "" as string,
     platformFooter: "" as string,
+    platformFooterLoading: false as boolean,
+    platformFooterLoaded: false as boolean,
     // Impersonation session (superadmin acting as club admin).
     impSession: null as null | { clubSlug: string; expiresAt: number },
     impNow: 0 as number,
     platformSettings: { base_url: "" as string, footer_text: "" as string, notify_demo_start: true as boolean, notify_demo_start_telegram: true as boolean } as { base_url: string; footer_text: string; notify_demo_start?: boolean; notify_demo_start_telegram?: boolean },
     platformSettingsMsg: "" as string,
+    platformSettingsLoading: false as boolean,
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
+    platformReportsLoading: false as boolean,
     platformRequests: [] as Array<{ id: string; title: string; body: string; status: string; reply: string | null; votes: number; club_slug: string | null; club_name: string | null; author: string | null; created_at: string; updated_at: string }>,
     platformReqEdit: {} as Record<string, { status: string; reply: string }>,
     platformReqMsg: "" as string,
+    platformRequestsLoading: false as boolean,
     // Demo wizard (prospect self-service).
     demoForm: { name: "", tennis: 1 as number, padel: 1 as number } as { name: string; tennis: number; padel: number },
     demoResult: null as null | { slug: string; name: string; url: string; admin_username: string; admin_password: string; expires_at: string },
@@ -187,6 +194,7 @@ function app() {
     adminCourtForm: { number: null as number | null, type: "tennis" as "tennis" | "padel", name: "", surface: "", price_eur: null as number | null } as { number: number | null; type: "tennis" | "padel"; name: string; surface: string; price_eur: number | null },
     editingCourtId: null as string | null,
     adminTimetableCourtId: "" as string,
+    adminTimetableByCourt: {} as Record<string, any[]>,
     adminTimetableRows: [] as Array<{ dayOfWeek: number; windows: Array<{ open: string; close: string; dur: number; price: number | null }> }>,
     adminTimetableCopyFrom: 1 as number,
     adminTimetableCopyTo: [2, 3, 4, 5] as number[],
@@ -202,6 +210,7 @@ function app() {
     pwMsg: "" as string,
     pwOk: false as boolean,
     telegramLinked: false as boolean,
+    telegramStatusLoading: false as boolean,
     telegramLinkUrl: "" as string,
     telegramLinkLoading: false as boolean,
     telegramPollTimer: null as number | null,
@@ -379,7 +388,7 @@ function app() {
         if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-blocks" && this.user?.role === "admin") { this.loadAdminLessons(); this.loadAdminBlocks(); this.loadAdminCourts(); }
-      if (this.view === "admin-club" && this.user?.role === "admin") { this.loadAdminClubInfo(); this.loadAdminSettings(); }
+      if (this.view === "admin-club" && this.user?.role === "admin") this.loadAdminClubInfo();
       if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
         if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
         if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
@@ -389,7 +398,7 @@ function app() {
       if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
       if (this.view === "admin-medcerts" && this.user?.role === "admin") this.loadMedcerts();
         if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
-        if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
+        if (this.view === "admin-timetable" && this.user?.role === "admin") { this.loadAdminSettings(); await this.loadAdminCourts(); await this.loadAdminTimetable(); }
       });
       if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
       if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
@@ -401,7 +410,7 @@ function app() {
       if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-blocks" && this.user?.role === "admin") { this.loadAdminLessons(); this.loadAdminBlocks(); this.loadAdminCourts(); }
-      if (this.view === "admin-club" && this.user?.role === "admin") { this.loadAdminClubInfo(); this.loadAdminSettings(); }
+      if (this.view === "admin-club" && this.user?.role === "admin") this.loadAdminClubInfo();
       if (this.view === "admin-params" && this.user?.role === "admin") this.loadAdminSettings();
       if (this.view === "admin-reports" && this.user?.role === "admin") this.loadReports();
       if (this.view === "admin-notifications" && this.user?.role === "admin") { this.loadAdminSettings(); this.checkTelegramStatus(); }
@@ -410,7 +419,7 @@ function app() {
       if (this.view === "admin-fees" && this.user?.role === "admin") this.loadFees();
       if (this.view === "admin-medcerts" && this.user?.role === "admin") this.loadMedcerts();
       if (this.view === "admin-announcement-form" && this.user?.role !== "admin") { this.view = "home"; location.hash = "home"; }
-      if (this.view === "admin-timetable" && this.user?.role === "admin") { await this.loadAdminCourts(); await this.loadAdminTimetable(); }
+      if (this.view === "admin-timetable" && this.user?.role === "admin") { this.loadAdminSettings(); await this.loadAdminCourts(); await this.loadAdminTimetable(); }
     },
 
     isPastSlot(slot: { start: string }, date?: string): boolean {
@@ -480,16 +489,18 @@ function app() {
       return this.courts.filter((c) => c.type === this.filterType);
     },
 
-    async loadCourts() {
+    async loadCourts(): Promise<boolean> {
       // Concurrent duplicate entries collapse to the in-flight call.
-      if (this.courtsLoading) return;
+      if (this.courtsLoading) return this.courts.length > 0;
       this.courtsLoading = true;
       try {
         const res = await apiFetch("/api/courts");
-        if (res.ok) this.courts = await res.json();
-        else this.courts = demoCourts;
+        if (!res.ok) throw new Error(await res.text());
+        this.courts = await res.json();
+        return true;
       } catch {
         this.courts = demoCourts;
+        return false;
       } finally {
         this.courtsLoading = false;
       }
@@ -1085,11 +1096,15 @@ function app() {
       return p || { event, to_users_email: true, to_users_push: true, to_admins_email: true, to_admins_push: true };
     },
     async loadNotifyPrefs() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.notifyPrefsLoading) return;
+      this.notifyPrefsLoading = true;
       try {
         const token = storedToken();
         const res = await apiFetch("/api/users/me/notify-prefs", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) this.notifyPrefs = await res.json();
       } catch {}
+      finally { this.notifyPrefsLoading = false; }
     },
     async saveNotifyPref(event: string, push: boolean) {
       const token = storedToken();
@@ -1199,6 +1214,8 @@ function app() {
     },
     async loadMedcerts() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.medcertsLoading) return;
       this.medcertsLoading = true; this.medcertsError = "";
       try {
         const token = storedToken();
@@ -1249,10 +1266,15 @@ function app() {
     },
 
     async loadPlatformFooter() {
+      // Static content: once per session (plus concurrent collapse).
+      if (this.platformFooterLoading || this.platformFooterLoaded) return;
+      this.platformFooterLoading = true;
       try {
         const res = await apiFetch("/api/platform/public");
         if (res.ok) this.platformFooter = (await res.json()).footer_text || "";
+        this.platformFooterLoaded = true;
       } catch {}
+      finally { this.platformFooterLoading = false; }
     },
     checkImpSession() {
       // Show the banner when the club token carries an impersonation claim.
@@ -1361,20 +1383,17 @@ function app() {
       if (!this.user || this.user.role !== "admin") return;
       this.clubInfoLoading = true; this.clubInfoError = ""; this.clubInfoSuccess = "";
       try {
-        const token = storedToken();
-        const res = await apiFetch("/api/settings", { headers: { Authorization: `Bearer ${token}` } });
-        if (res.ok) {
-          const s = await res.json();
-          // Merge, never wipe: unset settings fields (null) keep the values
-          // already loaded from public club-info.
-          const prev: any = this.clubInfo || {};
-          this.clubForm = {
-            club_name: s.club_name ?? prev.club_name ?? "",
-            club_phone: s.club_phone ?? prev.club_phone ?? "",
-            club_address: s.club_address ?? prev.club_address ?? "",
-          };
-          this.clubInfo = { ...prev, club_name: this.clubForm.club_name, club_phone: this.clubForm.club_phone, club_address: this.clubForm.club_address, show_prices: s.show_prices ?? prev.show_prices ?? true, allow_open_signup: s.allow_open_signup ?? prev.allow_open_signup ?? true };
-        }
+        // Single /api/settings round trip, shared with loadAdminSettings:
+        // derive the club form from the same payload.
+        await this.loadAdminSettings();
+        const s: any = this.adminSettings || {};
+        const prev: any = this.clubInfo || {};
+        this.clubForm = {
+          club_name: s.club_name ?? prev.club_name ?? "",
+          club_phone: s.club_phone ?? prev.club_phone ?? "",
+          club_address: s.club_address ?? prev.club_address ?? "",
+        };
+        this.clubInfo = { ...prev, club_name: this.clubForm.club_name, club_phone: this.clubForm.club_phone, club_address: this.clubForm.club_address, show_prices: s.show_prices ?? prev.show_prices ?? true, allow_open_signup: s.allow_open_signup ?? prev.allow_open_signup ?? true };
       } catch (e: any) { this.clubInfoError = e.message || String(e); }
       finally { this.clubInfoLoading = false; }
     },
@@ -1404,6 +1423,8 @@ function app() {
 
     async loadReports() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.reportsLoading) return;
       this.reportsLoading = true; this.reportsError = "";
       this.reportsSliceData = null; this.reportsSelectedLabel = "";
       try {
@@ -1430,32 +1451,43 @@ function app() {
 
     async loadAdminCourts() {
       if (!this.user || this.user.role !== "admin") return;
+      // Single /api/courts round trip, shared with loadCourts: one fetch
+      // fills both states (member grid + admin CRUD read the same rows).
+      if (this.adminCourtsLoading) return;
       this.adminCourtsLoading = true; this.adminCourtError = "";
       try {
-        const token = storedToken();
-        const res = await apiFetch("/api/courts", { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) throw new Error(await res.text());
-        this.adminCourts = await res.json();
+        if (!await this.loadCourts()) throw new Error("courts failed");
+        this.adminCourts = [...this.courts];
         if (!this.adminTimetableCourtId && this.adminCourts.length) this.adminTimetableCourtId = this.adminCourts[0].id;
       } catch (e: any) { this.adminCourtError = e.message || String(e); }
       finally { this.adminCourtsLoading = false; }
     },
     async loadAdminTimetable() {
-      if (!this.adminTimetableCourtId) { this.adminTimetableError = "Select a court"; return; }
+      // One /api/timetable round trip for ALL courts; switching courts
+      // renders from the cache with zero refetch.
+      if (this.adminTimetableLoading) return;
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
         const token = storedToken();
-        const res = await apiFetch(`/api/timetable?court_id=${this.adminTimetableCourtId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await apiFetch("/api/timetable", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        const flat: any[] = (data.days && data.days[this.adminTimetableCourtId]) || [];
-        const defDur = (this.adminCourts.find((c: any) => c.id === this.adminTimetableCourtId)?.type === "padel") ? 90 : 60;
-        const byDay: Record<number, any[]> = {};
-        for (const w of flat) (byDay[w.day_of_week] ||= []).push({ open: w.open_time, close: w.close_time, dur: w.slot_duration_minutes || defDur, price: w.price_cents != null ? Number(w.price_cents) / 100 : null });
-        this.adminTimetableRows = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({ dayOfWeek: dow, windows: byDay[dow] || [] }));
-        await this.loadAdminSettings();
+        this.adminTimetableByCourt = (data && data.days) || {};
+        if (!this.adminTimetableCourtId) {
+          const ids = Object.keys(this.adminTimetableByCourt);
+          if (ids.length) this.adminTimetableCourtId = ids[0];
+        }
+        this.renderTimetableCourt();
       } catch (e: any) { this.adminTimetableError = e.message || String(e); }
       finally { this.adminTimetableLoading = false; }
+    },
+    renderTimetableCourt() {
+      if (!this.adminTimetableCourtId) { this.adminTimetableError = "Select a court"; return; }
+      const flat: any[] = (this.adminTimetableByCourt || {})[this.adminTimetableCourtId] || [];
+      const defDur = (this.adminCourts.find((c: any) => c.id === this.adminTimetableCourtId)?.type === "padel") ? 90 : 60;
+      const byDay: Record<number, any[]> = {};
+      for (const w of flat) (byDay[w.day_of_week] ||= []).push({ open: w.open_time, close: w.close_time, dur: w.slot_duration_minutes || defDur, price: w.price_cents != null ? Number(w.price_cents) / 100 : null });
+      this.adminTimetableRows = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({ dayOfWeek: dow, windows: byDay[dow] || [] }));
     },
     addTimetableWindow(row: any) {
       row.windows.push({ open: "08:00", close: "22:00", dur: 60, price: null });
@@ -1551,7 +1583,7 @@ function app() {
       this.adminTimetableCourtId = courtId;
       this.view = "admin-timetable";
       location.hash = "admin-timetable";
-      this.loadAdminTimetable();
+      // Entry loader (hashchange/init) fetches courts + timetable.
     },
 
     async createCourt() {
@@ -1609,6 +1641,8 @@ function app() {
 
     async loadAdminLessons() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminLessonsLoading) return;
       this.adminLessonsLoading = true; this.adminLessonError = "";
       try {
         const token = storedToken();
@@ -1663,6 +1697,8 @@ function app() {
     // Ad-hoc blocks CRUD
     async loadAdminBlocks() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminBlocksLoading) return;
       this.adminBlocksLoading = true; this.adminBlockError = "";
       try {
         const token = storedToken();
@@ -1783,6 +1819,8 @@ function app() {
     },
     async loadAdminAnnouncements() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.adminAnnLoading) return;
       this.adminAnnLoading = true; this.adminAnnError = ""; this.adminAnnSuccess = "";
       try {
         const token = storedToken();
@@ -1892,6 +1930,8 @@ function app() {
     },
     async loadFeatureRequests() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.featureRequestsLoading) return;
       this.featureRequestsLoading = true; this.featureRequestsError = "";
       try {
         const token = storedToken();
@@ -1942,6 +1982,8 @@ function app() {
     },
     async loadFees() {
       if (!this.user || this.user.role !== "admin") return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.feesLoading) return;
       this.feesLoading = true; this.feesError = "";
       try {
         const token = storedToken();
@@ -2117,6 +2159,8 @@ function app() {
 
     async loadProfile() {
       if (!this.user) return;
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.profileLoading) return;
       this.profileLoading = true; this.profileError = ""; this.profileSuccess = "";
       try {
         const token = storedToken();
@@ -2243,6 +2287,9 @@ function app() {
       this._refreshTimer = null;
     },
     async checkTelegramStatus() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.telegramStatusLoading) return;
+      this.telegramStatusLoading = true;
       try {
         const token = storedToken();
         if (!token) { this.telegramLinked = false; return; }
@@ -2252,6 +2299,7 @@ function app() {
           this.telegramLinked = !!j.linked;
         }
       } catch { this.telegramLinked = false; }
+      finally { this.telegramStatusLoading = false; }
     },
     async createTelegramLink() {
       this.telegramLinkLoading = true;
@@ -2365,6 +2413,9 @@ function app() {
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
     async loadPlatformAudit() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.platformAuditLoading) return;
+      this.platformAuditLoading = true;
       try {
         const params = new URLSearchParams();
         params.set("limit", "50");
@@ -2378,6 +2429,7 @@ function app() {
         this.platformAudit = data.rows || [];
         this.auditTotal = data.total || 0;
       } catch {}
+      finally { this.platformAuditLoading = false; }
     },
     auditPages(): number {
       return Math.max(1, Math.ceil(this.auditTotal / 50));
@@ -2432,11 +2484,15 @@ function app() {
       } catch { return String(meta); }
     },
     async loadPlatformSettings() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.platformSettingsLoading) return;
+      this.platformSettingsLoading = true;
       this.platformSettingsMsg = "";
       try {
         const res = await platformFetch("/api/platform/settings");
         if (res.ok) this.platformSettings = await res.json();
       } catch (e: any) { this.platformSettingsMsg = e.message || String(e); }
+      finally { this.platformSettingsLoading = false; }
     },
     async savePlatformSettings() {
       this.platformSettingsMsg = "";
@@ -2459,12 +2515,16 @@ function app() {
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
     async loadPlatformReports() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.platformReportsLoading) return;
+      this.platformReportsLoading = true;
       this.platformError = "";
       try {
         const res = await platformFetch("/api/platform/reports");
         if (!res.ok) throw new Error(await res.text());
         this.platformReports = await res.json();
       } catch (e: any) { this.platformError = e.message || String(e); }
+      finally { this.platformReportsLoading = false; }
     },
     async ensureDemo() {
       this.platformError = "";
@@ -2494,6 +2554,9 @@ function app() {
     },
     // ---- Feature requests (#30): platform inbox ----
     async loadPlatformRequests() {
+      // Concurrent duplicate entries collapse to the in-flight call.
+      if (this.platformRequestsLoading) return;
+      this.platformRequestsLoading = true;
       this.platformError = ""; this.platformReqMsg = "";
       try {
         const res = await platformFetch("/api/platform/feature-requests");
@@ -2503,6 +2566,7 @@ function app() {
         for (const r of this.platformRequests) edit[r.id] = { status: r.status, reply: r.reply || "" };
         this.platformReqEdit = edit;
       } catch (e: any) { this.platformError = e.message || String(e); }
+      finally { this.platformRequestsLoading = false; }
     },
     async savePlatformRequest(r: any) {
       this.platformError = ""; this.platformReqMsg = "";
