@@ -123,7 +123,7 @@ function app() {
     adminPage: 1 as number,
     adminPageSize: 10 as number,
     adminHighlightId: null as string | null,
-        adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; slot_time_format?: string; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
+        adminSettings: null as null | { auto_approve_bookings: boolean; booking_hold_minutes: number; two_fa_enabled?: boolean; flexible_slots?: boolean; show_prices?: boolean; allow_open_signup?: boolean; require_participant_list?: boolean; require_medical_cert?: boolean; slot_time_format?: string; show_participant_names?: boolean; notify_policy?: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; telegram_bot_token?: string | null; telegram_bot_token_present?: boolean; telegram_admin_chat_id?: string | null; whatsapp_token_present?: boolean; whatsapp_phone_number_id?: string | null; whatsapp_admin_phone?: string | null },
     notificationForm: { policy: [], notify_email_sender: "", telegram_bot_token: "", telegram_admin_chat_id: "", whatsapp_token: "", whatsapp_phone_number_id: "", whatsapp_admin_phone: "" } as { policy: Array<{ event: string; to_users_email: boolean; to_users_push: boolean; to_admins_email: boolean; to_admins_push: boolean }>; notify_email_sender: string; telegram_bot_token: string; telegram_admin_chat_id: string; whatsapp_token: string; whatsapp_phone_number_id: string; whatsapp_admin_phone: string },
     adminSettingsLoading: false as boolean,
     notifyAdminTab: "users" as "users" | "alerts",
@@ -469,6 +469,18 @@ function app() {
     slotTimeFormat(): string {
       return (this.clubInfo as any)?.slot_time_format || (this.adminSettings as any)?.slot_time_format || "start_end";
     },
+    showParticipantNames(): boolean {
+      return !!((this.clubInfo as any)?.show_participant_names ?? (this.adminSettings as any)?.show_participant_names ?? false);
+    },
+    async toggleParticipantNames() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).show_participant_names ?? false);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ show_participant_names: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).show_participant_names = next;
+      if (this.clubInfo) (this.clubInfo as any).show_participant_names = next;
+    },
 
     slotLabel(slot: any): string {
       const start = String(slot?.start || "").slice(0, 5);
@@ -482,6 +494,16 @@ function app() {
         return mins > 0 ? `${start} (${mins}')` : start;
       }
       return end ? `${start}–${end}` : start;
+    },
+
+    // Tooltip for availability cells: block/lesson reason + participant
+    // usernames when the club enables them.
+    slotTitle(slot: any): string {
+      const parts: string[] = [];
+      if (slot?.label) parts.push(String(slot.label));
+      const names = (slot?.participant_usernames || []).filter(Boolean);
+      if (names.length) parts.push(names.join(", "));
+      return parts.join(" · ");
     },
 
     filteredCourts() {
@@ -1627,7 +1649,7 @@ function app() {
     adminLessons: [] as Array<{ id: string; courtId: string | null; dayOfWeek: number; startTime: string; endTime: string; reason: string; isActive: boolean }>,
     adminLessonsLoading: false as boolean,
     adminLessonError: "" as string,
-    adminLessonForm: { courtId: "" as string, dayOfWeek: 1 as number, startTime: "15:00", endTime: "17:00", reason: "" } as { courtId: string; dayOfWeek: number; startTime: string; endTime: string; reason: string },
+    adminLessonForm: { courtId: "" as string, days: [1] as number[], startTime: "15:00", endTime: "17:00", reason: "" } as { courtId: string; days: number[]; startTime: string; endTime: string; reason: string },
     editingLessonId: null as string | null,
     // Ad-hoc blocks (spot blocks)
     adminBlocks: [] as Array<{ id: string; courtId: string | null; startAt: string; endAt: string; reason: string }>,
@@ -1653,10 +1675,15 @@ function app() {
       finally { this.adminLessonsLoading = false; }
     },
 
+    toggleLessonDay(dow: number) {
+      const days = this.adminLessonForm.days || [];
+      this.adminLessonForm.days = days.includes(dow) ? days.filter((d) => d !== dow) : [...days, dow].sort((a, b) => a - b);
+    },
     async createLesson() {
       if (!this.adminLessonForm.reason || !this.adminLessonForm.startTime || !this.adminLessonForm.endTime) { this.adminLessonError = "Reason and times required"; return; }
+      if (!(this.adminLessonForm.days || []).length) { this.adminLessonError = this.t("admin.lessons.needDays"); return; }
       const token = storedToken();
-      const payload: any = { day_of_week: this.adminLessonForm.dayOfWeek, start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
+      const payload: any = { day_of_week: [...this.adminLessonForm.days], start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
       if (this.adminLessonForm.courtId) payload.court_id = this.adminLessonForm.courtId;
       const res = await apiFetch("/api/blocking-rules", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
@@ -1666,31 +1693,32 @@ function app() {
 
     startEditLesson(l: any) {
       this.editingLessonId = l.id;
-      this.adminLessonForm = { courtId: l.courtId || "", dayOfWeek: l.dayOfWeek, startTime: l.startTime.slice(0,5), endTime: l.endTime.slice(0,5), reason: l.reason };
+      this.adminLessonForm = { courtId: l.courtId || "", days: [l.dayOfWeek], startTime: l.startTime.slice(0,5), endTime: l.endTime.slice(0,5), reason: l.reason };
     },
 
     cloneLesson(l: any) {
       this.editingLessonId = null;
-      this.adminLessonForm = { courtId: l.courtId || "", dayOfWeek: l.dayOfWeek, startTime: l.startTime.slice(0,5), endTime: l.endTime.slice(0,5), reason: l.reason };
+      this.adminLessonForm = { courtId: l.courtId || "", days: [l.dayOfWeek], startTime: l.startTime.slice(0,5), endTime: l.endTime.slice(0,5), reason: l.reason };
       this.adminLessonError = "";
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
 
     cancelEditLesson() {
       this.editingLessonId = null;
-      this.adminLessonForm = { courtId: "", dayOfWeek: 1, startTime: "15:00", endTime: "17:00", reason: "" };
+      this.adminLessonForm = { courtId: "", days: [1], startTime: "15:00", endTime: "17:00", reason: "" };
       this.adminLessonError = "";
     },
 
     async updateLesson() {
       if (!this.editingLessonId) return;
       if (!this.adminLessonForm.reason || !this.adminLessonForm.startTime || !this.adminLessonForm.endTime) { this.adminLessonError = "Reason and times required"; return; }
+      if (!(this.adminLessonForm.days || []).length) { this.adminLessonError = this.t("admin.lessons.needDays"); return; }
       const token = storedToken();
-      const payload: any = { court_id: this.adminLessonForm.courtId || null, day_of_week: this.adminLessonForm.dayOfWeek, start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
+      const payload: any = { court_id: this.adminLessonForm.courtId || null, day_of_week: this.adminLessonForm.days[0], start_time: this.adminLessonForm.startTime, end_time: this.adminLessonForm.endTime, reason: this.adminLessonForm.reason };
       const res = await apiFetch(`/api/blocking-rules/${this.editingLessonId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { this.adminLessonError = await res.text(); return; }
       this.editingLessonId = null;
-      this.adminLessonForm = { courtId: "", dayOfWeek: 1, startTime: "15:00", endTime: "17:00", reason: "" };
+      this.adminLessonForm = { courtId: "", days: [1], startTime: "15:00", endTime: "17:00", reason: "" };
       await this.loadAdminLessons(); await this.loadAvailability(true);
     },
 

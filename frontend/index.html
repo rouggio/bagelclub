@@ -426,7 +426,7 @@
   :disabled="isPastSlot(slot, d) || (slot.status!=='available' && !(user?.role==='admin' && (slot.status==='pending_approval' || slot.status==='booked')))"
   class="rounded-lg border px-2 py-2 text-xs font-medium"
   :class="isPastSlot(slot, d) ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : ((slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? ' border-2 !border-red-700 ring-1 ring-red-700 font-bold ' : '') + (slot.status==='available' ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200' : slot.status==='booked' ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100' : slot.status==='pending_approval' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : slot.status==='lesson' ? 'bg-red-50 text-red-700 border-red-200' : slot.status==='blocked' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-zinc-100 text-zinc-400'))"
-  :title="slot.label || ''"
+  :title="slotTitle(slot)"
    x-text="(slot.bookingUserId && user && String(slot.bookingUserId)===String(user.id) && (slot.status==='booked' || slot.status==='pending_approval') ? '★ ' : '') + ((slot.status==='lesson' || slot.status==='blocked') ? `${slotLabel(slot)} ${slot.label || t('status.blocked')}` : `${slotLabel(slot)} ${slot.status==='available' ? '✓' : t('status.'+slot.status)}${showPrices() && slot.price_cents != null ? ' · ' + fmtPrice(slot.price_cents) : ''}${user?.role==='admin' && slot.bookingUsername ? ' [' + slot.bookingUsername + ']' : ''}`)"
   ></button>
   </template>
@@ -1020,9 +1020,11 @@
   <option value="" x-text="t('admin.lessons.allCourts')"></option>
   <template x-for="c in adminCourts" :key="c.id"><option :value="c.id" x-text="`${c.name || `#${c.number}`} · ${c.type}`"></option></template>
   </select>
-  <select x-model.number="adminLessonForm.dayOfWeek" class="rounded border px-2 py-1 text-sm">
-  <option value="1" x-text="t('weekday.mon')"></option><option value="2" x-text="t('weekday.tue')"></option><option value="3" x-text="t('weekday.wed')"></option><option value="4" x-text="t('weekday.thu')"></option><option value="5" x-text="t('weekday.fri')"></option><option value="6" x-text="t('weekday.sat')"></option><option value="0" x-text="t('weekday.sun')"></option>
-  </select>
+  <div class="flex flex-wrap gap-1">
+  <template x-for="d in [1,2,3,4,5,6,0]" :key="d">
+  <button @click="toggleLessonDay(d)" :class="(adminLessonForm.days || []).includes(d) ? 'bg-emerald-200 border-emerald-300 text-emerald-900' : 'bg-white'" class="rounded-lg border px-2 py-1 text-xs font-medium" x-text="t('weekday.'+['sun','mon','tue','wed','thu','fri','sat'][d])"></button>
+  </template>
+  </div>
   <input type="time" x-model="adminLessonForm.startTime" class="rounded border px-2 py-1 text-sm" />
   <input type="time" x-model="adminLessonForm.endTime" class="rounded border px-2 py-1 text-sm" />
   <input x-model="adminLessonForm.reason" :placeholder="t('admin.lessons.reason')" class="rounded border px-2 py-1 text-sm" />
@@ -1159,6 +1161,13 @@
   <option value="start_duration" x-text="t('admin.params.slotStartDur')"></option>
   <option value="start_end" x-text="t('admin.params.slotStartEnd')"></option>
   </select>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.params.partNames')"></div>
+  <div class="text-xs text-zinc-500" x-text="showParticipantNames() ? t('admin.params.partNamesOn') : t('admin.params.partNamesOff')"></div>
+  </div>
+  <button @click="toggleParticipantNames()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="showParticipantNames() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="showParticipantNames() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="rounded-xl border bg-zinc-50 p-4 space-y-2" x-show="adminSettings && (clubInfo?.plan || 'starter')!=='free'">
   <div class="flex items-center justify-between">

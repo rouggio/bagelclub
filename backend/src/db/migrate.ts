@@ -48,6 +48,7 @@ const requiredColumns: Array<[string, string]> = [
   ["users", "medical_cert_expires_at"],
   ["app_settings", "require_medical_cert"],
   ["app_settings", "slot_time_format"],
+  ["app_settings", "show_participant_names"],
   ["app_settings", "fee_cents"],
   ["app_settings", "fee_cadence"],
   ["app_settings", "notify_fee_overdue"],

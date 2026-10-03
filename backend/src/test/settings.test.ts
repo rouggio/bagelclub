@@ -46,8 +46,7 @@ describe("club settings toggles", () => {
     expect(info.json().allow_open_signup).toBe(true);
   });
 
-  it("slot_time_format round-trips via PUT and surfaces in club-info", async () => {
-    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
+  it("slot_time_format round-trips via PUT and surfaces in club-info", async () => {    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
     expect(get1.json().slot_time_format).toBe("start_end");
     const bad = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { slot_time_format: "nope" } });
     expect(bad.statusCode).toBe(400);
@@ -56,5 +55,27 @@ describe("club settings toggles", () => {
     expect(put.json().slot_time_format).toBe("start");
     const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
     expect(info.json().slot_time_format).toBe("start");
+  });
+
+  it("participant names tooltip flag round-trips; availability attaches names only when on", async () => {
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { show_participant_names: true } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().show_participant_names).toBe(true);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().show_participant_names).toBe(true);
+    const { db, pool } = await testDb();
+    const { courts, bookings, bookingParticipants, users } = await import("../db/schema.js");
+    const cs = await db.select().from(courts);
+    const mem = (await db.select().from(users)).find((u: any) => u.username === "member");
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const [b] = await db.insert(bookings).values({ clubId: mem.clubId, courtId: cs[0].id, userId: mem.id, date: tomorrow, startTime: "10:00", endTime: "11:00", status: "approved" }).returning();
+    await db.insert(bookingParticipants).values({ bookingId: b.id, clubId: mem.clubId, userId: mem.id });
+    await pool.end();
+    const on = await app.inject({ method: "GET", url: `/api/availability?court_id=${cs[0].id}&date=${tomorrow}&days=1`, headers: { "X-Club-Slug": "green-village" } });
+    const slotsOn = on.json().courts[cs[0].id][tomorrow];
+    expect(slotsOn.find((s: any) => s.status === "booked").participant_usernames).toContain("member");
+    await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { show_participant_names: false } });
+    const off = await app.inject({ method: "GET", url: `/api/availability?court_id=${cs[0].id}&date=${tomorrow}&days=1`, headers: { "X-Club-Slug": "green-village" } });
+    expect(off.json().courts[cs[0].id][tomorrow].find((s: any) => s.status === "booked").participant_usernames).toBeUndefined();
   });
 });

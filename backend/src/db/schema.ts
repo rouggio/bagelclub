@@ -227,6 +227,8 @@ export const appSettings = pgTable("app_settings", {
   requireMedicalCert: boolean("require_medical_cert").notNull().default(false),
   // Slot time display: start | start_duration | start_end (default range).
   slotTimeFormat: text("slot_time_format").notNull().default("start_end"),
+  // Show booking participant usernames as a tooltip on availability cells.
+  showParticipantNames: boolean("show_participant_names").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

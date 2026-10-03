@@ -159,7 +159,9 @@ export default async function blockRoutes(fastify: FastifyInstance) {
     const club = await requireRequestClub(req, reply, db);
     if (!club) return;
     db = reqDb(req) as any;
-    const { court_id, day_of_week, start_time, end_time, reason, valid_from, valid_until, is_active } = parsed.data;
+    const { court_id, start_time, end_time, reason, valid_from, valid_until, is_active } = parsed.data;
+    // Multi-day create: one rule per weekday (no schema change downstream).
+    const dows = [...new Set(Array.isArray(parsed.data.day_of_week) ? parsed.data.day_of_week : [parsed.data.day_of_week])].sort();
     if (!(await courtInClub(db, club.id, court_id))) return reply.status(404).send({ error: "Court not found" });
     const force = (req.query as any)?.force === "true";
     const isActive = is_active ?? true;
@@ -173,15 +175,15 @@ export default async function blockRoutes(fastify: FastifyInstance) {
         if (valid_from && b.date < valid_from) continue;
         if (valid_until && b.date > valid_until) continue;
         const dow = new Date(b.date + "T12:00:00Z").getUTCDay();
-        if (dow !== day_of_week) continue;
+        if (!dows.includes(dow)) continue;
         const s = String(b.startTime).slice(0,5), e = String(b.endTime).slice(0,5);
         const blkS = String(start_time).slice(0,5), blkE = String(end_time).slice(0,5);
         if (s < blkE && blkS < e) conflicts.push({ id: b.id, date: b.date, startTime: s, endTime: e, courtId: b.courtId });
       }
       if (conflicts.length) return reply.status(409).send({ error: "Recurring block would orphan live bookings", conflicts });
     }
-    const [row] = await db.insert(blockingRules).values({ clubId: club.id, courtId: court_id ?? null, dayOfWeek: day_of_week, startTime: start_time, endTime: end_time, reason, validFrom: valid_from ?? null, validUntil: valid_until ?? null, isActive: isActive }).returning();
-    return reply.status(201).send(row);
+    const rows = await db.insert(blockingRules).values(dows.map((dow) => ({ clubId: club.id, courtId: court_id ?? null, dayOfWeek: dow, startTime: start_time, endTime: end_time, reason, validFrom: valid_from ?? null, validUntil: valid_until ?? null, isActive: isActive }))).returning();
+    return reply.status(201).send(rows);
   });
   fastify.patch("/api/blocking-rules/:id", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     let db: any = (fastify as any).db;

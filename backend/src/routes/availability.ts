@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { splitIntoSlots, overlaps } from "../services/availability.js";
-import { timetables, timetableWindows, bookings, blocks, blockingRules, courts, users } from "../db/schema.js";
+import { timetables, timetableWindows, bookings, blocks, blockingRules, courts, users, bookingParticipants } from "../db/schema.js";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { resolveClubSlug, requireClub, getClubSettings, reqDb } from "../services/club.js";
 
@@ -63,6 +63,22 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
       lte(bookings.date, dayList[dayList.length - 1] as any),
     ));
     const isActiveHold = (b: any) => ["pending_registration", "pending_approval", "approved"].includes(b.status) && !(b.status === "pending_registration" && b.expiresAt && new Date(b.expiresAt) < new Date());
+    // Participant names for tooltips (only when the club enables it).
+    const showNames = !!(settings as any)?.showParticipantNames;
+    let namesByBooking: Record<string, string[]> = {};
+    if (showNames && windowBookings.length) {
+      const partRows: any[] = await db.select().from(bookingParticipants)
+        .where(inArray(bookingParticipants.bookingId, [...new Set(windowBookings.map((b: any) => b.id))]));
+      const ids = [...new Set(partRows.map((p: any) => String(p.userId)))];
+      const nameById: Record<string, string> = {};
+      if (ids.length) {
+        const pUsers: any[] = await db.select().from(users).where(inArray(users.id, ids));
+        for (const u of pUsers) nameById[String(u.id)] = u.username;
+      }
+      for (const p of partRows) {
+        ((namesByBooking[String(p.bookingId)] ??= []) as string[]).push(nameById[String(p.userId)] || String(p.userId).slice(0, 8));
+      }
+    }
 
     // grids[courtId][date] = slots.
     const grids: Record<string, Record<string, any[]>> = {};
@@ -120,8 +136,9 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
             const be = b.endTime.slice(0, 5);
             if (overlaps(slotRange, { start: bs, end: be })) {
               const uname = usernameById[String(b.userId)] || null;
-              if (b.status === "pending_approval") return { ...slot, status: "pending_approval" as const, bookingId: b.id, bookingNotes: b.notes, bookingUserId: b.userId, bookingUsername: uname };
-              return { ...slot, status: "booked" as const, bookingId: b.id, bookingUserId: b.userId, bookingUsername: uname };
+              const parts = namesByBooking[String(b.id)] || null;
+              if (b.status === "pending_approval") return { ...slot, status: "pending_approval" as const, bookingId: b.id, bookingNotes: b.notes, bookingUserId: b.userId, bookingUsername: uname, ...(parts ? { participant_usernames: parts } : {}) };
+              return { ...slot, status: "booked" as const, bookingId: b.id, bookingUserId: b.userId, bookingUsername: uname, ...(parts ? { participant_usernames: parts } : {}) };
             }
           }
           return { ...slot, status: "available" as const, bookingId: null };
