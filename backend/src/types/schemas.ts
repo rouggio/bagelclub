@@ -40,7 +40,7 @@ export const timetableEntrySchema = z.object({
   day_of_week: z.number().int().min(0).max(6),
   open_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(),
   close_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(),
-  slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120, 150, 180, 210].includes(v)).optional(),
+  slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120].includes(v)).optional(),
   is_closed: z.boolean().optional(),
 });
 
@@ -50,7 +50,7 @@ export const timetableBulkSchema = z.array(timetableEntrySchema);
 export const timetableWindowSchema = z.object({
   open_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
   close_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
-  slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120, 150, 180, 210].includes(v)).default(60),
+  slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120].includes(v)).default(60),
   price_cents: z.number().int().min(0).nullable().optional(),
 });
 
@@ -128,7 +128,7 @@ export const notifyPolicySchema = z.object({
 });
 
 export const settingsSchema = z.object({
-  default_slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120, 150, 180, 210].includes(v)).optional(),
+  default_slot_duration_minutes: z.number().int().refine((v) => [30, 60, 90, 120].includes(v)).optional(),
   booking_hold_minutes: z.number().int().min(5).max(120).optional(),
   max_advance_days: z.number().int().min(1).max(90).optional(),
   min_cancel_hours: z.number().int().min(0).max(48).optional(),

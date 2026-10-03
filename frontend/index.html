@@ -833,7 +833,7 @@
   <span>—</span>
   <input type="time" x-model="w.close" class="rounded border px-2 py-1 text-sm" />
   <select x-model.number="w.dur" class="rounded border px-2 py-1 text-sm">
-  <option value="30">30m</option><option value="60">60m</option><option value="90">90m</option><option value="120">120m</option><option value="150">150m</option><option value="180">180m</option><option value="210">210m</option>
+  <option value="30">30m</option><option value="60">60m</option><option value="90">90m</option><option value="120">120m</option>
   </select>
   <input type="number" min="0" step="0.5" x-model="w.price" :placeholder="t('price.perSlot')" x-show="showPrices()" class="w-24 rounded border px-2 py-1 text-sm" />
   <button x-show="row.windows.length > 1" @click="removeTimetableWindow(row, i)" class="rounded border px-2 py-1 text-xs">×</button>
