@@ -1781,6 +1781,9 @@ function app() {
     adminUserForm: { username: "", email: "", password: "", first_name: "", last_name: "", role: "associate" as string, mobile: "" } as { username: string; email: string; password: string; first_name: string; last_name: string; role: string; mobile: string },
     editingUserId: null as string | null,
     adminUserSuccess: "" as string,
+    inviteForm: { username: "", email: "" } as { username: string; email: string },
+    inviteError: "" as string,
+    inviteMsg: "" as string,
 
     async loadAdminLessons() {
       if (!this.user || this.user.role !== "admin") return;
@@ -2214,6 +2217,25 @@ function app() {
       finally { this.adminUsersLoading = false; }
     },
 
+    async inviteUser() {
+      this.inviteError = ""; this.inviteMsg = "";
+      const username = this.inviteForm.username.trim();
+      const email = this.inviteForm.email.trim();
+      if (!username || !email) { this.inviteError = `• ${this.t("admin.users.inviteRequired")}`; return; }
+      try {
+        const token = storedToken();
+        const res = await apiFetch("/api/users/invite", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ username, email }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (res.status === 409) this.inviteError = `• ${this.t("error.taken")}`;
+          else this.inviteError = `• ${(data as any).error || this.t("admin.users.inviteFailed")}`;
+          return;
+        }
+        this.inviteForm = { username: "", email: "" };
+        this.inviteMsg = this.t("admin.users.inviteSent");
+        await this.loadAdminUsers();
+      } catch { this.inviteError = `• ${this.t("admin.users.inviteFailed")}`; }
+    },
     async createAdminUser() {
       this.adminUsersError = ""; this.adminUserSuccess = "";
       if (!this.adminUserForm.username || !this.adminUserForm.password || !this.adminUserForm.first_name || !this.adminUserForm.last_name) { this.adminUsersError = "Username, password, first/last name required (email optional)"; return; }

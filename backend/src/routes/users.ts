@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { users, appSettings, auditLog } from "../db/schema.js";
 import { eq, and, isNull, isNotNull } from "drizzle-orm";
-import { profileSchema, adminCreateUserSchema } from "../types/schemas.js";
+import { profileSchema, adminCreateUserSchema, inviteUserSchema } from "../types/schemas.js";
 import { requireRequestClub, getClubSettings, getPlatformSetting, clubLocales, reqDb } from "../services/club.js";
 import bcrypt from "bcryptjs";
 import { randomBytes, createHash } from "crypto";
@@ -489,6 +489,27 @@ export default async function userRoutes(fastify: FastifyInstance) {
   // The account is unusable until the link is consumed (random password),
   // so receiving + clicking IS the forced password change. Admin sees
   // delivery failures (no enumeration concern inside the admin UI).
+  const welcomeSubjects: Record<string, string> = {
+    it: `Benvenuto su PLACEHOLDER — imposta la tua password`,
+    en: `Welcome to PLACEHOLDER — set your password`,
+    fr: `Bienvenue sur PLACEHOLDER — définissez votre mot de passe`,
+    de: `Willkommen bei PLACEHOLDER — legen Sie Ihr Passwort fest`,
+    es: `Bienvenido a PLACEHOLDER — establece tu contraseña`,
+  };
+  async function sendWelcomeEmail(db: any, club: any, target: any, base: string) {
+    const { loginChallenges } = await import("../db/schema.js");
+    await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, target.id), eq(loginChallenges.purpose, "welcome")));
+    const token = randomBytes(32).toString("hex");
+    await db.insert(loginChallenges).values({
+      userId: target.id, codeHash: createHash("sha256").update(token).digest("hex"),
+      purpose: "welcome", expiresAt: new Date(Date.now() + 7 * 86400000),
+    });
+    const link = `${base}/club/${club.slug}/#reset-password?token=${token}`;
+    const lang = ["it", "en", "fr", "de", "es"].includes(target.preferredLanguage) ? target.preferredLanguage : "en";
+    const subject = (welcomeSubjects[lang] || welcomeSubjects.en).replace("PLACEHOLDER", club.name);
+    const { sendEmail } = await import("../services/email.js");
+    await sendEmail({ to: target.email, subject, text: `${subject}: ${link}`, html: `<p><a href="${link}">${subject}</a></p>` });
+  }
   fastify.post("/api/users/:id/welcome", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
     let db: any = (fastify as any).server.db ?? (fastify as any).db;
     if (!db) return reply.status(501).send({ error: "DB not configured" });
@@ -502,25 +523,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
     if (!target.email) return reply.status(400).send({ error: "welcome_no_email" });
     const base = ((await getPlatformSetting(db, "base_url")) || "").replace(/\/$/, "");
     if (!base) return reply.status(501).send({ error: "welcome_no_base_url" });
-    const subjects: Record<string, string> = {
-      it: `Benvenuto su ${club.name} — imposta la tua password`,
-      en: `Welcome to ${club.name} — set your password`,
-      fr: `Bienvenue sur ${club.name} — définissez votre mot de passe`,
-      de: `Willkommen bei ${club.name} — legen Sie Ihr Passwort fest`,
-      es: `Bienvenido a ${club.name} — establece tu contraseña`,
-    };
     try {
-      const { loginChallenges } = await import("../db/schema.js");
-      await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, target.id), eq(loginChallenges.purpose, "welcome")));
-      const token = randomBytes(32).toString("hex");
-      await db.insert(loginChallenges).values({
-        userId: target.id, codeHash: createHash("sha256").update(token).digest("hex"),
-        purpose: "welcome", expiresAt: new Date(Date.now() + 7 * 86400000),
-      });
-      const link = `${base}/club/${club.slug}/#reset-password?token=${token}`;
-      const lang = ["it", "en", "fr", "de", "es"].includes(target.preferredLanguage) ? target.preferredLanguage : "en";
-      const { sendEmail } = await import("../services/email.js");
-      await sendEmail({ to: target.email, subject: subjects[lang], text: `${subjects[lang]}: ${link}`, html: `<p><a href="${link}">${subjects[lang]}</a></p>` });
+      await sendWelcomeEmail(db, club, target, base);
       return reply.send({ ok: true });
     } catch (e: any) {
       try {
@@ -529,5 +533,55 @@ export default async function userRoutes(fastify: FastifyInstance) {
       } catch {}
       return reply.status(e.statusCode || 500).send({ error: e.message || "welcome_failed" });
     }
+  });
+
+  // Invite: create the account (random password, unusable) + send the
+  // set-password email in one call. Username and email must be unique
+  // within the club. Nothing dangles on failure (user + token removed).
+  fastify.post("/api/users/invite", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const parsed = inviteUserSchema.safeParse((req as any).body);
+    if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
+    let db: any = (fastify as any).db;
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req) as any;
+    const uname = parsed.data.username;
+    const emailVal = parsed.data.email;
+    const dupName = await db.select({ id: users.id }).from(users)
+      .where(and(eq(users.clubId, club.id), eq(users.username, uname), live())).limit(1);
+    if (dupName[0]) return reply.status(409).send({ error: "username or email already taken", field: "username" });
+    const dupMail = await db.select({ id: users.id }).from(users)
+      .where(and(eq(users.clubId, club.id), eq(users.email, emailVal), live())).limit(1);
+    if (dupMail[0]) return reply.status(409).send({ error: "username or email already taken", field: "email" });
+    const base = ((await getPlatformSetting(db, "base_url")) || "").replace(/\/$/, "");
+    if (!base) return reply.status(501).send({ error: "welcome_no_base_url" });
+    const settings = await getClubSettings(db, club.id);
+    const lang = clubLocales(settings).def || "it";
+    const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 10);
+    let created: any = null;
+    try {
+      [created] = await db.insert(users).values({
+        clubId: club.id, username: uname, email: emailVal, passwordHash,
+        firstName: uname, lastName: "", role: "associate", preferredLanguage: lang,
+      }).returning();
+    } catch (e: any) {
+      if (String(e.code) === "23505") return reply.status(409).send({ error: "username or email already taken" });
+      throw e;
+    }
+    try {
+      await sendWelcomeEmail(db, club, created, base);
+    } catch (e: any) {
+      try {
+        const { loginChallenges } = await import("../db/schema.js");
+        await db.delete(loginChallenges).where(and(eq(loginChallenges.userId, created.id), eq(loginChallenges.purpose, "welcome")));
+        await db.delete(users).where(eq(users.id, created.id));
+      } catch {}
+      return reply.status(e.statusCode || 500).send({ error: e.message || "welcome_failed" });
+    }
+    try {
+      await db.insert(auditLog).values({ actorId: (req as any).user.id, clubId: club.id, action: "admin.user.invite", target: created.id, meta: JSON.stringify({ username: uname }) });
+    } catch {}
+    return reply.status(201).send({ id: created.id, username: created.username, email: created.email });
   });
 }

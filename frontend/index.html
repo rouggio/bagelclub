@@ -870,7 +870,17 @@
  
  <h2 class="text-xl font-bold" x-text="t('admin.users.registered')"></h2>
   <button @click="view='admin-create-user'; location.hash='admin-create-user'; cancelEditUser()" class="ml-auto rounded bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-3 py-1 text-xs" x-text="t('admin.users.createUser')"></button>
- </div>
+  </div>
+  <div class="rounded-xl border bg-white p-4 space-y-2">
+  <div class="font-medium text-sm" x-text="t('admin.users.inviteTitle')"></div>
+  <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+  <input x-model="inviteForm.username" :placeholder="t('auth.username')" class="rounded-lg border px-3 py-2 text-sm" />
+  <input x-model="inviteForm.email" type="email" :placeholder="t('auth.email')" class="rounded-lg border px-3 py-2 text-sm" />
+  <button @click="inviteUser()" class="rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300 px-4 py-2 text-sm font-medium" x-text="t('admin.users.invite')"></button>
+  </div>
+  <p x-show="inviteError" class="text-xs text-red-600 whitespace-pre-line" x-text="inviteError"></p>
+  <p x-show="inviteMsg" class="text-xs text-emerald-600" x-text="inviteMsg"></p>
+  </div>
  <div class="rounded-xl border bg-white p-4">
  <p x-show="adminUsersError" class="text-xs text-red-600 mb-2" x-text="adminUsersError"></p>
  <div class="flex gap-2 mb-3">

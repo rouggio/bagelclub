@@ -72,6 +72,54 @@ describe("users (soft delete)", () => {
     }
   });
 
+  it("invite validates uniqueness per club and fails closed", async () => {
+    const member = await loginAs(app, "green-village", "member");
+    const { db: db0, pool: pool0 } = await testDb();
+    await db0.update(users).set({ email: "member@test.local" }).where(eq(users.id, member.user.id));
+    await pool0.end();
+    const invite = (payload: any) => app.inject({ method: "POST", url: "/api/users/invite", headers: H(), payload });
+    // Bad payloads.
+    expect((await invite({ username: "ab", email: "x@test.local" })).statusCode).toBe(400);
+    expect((await invite({ username: "newbie", email: "not-an-email" })).statusCode).toBe(400);
+    // Taken username / taken email (field-aware 409).
+    expect((await invite({ username: "member", email: "fresh@test.local" })).json()).toMatchObject({ field: "username" });
+    expect((await invite({ username: "member", email: "fresh@test.local" })).statusCode).toBe(409);
+    expect((await invite({ username: "freshname", email: "member@test.local" })).json()).toMatchObject({ field: "email" });
+    // Pin mail env (real .env creds may exist): no creds → 501, no user created.
+    const keepKey = process.env.BREVO_API_KEY;
+    const keepFrom = process.env.BREVO_VERIFIED_EMAIL;
+    delete process.env.BREVO_API_KEY;
+    delete process.env.BREVO_VERIFIED_EMAIL;
+    const { db: db0b, pool: pool0b } = await testDb();
+    const { platformSettings: ps0 } = await import("../db/schema.js");
+    await db0b.delete(ps0).where(eq(ps0.key, "base_url"));
+    await pool0b.end();
+    const noMail = await invite({ username: "ghost1", email: "ghost1@test.local" });
+    expect(noMail.statusCode).toBe(501);
+    const { db, pool } = await testDb();
+    expect((await db.select().from(users).where(eq(users.username, "ghost1"))).length).toBe(0);
+    await pool.end();
+    // Undeliverable (dummy creds) → 502 and no dangling user or token.
+    process.env.BREVO_API_KEY = "dummy";
+    process.env.BREVO_VERIFIED_EMAIL = "from@test.local";
+    const { db: db2, pool: pool2 } = await testDb();
+    const { platformSettings } = await import("../db/schema.js");
+    await db2.insert(platformSettings).values({ key: "base_url", value: "https://example.local" }).onConflictDoUpdate({ target: [platformSettings.key], set: { value: "https://example.local" } });
+    await pool2.end();
+    try {
+      const fail = await invite({ username: "ghost2", email: "ghost2@test.local" });
+      expect(fail.statusCode).toBe(502);
+      const { db: db3, pool: pool3 } = await testDb();
+      expect((await db3.select().from(users).where(eq(users.username, "ghost2"))).length).toBe(0);
+      const rows = await db3.select().from(loginChallenges);
+      await pool3.end();
+      expect(rows.filter((c: any) => c.purpose === "welcome").length).toBe(0);
+    } finally {
+      if (keepKey !== undefined) process.env.BREVO_API_KEY = keepKey; else delete process.env.BREVO_API_KEY;
+      if (keepFrom !== undefined) process.env.BREVO_VERIFIED_EMAIL = keepFrom; else delete process.env.BREVO_VERIFIED_EMAIL;
+    }
+  });
+
   it("delete stamps deleted_at and keeps the row + booking history", async () => {
     const member = await loginAs(app, "green-village", "member");
     const { db, pool } = await testDb();

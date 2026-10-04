@@ -18,6 +18,11 @@ export const registerSchema = z.object({
 });
 // Admin create has no required email/phone inputs in the UI — both stay optional there.
 export const adminCreateUserSchema = registerSchema.omit({ mobile: true, email: true }).extend({ mobile: mobileSchema.optional(), email: optionalEmailSchema });
+// Invite: admin sends a set-password email; only username + email are asked.
+export const inviteUserSchema = z.object({
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_.-]+$/),
+  email: z.string().email().toLowerCase(),
+});
 
 export const loginSchema = z.object({
   username: z.string().optional(),
