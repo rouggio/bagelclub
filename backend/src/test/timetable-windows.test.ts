@@ -176,6 +176,22 @@ describe("timetable windows (#24)", () => {
     expect(night.json().priceCents).toBe(1000); // seeded tennis court price
   });
 
+  it("availability_public=false gates anonymous and cross-club readers", async () => {
+    const anon = () => app.inject({ method: "GET", url: `/api/availability?court_id=${courtId}&date=${nextMonday()}&days=1`, headers: { "X-Club-Slug": "green-village" } });
+    expect((await anon()).statusCode).toBe(200);
+    const set = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { availability_public: false } });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().availability_public).toBe(false);
+    expect((await anon()).statusCode).toBe(401);
+    const mh = authHeaders(member.token, "green-village");
+    expect((await app.inject({ method: "GET", url: `/api/availability?court_id=${courtId}&date=${nextMonday()}&days=1`, headers: mh })).statusCode).toBe(200);
+    const { db, pool } = await testDb();
+    await seedClub(db, "beta", "Beta Club", "Europe/Rome");
+    await pool.end();
+    const beta = await loginAs(app, "beta", "member");
+    expect((await app.inject({ method: "GET", url: `/api/availability?court_id=${courtId}&date=${nextMonday()}&days=1`, headers: authHeaders(beta.token, "green-village") })).statusCode).toBe(401);
+  });
+
   it("cross-club writes are rejected", async () => {
     const { db, pool } = await testDb();
     await seedClub(db, "beta", "Beta Club", "Europe/Rome");

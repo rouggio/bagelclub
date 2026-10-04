@@ -579,5 +579,6 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     show_participant_names: (s as any).showParticipantNames ?? false,
     show_rent_racquets: (s as any).showRentRacquets ?? true,
     show_player_count: (s as any).showPlayerCount ?? true,
+    availability_public: (s as any).availabilityPublic ?? true,
   };
 }

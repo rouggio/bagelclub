@@ -48,6 +48,16 @@ describe("club settings toggles", () => {
     expect(info.json().show_player_count).toBe(false);
   });
 
+  it("availability_public defaults true and toggles via PUT", async () => {
+    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
+    expect(get1.json().availability_public).toBe(true);
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { availability_public: false } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().availability_public).toBe(false);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().availability_public).toBe(false);
+  });
+
   it("closed signup 403s public registration, open allows it", async () => {
     const reg = (payload: any) => app.inject({
       method: "POST", url: "/api/auth/register", headers: { "X-Club-Slug": "green-village" }, payload,

@@ -50,6 +50,7 @@ function app() {
     courts: [] as Court[],
     courtsLoading: false as boolean,
     availabilityLoading: false as boolean,
+    availabilityLoginRequired: false as boolean,
     availabilityKey: "" as string,
     availabilityAt: 0 as number,
     availability: {} as Record<string, Array<{ start: string; end: string; status: string }>>,
@@ -181,6 +182,7 @@ function app() {
     platformReports: null as null | { totals: { clubs: number; users: number; bookings: number; revenue_cents: number }; perClub: Array<{ slug: string; name: string; plan: string; isActive: boolean; users: number; bookings: number; approved: number; revenue_cents: number }> },
     platformReportsLoading: false as boolean,
     platformRequests: [] as Array<{ id: string; title: string; body: string; status: string; reply: string | null; votes: number; club_slug: string | null; club_name: string | null; author: string | null; created_at: string; updated_at: string }>,
+    platformReqStatus: "" as string,
     platformReqEdit: {} as Record<string, { status: string; reply: string }>,
     platformReqMsg: "" as string,
     platformRequestsLoading: false as boolean,
@@ -576,6 +578,14 @@ function app() {
       const ids = list.map((c: any) => c.id).join(",");
       try {
         const res = await apiFetch(`/api/availability?court_id=${encodeURIComponent(ids)}&date=${days[0]}&days=${days.length}`);
+        if (res.status === 401) {
+          // Club restricts the grid to logged-in members: clear stale slots
+          // (never fall back to demo data) and show the login hint instead.
+          this.availabilityLoginRequired = true;
+          for (const c of list) for (const day of days) this.availability[`${c.id}|${day}`] = [];
+          return;
+        }
+        this.availabilityLoginRequired = false;
         const data = res.ok ? await res.json() : null;
         const grids: Record<string, any> = data?.courts || {};
         for (const c of list) {
@@ -1190,6 +1200,20 @@ function app() {
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       (this.adminSettings as any).show_player_count = next;
       if (this.clubInfo) (this.clubInfo as any).show_player_count = next;
+    },
+    showAvailabilityPublic(): boolean {
+      const v = (this.clubInfo as any)?.availability_public ?? (this.adminSettings as any)?.availability_public;
+      return v ?? true;
+    },
+    async toggleAvailabilityPublic() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).availability_public ?? true);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ availability_public: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).availability_public = next;
+      if (this.clubInfo) (this.clubInfo as any).availability_public = next;
+      await this.loadAvailability(true);
     },
     openSignup(): boolean {
       const v = (this.clubInfo as any)?.allow_open_signup ?? (this.adminSettings as any)?.allow_open_signup;
@@ -2643,6 +2667,10 @@ function app() {
       } catch (e: any) { this.platformError = e.message || String(e); }
     },
     // ---- Feature requests (#30): platform inbox ----
+    filteredPlatformRequests() {
+      if (!this.platformReqStatus) return this.platformRequests;
+      return this.platformRequests.filter((r) => r.status === this.platformReqStatus);
+    },
     async loadPlatformRequests() {
       // Concurrent duplicate entries collapse to the in-flight call.
       if (this.platformRequestsLoading) return;

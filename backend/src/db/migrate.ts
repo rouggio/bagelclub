@@ -51,6 +51,7 @@ const requiredColumns: Array<[string, string]> = [
   ["app_settings", "show_participant_names"],
   ["app_settings", "show_rent_racquets"],
   ["app_settings", "show_player_count"],
+  ["app_settings", "availability_public"],
   ["app_settings", "fee_cents"],
   ["app_settings", "fee_cadence"],
   ["app_settings", "notify_fee_overdue"],

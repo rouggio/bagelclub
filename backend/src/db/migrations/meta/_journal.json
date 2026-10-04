@@ -309,6 +309,13 @@
    "when": 1790744400000,
    "tag": "0043_player_count",
    "breakpoints": true
+  },
+  {
+   "idx": 44,
+   "version": "7",
+   "when": 1790748000000,
+   "tag": "0044_availability_public",
+   "breakpoints": true
   }
  ]
 }

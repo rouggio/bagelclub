@@ -340,11 +340,22 @@
   </section>
   <section x-show="view==='platform-requests'" class="space-y-3">
   <h2 class="text-xl font-bold" x-text="t('platform.requests.title')"></h2>
+  <div class="flex items-center gap-2">
+  <label class="text-xs text-zinc-500" x-text="t('platform.requests.status')"></label>
+  <select x-model="platformReqStatus" class="rounded-lg border px-3 py-1 text-xs bg-white">
+  <option value="" x-text="t('filter.all')"></option>
+  <option value="open" x-text="t('admin.requests.status.open')"></option>
+  <option value="acked" x-text="t('admin.requests.status.acked')"></option>
+  <option value="planned" x-text="t('admin.requests.status.planned')"></option>
+  <option value="shipped" x-text="t('admin.requests.status.shipped')"></option>
+  <option value="declined" x-text="t('admin.requests.status.declined')"></option>
+  </select>
+  </div>
   <div x-show="platformError" class="text-sm text-red-600 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-3" x-text="platformError"></div>
   <p x-show="platformReqMsg" class="text-sm text-emerald-600" x-text="platformReqMsg"></p>
-  <p x-show="platformRequests.length===0" class="rounded-xl border bg-white p-6 text-center text-sm text-zinc-500" x-text="t('platform.requests.empty')"></p>
+  <p x-show="filteredPlatformRequests().length===0" class="rounded-xl border bg-white p-6 text-center text-sm text-zinc-500" x-text="t('platform.requests.empty')"></p>
   <div class="space-y-2">
-  <template x-for="r in platformRequests" :key="r.id">
+  <template x-for="r in filteredPlatformRequests()" :key="r.id">
   <div class="rounded-xl border bg-white px-3 py-2">
   <div class="flex flex-wrap items-start justify-between gap-2">
   <div class="grid gap-0.5 text-sm">
@@ -403,7 +414,10 @@
   </select>
   <input type="date" x-model="selectedDate" @change="customDay=true; loadAvailability()" :min="new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' })" class="rounded-lg border px-3 py-2 text-sm" />
   </div>
- </div>
+  </div>
+  <div x-show="availabilityLoginRequired" class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+  <span x-text="t('courts.loginRequired') + ' '"></span><a href="#login" @click.prevent="view='login'; location.hash='login'" class="font-medium underline" x-text="t('nav.login')"></a>
+  </div>
  <div x-show="user?.role==='admin' && timetableAdminSelected" class="rounded-xl border p-4 flex flex-wrap items-center justify-between gap-2" :class="timetableAdminSelected?.status==='pending_approval' ? 'border-amber-300 bg-amber-50' : 'border-red-300 bg-red-50'">
  <div class="text-sm">
  <div class="font-semibold" x-text="`${timetableAdminSelected?.status==='pending_approval' ? 'Pending' : 'Booked'}: ${timetableAdminSelected?.courtId ? (courts.find(c=>c.id===timetableAdminSelected.courtId)?.name || (courts.find(c=>c.id===timetableAdminSelected.courtId)?.number ? 'Court ' + courts.find(c=>c.id===timetableAdminSelected.courtId).number : '' ) || timetableAdminSelected.courtId.slice(0,8)) : ''} · ${timetableAdminSelected?.date} ${timetableAdminSelected?.startTime}`"></div>
@@ -1151,6 +1165,13 @@
   <div class="text-xs text-zinc-500" x-text="showPlayerCount() ? t('admin.playerCount.on') : t('admin.playerCount.off')"></div>
   </div>
   <button @click="togglePlayerCount()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="showPlayerCount() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="showPlayerCount() ? 'ON' : 'OFF'"></button>
+  </div>
+  <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
+  <div>
+  <div class="font-medium text-sm" x-text="t('admin.availability')"></div>
+  <div class="text-xs text-zinc-500" x-text="showAvailabilityPublic() ? t('admin.availability.on') : t('admin.availability.off')"></div>
+  </div>
+  <button @click="toggleAvailabilityPublic()" class="rounded-lg px-4 py-2 text-xs font-medium" :class="showAvailabilityPublic() ? 'bg-emerald-200 border border-emerald-300 text-emerald-900 hover:bg-emerald-300' : 'bg-zinc-200'" x-text="showAvailabilityPublic() ? 'ON' : 'OFF'"></button>
   </div>
   <div class="flex items-center justify-between rounded-xl border bg-zinc-50 p-4" x-show="adminSettings">
   <div>

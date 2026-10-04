@@ -233,6 +233,8 @@ export const appSettings = pgTable("app_settings", {
   showRentRacquets: boolean("show_rent_racquets").notNull().default(true),
   // Show the single/double (player count) selector at booking time (default on).
   showPlayerCount: boolean("show_player_count").notNull().default(true),
+  // Availability grid visible to everyone (default) or logged-in club members only.
+  availabilityPublic: boolean("availability_public").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

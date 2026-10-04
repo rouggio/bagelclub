@@ -40,6 +40,18 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
     const club = await requireClub(req, reply, db, resolveClubSlug(req));
     if (!club) return;
     db = reqDb(req) as any;
+    // Visibility gate: clubs may restrict the grid to logged-in members
+    // (default public). Same-club session or superadmin required.
+    {
+      const s = await getClubSettings(db, club.id);
+      if (!((s as any)?.availabilityPublic ?? true)) {
+        let me: any = null;
+        try { await (req as any).jwtVerify(); me = (req as any).user; } catch { me = null; }
+        if (!me || (me.role !== "superadmin" && String(me.clubId) !== String(club.id))) {
+          return reply.status(401).send({ error: "login_required" });
+        }
+      }
+    }
     const courtRows = await db.select().from(courts).where(and(eq(courts.clubId, club.id), inArray(courts.id, ids)));
     if (!courtRows.length) return reply.status(404).send({ error: "Court not found" });
 
