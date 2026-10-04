@@ -229,6 +229,10 @@ export const appSettings = pgTable("app_settings", {
   slotTimeFormat: text("slot_time_format").notNull().default("start_end"),
   // Show booking participant usernames as a tooltip on availability cells.
   showParticipantNames: boolean("show_participant_names").notNull().default(false),
+  // Show the racquet-rental picker at booking/confirm time (default on).
+  showRentRacquets: boolean("show_rent_racquets").notNull().default(true),
+  // Show the single/double (player count) selector at booking time (default on).
+  showPlayerCount: boolean("show_player_count").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

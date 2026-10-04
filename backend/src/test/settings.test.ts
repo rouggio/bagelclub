@@ -28,6 +28,26 @@ describe("club settings toggles", () => {
     expect(JSON.parse(logged.meta).keys).toContain("show_prices");
   });
 
+  it("show_rent_racquets defaults true and toggles via PUT", async () => {
+    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
+    expect(get1.json().show_rent_racquets).toBe(true);
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { show_rent_racquets: false } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().show_rent_racquets).toBe(false);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().show_rent_racquets).toBe(false);
+  });
+
+  it("show_player_count defaults true and toggles via PUT", async () => {
+    const get1 = await app.inject({ method: "GET", url: "/api/settings", headers: H() });
+    expect(get1.json().show_player_count).toBe(true);
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { show_player_count: false } });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().show_player_count).toBe(false);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().show_player_count).toBe(false);
+  });
+
   it("closed signup 403s public registration, open allows it", async () => {
     const reg = (payload: any) => app.inject({
       method: "POST", url: "/api/auth/register", headers: { "X-Club-Slug": "green-village" }, payload,

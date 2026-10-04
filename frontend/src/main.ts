@@ -100,6 +100,7 @@ function app() {
     featureRequestsLoading: false as boolean,
     featureRequestsError: "" as string,
     featureRequestsMsg: "" as string,
+    featureRequestsStatus: "" as string,
     featureRequestForm: { title: "", body: "" } as { title: string; body: string },
     editingRequestId: null as string | null,
     editRequestForm: { title: "", body: "" } as { title: string; body: string },
@@ -636,19 +637,18 @@ function app() {
       if (!this.pendingIntent || this.confirmLoading) return;
       this.confirmError = "";
       const playersVal = this.confirmPlayers === "single" ? 2 : 4;
-      // #26: when the club requires it (non-admin), the list must hold exactly
-      // N players incl. the booker. Logged-in booker is auto-added if missing.
+      // #26: when the club requires it, send the picked list (booker
+      // auto-added). No exact-count check: shorter lists are fine, capped at
+      // the booked size. Admins see the picker too and may leave it empty
+      // (bypass); non-admins always carry at least themselves once logged in.
       let participantIds: string[] | undefined;
-      if (this.requireParticipants() && this.user?.role !== "admin") {
+      if (this.requireParticipants()) {
         if (this.user && !this.confirmParticipants.some((p) => String(p.id) === String(this.user.id))) {
           this.confirmParticipants.unshift({ id: this.user.id, username: this.user.username });
         }
         this.trimParticipants();
-        if (this.confirmParticipants.length !== playersVal) {
-          this.confirmError = `${this.t("booking.participants.required")} (${this.confirmParticipants.length}/${playersVal})`;
-          return;
-        }
-        participantIds = this.confirmParticipants.map((p) => String(p.id));
+        const ids = this.confirmParticipants.map((p) => String(p.id));
+        if (this.user?.role !== "admin" || ids.length) participantIds = ids;
       }
       // NOTE: never send a list when the club does not require it (or for
       // admins, who bypass): selectSlot always seeds the booker alone, and a
@@ -658,7 +658,7 @@ function app() {
         date: this.pendingIntent.date,
         start_time: this.pendingIntent.startTime,
         notes: this.confirmNotes || null,
-        rent_racquets: this.confirmRent,
+        rent_racquets: this.showRentRacquets() ? this.confirmRent : 0,
         players: playersVal,
         ...(participantIds ? { participant_ids: participantIds } : {}),
       };
@@ -1164,6 +1164,32 @@ function app() {
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       (this.adminSettings as any).show_prices = next;
       if (this.clubInfo) (this.clubInfo as any).show_prices = next;
+    },
+    showRentRacquets(): boolean {
+      const v = (this.clubInfo as any)?.show_rent_racquets ?? (this.adminSettings as any)?.show_rent_racquets;
+      return v ?? true;
+    },
+    async toggleRentRacquets() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).show_rent_racquets ?? true);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ show_rent_racquets: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).show_rent_racquets = next;
+      if (this.clubInfo) (this.clubInfo as any).show_rent_racquets = next;
+    },
+    showPlayerCount(): boolean {
+      const v = (this.clubInfo as any)?.show_player_count ?? (this.adminSettings as any)?.show_player_count;
+      return v ?? true;
+    },
+    async togglePlayerCount() {
+      if (!this.adminSettings) return;
+      const next = !((this.adminSettings as any).show_player_count ?? true);
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ show_player_count: next }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).show_player_count = next;
+      if (this.clubInfo) (this.clubInfo as any).show_player_count = next;
     },
     openSignup(): boolean {
       const v = (this.clubInfo as any)?.allow_open_signup ?? (this.adminSettings as any)?.allow_open_signup;
@@ -1976,6 +2002,10 @@ function app() {
       if (status === "declined") return "bg-zinc-200 text-zinc-600";
       return "bg-sky-100 text-sky-700";
     },
+    filteredFeatureRequests() {
+      if (!this.featureRequestsStatus) return this.featureRequests;
+      return this.featureRequests.filter((r) => r.status === this.featureRequestsStatus);
+    },
     async loadFeatureRequests() {
       if (!this.user || this.user.role !== "admin") return;
       // Concurrent duplicate entries collapse to the in-flight call.
@@ -2386,6 +2416,18 @@ function app() {
         return new Intl.NumberFormat(this.lang, { style: "currency", currency: this.clubCurrency || "EUR" }).format(v / 100);
       } catch { return `${(v / 100).toFixed(2)} €`; }
     },
+    // One-line booking summary for lists (players · rent · price),
+    // honouring the club show/hide params.
+    fmtBookingMeta(b: any): string {
+      const parts: string[] = [];
+      if (this.showPlayerCount()) parts.push(Number(b.players) === 4 ? this.t("confirm.double") : this.t("confirm.single"));
+      if (this.showRentRacquets()) parts.push(`${Number(b.rentRacquets) || 0} ${this.t("confirm.rent").toLowerCase()}`);
+      if (this.showPrices()) {
+        const p = this.fmtPrice(b.priceCents ?? (b as any).price_cents);
+        if (p) parts.push(p);
+      }
+      return parts.join(" · ");
+    },
     priceForCourt(courtId: string): number {
       const c = (this.courts || []).find((x: any) => String(x.id) === String(courtId)) || (this.adminCourts || []).find((x: any) => String(x.id) === String(courtId));
       return Number((c as any)?.base_price_cents ?? 0) || 0;
@@ -2693,18 +2735,16 @@ function app() {
     async saveEditBooking(id: string) {
       const token = storedToken();
       const playersVal = this.editPlayers === "single" ? 2 : 4;
-      const payload: any = { notes: this.editNotes || null, rent_racquets: this.editRent, players: playersVal };
-      // #26: keep the stored list in sync when the club requires it.
-      if (this.requireParticipants() && this.user?.role !== "admin") {
+      const payload: any = { notes: this.editNotes || null, rent_racquets: this.showRentRacquets() ? this.editRent : 0, players: playersVal };
+      // #26: keep the stored list in sync when the club requires it (capped,
+      // shorter lists are fine — no exact-count check; admins may clear it).
+      if (this.requireParticipants()) {
         if (this.user && !this.confirmParticipants.some((p) => String(p.id) === String(this.user.id))) {
           this.confirmParticipants.unshift({ id: this.user.id, username: this.user.username });
         }
         this.trimParticipants(playersVal);
-        if (this.confirmParticipants.length !== playersVal) {
-          this.confirmError = `${this.t("booking.participants.required")} (${this.confirmParticipants.length}/${playersVal})`;
-          return;
-        }
-        payload.participant_ids = this.confirmParticipants.map((p) => String(p.id));
+        const ids = this.confirmParticipants.map((p) => String(p.id));
+        if (this.user?.role !== "admin" || ids.length) payload.participant_ids = ids;
       }
       const res = await apiFetch(`/api/bookings/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
       if (!res.ok) { alert("Edit failed: " + await res.text()); return; }

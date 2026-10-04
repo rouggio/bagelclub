@@ -168,6 +168,8 @@ export const settingsSchema = z.object({
   require_medical_cert: z.boolean().optional(),
   slot_time_format: z.enum(["start", "start_duration", "start_end"]).optional(),
   show_participant_names: z.boolean().optional(),
+  show_rent_racquets: z.boolean().optional(),
+  show_player_count: z.boolean().optional(),
 });
 
 const announcementTranslationEntry = z.object({

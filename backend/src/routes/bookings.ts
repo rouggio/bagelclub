@@ -178,8 +178,8 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
     return rows[0] ?? null;
   }
 
-  // #26: validate an explicit participant list (incl. the booker, length ===
-  // players, all live same-club users). Replies 400 and returns null on fail.
+  // #26: validate an explicit participant list (incl. the booker, length
+  // 1..players, all live same-club users). Replies 400 and returns null on fail.
   async function resolveParticipantIds(db: any, club: any, ownerId: string, playersVal: number, raw: any, required: boolean, reply: any): Promise<string[] | null> {
     const ids = Array.isArray(raw) ? [...new Set(raw.map(String))] : [];
     if (!ids.length) {
@@ -187,8 +187,8 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       reply.status(400).send({ error: "participant list required: pick all players" });
       return null;
     }
-    if (ids.length !== playersVal) {
-      reply.status(400).send({ error: `participant list must hold exactly ${playersVal} players` });
+    if (ids.length > playersVal) {
+      reply.status(400).send({ error: `participant list must hold at most ${playersVal} players` });
       return null;
     }
     if (!ids.includes(String(ownerId))) {
@@ -339,11 +339,11 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       }
       participantIds = ids;
     } else if (updates.players !== undefined && user.role !== "admin") {
-      // Count changed without a new list: the stored list must still match.
+      // Count changed without a new list: the stored list must still fit.
       const settings = await getClubSettings(db, club.id);
       if ((settings as any)?.requireParticipantList ?? false) {
         const existing = await db.select().from(bookingParticipants).where(and(eq(bookingParticipants.bookingId, id), eq(bookingParticipants.clubId, club.id)));
-        if (existing.length !== updates.players) return reply.status(400).send({ error: `participant list must hold exactly ${updates.players} players` });
+        if (existing.length > updates.players) return reply.status(400).send({ error: `participant list must hold at most ${updates.players} players` });
       }
     }
     if (Object.keys(updates).length === 0 && participantIds === null) return reply.status(400).send({ error: "No editable fields (notes, rent_racquets, players, participant_ids)" });

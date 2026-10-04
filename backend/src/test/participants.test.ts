@@ -64,17 +64,20 @@ describe("participants #26 (per-club participant lists)", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("required: wrong count, missing self, unknown id are 400", async () => {
+  it("required: short list ok, over-cap/missing self/unknown id are 400", async () => {
     await enableRequire(app, admin);
     const friend = await registerFriend(app);
+    const friend2 = await registerFriend(app, "friend2");
     const h = authHeaders(member.token, "green-village");
-    const base = { court_id: courtId, date: tomorrow(), start_time: "11:00" };
-    // Only self: length 1 !== players 2.
-    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, participant_ids: [member.user.id] } })).statusCode).toBe(400);
+    const base = { court_id: courtId, date: tomorrow() };
+    // Only self: 1..players counts now (was: exact match required).
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, start_time: "11:00", participant_ids: [member.user.id] } })).statusCode).toBe(201);
+    // Over the booked size: 3 ids > players 2.
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, start_time: "12:00", participant_ids: [member.user.id, friend.id, friend2.id] } })).statusCode).toBe(400);
     // Friend only: missing the booker.
-    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, participant_ids: [friend.id, "00000000-0000-0000-0000-000000000001"] } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, start_time: "13:00", participant_ids: [friend.id, "00000000-0000-0000-0000-000000000001"] } })).statusCode).toBe(400);
     // Self + unknown id.
-    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, participant_ids: [member.user.id, "00000000-0000-0000-0000-000000000000"] } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { ...base, start_time: "14:00", participant_ids: [member.user.id, "00000000-0000-0000-0000-000000000000"] } })).statusCode).toBe(400);
   });
 
   it("required: cross-club user is rejected as unknown", async () => {
@@ -118,6 +121,23 @@ describe("participants #26 (per-club participant lists)", () => {
     expect(res.statusCode).toBe(201);
   });
 
+  it("admin explicit list: short list is stored when required", async () => {
+    await enableRequire(app, admin);
+    const friend = await registerFriend(app);
+    const res = await app.inject({
+      method: "POST", url: "/api/bookings", headers: authHeaders(admin.token, "green-village"),
+      payload: { court_id: courtId, date: tomorrow(), start_time: "16:00", participant_ids: [admin.user.id] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().participant_ids).toEqual([admin.user.id]);
+    const full = await app.inject({
+      method: "POST", url: "/api/bookings", headers: authHeaders(admin.token, "green-village"),
+      payload: { court_id: courtId, date: tomorrow(), start_time: "17:00", participant_ids: [admin.user.id, friend.id] },
+    });
+    expect(full.statusCode).toBe(201);
+    expect(full.json().participant_ids).toHaveLength(2);
+  });
+
   it("search: members can find users with minimal fields only", async () => {
     await registerFriend(app, "teammate");
     const res = await app.inject({ method: "GET", url: "/api/users/search?q=team", headers: authHeaders(member.token, "green-village") });
@@ -130,7 +150,7 @@ describe("participants #26 (per-club participant lists)", () => {
     expect((await app.inject({ method: "GET", url: "/api/users/search?q=team" })).statusCode).toBe(401);
   });
 
-  it("PATCH: list can be replaced; players change without a list is 400", async () => {
+  it("PATCH: list can be replaced; shrinking players below list size is 400", async () => {
     await enableRequire(app, admin);
     const friend = await registerFriend(app);
     const friend2 = await registerFriend(app, "friend2");
@@ -141,11 +161,15 @@ describe("participants #26 (per-club participant lists)", () => {
     expect(created.statusCode).toBe(201);
     const id = created.json().id;
     const h = authHeaders(member.token, "green-village");
-    // Players 2→4 without a new list: stored list no longer matches.
-    expect((await app.inject({ method: "PATCH", url: `/api/bookings/${id}`, headers: h, payload: { players: 4 } })).statusCode).toBe(400);
+    // Players 2→4 without a new list: stored list still fits.
+    expect((await app.inject({ method: "PATCH", url: `/api/bookings/${id}`, headers: h, payload: { players: 4 } })).statusCode).toBe(200);
     // Replace the list (self + 3 others not available — use players 2 swap).
     const swapped = await app.inject({ method: "PATCH", url: `/api/bookings/${id}`, headers: h, payload: { participant_ids: [member.user.id, friend2.id] } });
     expect(swapped.statusCode).toBe(200);
     expect(swapped.json().participant_usernames).toEqual(expect.arrayContaining(["member", "friend2"]));
+    // Grow the list to 3, then shrinking players to 2 no longer fits.
+    const grown = await app.inject({ method: "PATCH", url: `/api/bookings/${id}`, headers: h, payload: { players: 4, participant_ids: [member.user.id, friend.id, friend2.id] } });
+    expect(grown.statusCode).toBe(200);
+    expect((await app.inject({ method: "PATCH", url: `/api/bookings/${id}`, headers: h, payload: { players: 2 } })).statusCode).toBe(400);
   });
 });

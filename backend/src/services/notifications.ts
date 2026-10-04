@@ -577,5 +577,7 @@ export function maskSettingsForAdminResponse(s: any, policy: any[] | null = null
     require_medical_cert: (s as any).requireMedicalCert ?? false,
     slot_time_format: (s as any).slotTimeFormat ?? "start_end",
     show_participant_names: (s as any).showParticipantNames ?? false,
+    show_rent_racquets: (s as any).showRentRacquets ?? true,
+    show_player_count: (s as any).showPlayerCount ?? true,
   };
 }
