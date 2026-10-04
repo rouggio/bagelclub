@@ -3,6 +3,47 @@
 /* Alpine.js: hide x-cloak elements until Alpine boots (no pre-init flash). */
 [x-cloak] { display: none !important; }
 
+/* Global loading indicator (viklik-style): thin top progress bar + pill.
+   Bar is indeterminate (free-tier cold starts can take ~60s) to signal
+   every apiFetch/platformFetch transaction. */
+.loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  height: 3px;
+  width: 30%;
+  background: var(--color-hero-from);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 0 0 8px rgba(81, 220, 174, 0.8);
+  animation: loading-bar-slide 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes loading-bar-slide {
+  0% { left: -30%; width: 30%; }
+  50% { left: 35%; width: 40%; }
+  100% { left: 100%; width: 30%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar { animation: none; left: 0; width: 100%; }
+}
+.load-wait {
+  position: fixed;
+  left: 1rem;
+  top: 70px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
 /* ============================================================
    EMPANADEL THEME — single source of truth for all colors
    Edit only this :root block to change the site palette.

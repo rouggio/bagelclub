@@ -1,5 +1,6 @@
 // Multitenancy context: club slug, namespaced storage, central fetch.
 // Pure module (no Alpine/DOM side effects at import) so it can be unit-tested.
+import { startLoading, stopLoading } from "./loading.js";
 
 export function clubSlugFromPath(pathname: string): string | null {
   try {
@@ -65,7 +66,8 @@ export function clearIntent() {
 }
 
 /** Central fetch: attaches X-Club-Slug + Authorization (namespaced token).
- *  Call-site "Bearer null" placeholders (legacy global reads) are replaced. */
+ *  Call-site "Bearer null" placeholders (legacy global reads) are replaced.
+ *  Tracks the global loading indicator for every transaction. */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const headers: Record<string, string> = { ...((init.headers as any) || {}) };
   const slug = getClubSlug();
@@ -76,7 +78,12 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     if (tok) headers["Authorization"] = `Bearer ${tok}`;
     else { delete headers["Authorization"]; delete headers["authorization"]; }
   }
-  return fetch(input, { ...init, headers });
+  startLoading();
+  try {
+    return await fetch(input, { ...init, headers });
+  } finally {
+    stopLoading();
+  }
 }
 
 export function isPlatformPath(pathname: string): boolean {
@@ -88,5 +95,10 @@ export async function platformFetch(input: string, init: RequestInit = {}): Prom
   const headers: Record<string, string> = { ...((init.headers as any) || {}) };
   const tok = localStorage.getItem("platform_token");
   if (tok && !headers["Authorization"]) headers["Authorization"] = `Bearer ${tok}`;
-  return fetch(input, { ...init, headers });
+  startLoading();
+  try {
+    return await fetch(input, { ...init, headers });
+  } finally {
+    stopLoading();
+  }
 }

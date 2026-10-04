@@ -1,5 +1,6 @@
 import Alpine from "alpinejs";
 import { detectLang, setLang, t as translate, type Lang } from "./i18n/index.js";
+import { isLoading, pendingCount, subscribeLoading } from "./loading.js";
 import { DIAL_CODES, DIAL_CODE_BY_REGION } from "./dialCodes.js";
 import {
   clubSlugFromPath, initClubSlug, getClubSlug, setClubSlug,
@@ -37,8 +38,13 @@ function app() {
     lang: "it" as Lang,
     user: null as null | { id: string; username: string; role: string; preferred_language?: Lang },
     meLoading: false as boolean,
+    // Global loading indicator (viklik-style): true while any apiFetch/
+    // platformFetch is in flight. Debounced to avoid flicker on fast cache hits.
+    globalLoading: false as boolean,
+    globalPending: 0 as number,
+    _loadingTimer: null as number | null,
     filterType: "" as string,
-    selectedDate: new Date().toISOString().slice(0, 10),
+    selectedDate: (() => { try { return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Rome" }); } catch { return new Date().toISOString().slice(0, 10); } })(),
     dateRange: 3 as number,
     customDay: false as boolean,
     courts: [] as Court[],
@@ -284,6 +290,23 @@ function app() {
     },
 
     async init() {
+      // Global loading indicator: mirror the pending counter into Alpine state
+      // with a small debounce (viklik used 300ms) to avoid flicker.
+      try {
+        subscribeLoading((n) => {
+          this.globalPending = n;
+          if (this._loadingTimer) { clearTimeout(this._loadingTimer); this._loadingTimer = null; }
+          if (n > 0) {
+            this._loadingTimer = window.setTimeout(() => {
+              if (pendingCount() > 0 || isLoading()) this.globalLoading = true;
+            }, 200);
+          } else {
+            this.globalLoading = false;
+          }
+        });
+        this.globalPending = pendingCount();
+        this.globalLoading = isLoading();
+      } catch {}
       // Platform area has no club context.
       if (isPlatformPath(location.pathname)) {
         this.isPlatform = true;
@@ -383,7 +406,7 @@ function app() {
         if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
         if (this.view === "profile" && this.user) this.loadProfile();
       if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
-      if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
+      if (this.view === "courts") { await this.loadCourts(); await this.loadAvailability(); }
         if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
         if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
         if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -405,7 +428,7 @@ function app() {
       if (this.view === "profile" && this.user) this.loadProfile();
       if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
       if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
-      if (this.view === "courts") { await this.loadCourts(); this.loadAvailability(); }
+      if (this.view === "courts") { await this.loadCourts(); await this.loadAvailability(); }
       if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
       if (this.view === "admin-users" && this.user?.role === "admin") this.loadAdminUsers();
       if (this.view === "admin-create-user" && this.user?.role === "admin") this.loadAdminUsers();
@@ -526,10 +549,6 @@ function app() {
       } finally {
         this.courtsLoading = false;
       }
-      // Availability is NOT loaded here: only the courts view needs it
-      // (see the courts entries in hashchange/init). Keeps landing free
-      // of pointless availability requests.
-      if (this.view === "courts") this.loadAvailability();
     },
 
     // Courts metadata only where court names/prices render (courts, confirm,
@@ -1563,32 +1582,33 @@ function app() {
       this.adminTimetableLoading = true; this.adminTimetableError = ""; this.adminTimetableSuccess = "";
       try {
         const token = storedToken();
-        const stubs: string[] = [];
-        for (const row of this.adminTimetableRows) {
-          const url = force ? "/api/timetable?force=true" : "/api/timetable";
-          const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({
-            court_id: this.adminTimetableCourtId,
+        // Single whole-week PUT (was 7× PUT, one per day).
+        const url = force ? "/api/timetable/week?force=true" : "/api/timetable/week";
+        const res = await apiFetch(url, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({
+          court_id: this.adminTimetableCourtId,
+          days: this.adminTimetableRows.map((row) => ({
             day_of_week: row.dayOfWeek,
             windows: row.windows.map((w) => ({ open_time: w.open, close_time: w.close, slot_duration_minutes: w.dur, price_cents: w.price != null && w.price !== "" ? Math.max(0, Math.round(Number(w.price) * 100)) : null })),
-          }) });
-          if (!res.ok) {
-            const txt = await res.text();
-            let msg = txt;
-            try {
-              const j = JSON.parse(txt);
-              if (j.conflicts) {
-                const base = this.t('admin.timetable.orphanError');
-                msg = `${base}: ${j.conflicts.map((c:any)=>`${c.date} ${c.startTime}-${c.endTime} ${c.reason}`).join("; ")}`;
-                if (!force) msg += " — " + this.t('admin.timetable.forceHint');
-              } else {
-                msg = this.mapTimetableError(j, txt);
-              }
-            } catch {}
-            throw new Error(msg);
-          }
-          const j = await res.json().catch(() => ({}));
-          for (const s of j.stubs_dropped || []) stubs.push(`${s.open}-${s.close}: −${s.dropped_minutes}m`);
+          })),
+        }) });
+        if (!res.ok) {
+          const txt = await res.text();
+          let msg = txt;
+          try {
+            const j = JSON.parse(txt);
+            if (j.conflicts) {
+              const base = this.t('admin.timetable.orphanError');
+              msg = `${base}: ${j.conflicts.map((c:any)=>`${c.date} ${c.startTime}-${c.endTime} ${c.reason}`).join("; ")}`;
+              if (!force) msg += " — " + this.t('admin.timetable.forceHint');
+            } else {
+              msg = this.mapTimetableError(j, txt);
+            }
+          } catch {}
+          throw new Error(msg);
         }
+        const j = await res.json().catch(() => ({}));
+        const stubs: string[] = [];
+        for (const s of j.stubs_dropped || []) stubs.push(`${s.open}-${s.close}: −${s.dropped_minutes}m`);
         this.adminTimetableSuccess = this.t('admin.timetable.saved') + (stubs.length ? ` (${this.t('admin.timetable.stubDropped')}: ${stubs.join(", ")})` : "");
         // Persist what the data already says: multi-window grids imply the flag.
         if (!(this.adminSettings as any)?.flexible_slots && this.adminTimetableRows.some((r) => r.windows.length > 1)) {

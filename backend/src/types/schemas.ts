@@ -60,6 +60,15 @@ export const timetableDaySchema = z.object({
   windows: z.array(timetableWindowSchema).max(8),
 });
 
+// Whole-week replace: one PUT for all 7 days (empty windows = closed day).
+export const timetableWeekSchema = z.object({
+  court_id: z.string().uuid(),
+  days: z.array(z.object({
+    day_of_week: z.number().int().min(0).max(6),
+    windows: z.array(timetableWindowSchema).max(8),
+  })).min(1).max(7),
+});
+
 export const timetableCopySchema = z.object({
   court_id: z.string().uuid(),
   from_dow: z.number().int().min(0).max(6),

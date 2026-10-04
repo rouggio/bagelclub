@@ -9,6 +9,12 @@
  </head>
  <body class="site-page min-h-screen antialiased">
  <div x-data="app()" x-init="init()" class="flex min-h-screen flex-col">
+ <!-- Global loading indicator (viklik-style): top progress bar + pill -->
+ <div x-cloak x-show="globalLoading" class="loading-bar" role="progressbar" aria-label="Loading"></div>
+ <div x-cloak x-show="globalLoading" class="load-wait" role="status" aria-live="polite">
+ <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" aria-hidden="true"></span>
+ <span x-text="t('common.loading')">Loading…</span>
+ </div>
  <header class="site-header sticky top-0 z-30 backdrop-blur">
  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
   <a href="#" @click.prevent="isPlatform ? (view = platformUser ? 'platform-clubs' : 'platform-login') : (clubSlug ? (view='home', location.hash='home') : (location.pathname === '/clubs' ? (location.href='/') : (view='clubs', window.scrollTo(0, 0))))" class="flex items-center gap-2"><img src="/logo.svg" :alt="t('app.name')" alt="Bagel Club" class="h-8 w-8 rounded-lg shadow-sm" /><span class="text-lg font-bold tracking-tight" x-text="(clubSlug && clubInfo?.club_name) || t('app.name')">Bagel Club</span></a>
@@ -372,7 +378,7 @@
    <div class="hero-gradient rounded-2xl p-8">
    <h1 class="text-3xl font-bold md:text-4xl" x-text="t('hero.title')"></h1>
    <p class="mt-2 max-w-xl/90" x-text="t('hero.subtitle')"></p>
-   <a href="#courts" @click.prevent="view='courts'; loadCourts()" class="mt-4 inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('hero.cta')"></a>
+   <a href="#courts" @click.prevent="view='courts'; loadCourts().then(() => loadAvailability())" class="mt-4 inline-block rounded-lg bg-white px-6 py-2 text-sm font-semibold text-emerald-700" x-text="t('hero.cta')"></a>
    </div>
    <div x-show="annLoading" class="text-sm text-zinc-500" x-text="t('myBookings.loading')"></div>
    <div x-show="!annLoading && announcements.length" class="space-y-3">
@@ -803,7 +809,6 @@
   <select x-model="adminTimetableCourtId" @change="renderTimetableCourt()" class="rounded border px-3 py-2 text-sm flex-1">
   <template x-for="c in adminCourts" :key="c.id"><option :value="c.id" x-text="`${c.name || `#${c.number}`} · ${c.type}`"></option></template>
   </select>
-  <button @click="loadAdminTimetable()" class="rounded border px-3 py-2 text-xs" x-text="t('btn.refresh')"></button>
   <label class="flex items-center gap-1 text-xs"><input type="checkbox" :checked="flexOn()" @change="toggleFlexibleSlots()" /> <span x-text="t('admin.timetable.flexible')"></span></label>
   </div>
   <div class="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs">

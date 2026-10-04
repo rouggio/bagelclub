@@ -190,6 +190,7 @@
   "admin.reports.noData": "Keine Daten",
   "admin.blocks.noBlocks": "Keine punktuellen Sperren",
   "common.optional": "optional",
+  "common.loading": "Laden…",
   "telegram.title": "Telegram",
   "telegram.connected": "✅ Verbunden",
   "telegram.notConnected": "Nicht verbunden",

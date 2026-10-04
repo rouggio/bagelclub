@@ -190,6 +190,7 @@
   "admin.reports.noData": "No data",
   "admin.blocks.noBlocks": "No spot blocks",
   "common.optional": "optional",
+  "common.loading": "Loading…",
   "telegram.title": "Telegram",
   "telegram.connected": "✅ Connected",
   "telegram.notConnected": "Not connected",

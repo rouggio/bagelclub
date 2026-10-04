@@ -190,6 +190,7 @@
   "admin.reports.noData": "Sin datos",
   "admin.blocks.noBlocks": "Sin bloqueos puntuales",
   "common.optional": "opcional",
+  "common.loading": "Cargando…",
   "telegram.title": "Telegram",
   "telegram.connected": "✅ Conectado",
   "telegram.notConnected": "No conectado",

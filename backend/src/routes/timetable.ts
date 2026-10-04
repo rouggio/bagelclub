@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { timetableDaySchema, timetableCopySchema } from "../types/schemas.js";
+import { timetableDaySchema, timetableWeekSchema, timetableCopySchema } from "../types/schemas.js";
 import { timetableWindows, timetables, courts } from "../db/schema.js";
 import { eq, and, asc } from "drizzle-orm";
 import { resolveClubSlug, requireClub, requireRequestClub, reqDb } from "../services/club.js";
@@ -119,6 +119,43 @@ export default async function timetableRoutes(fastify: FastifyInstance) {
     }
     await writeDay(db, court_id, day_of_week, windows);
     return reply.send({ updated: windows.length, stubs_dropped: stubHints(windows) });
+  });
+
+  // Whole-week replace in one request (empty windows = closed day).
+  // Validates + orphan-checks every day BEFORE writing anything, so a 409
+  // never leaves a half-saved week (the old 7× PUT loop could).
+  fastify.put("/api/timetable/week", { preHandler: [fastify.authenticate, fastify.requireRole(["admin"])] }, async (req, reply) => {
+    const parsed = timetableWeekSchema.safeParse((req as any).body);
+    if (!parsed.success) return reply.status(400).send(parsed.error.flatten());
+    let db: any = (fastify as any).db;
+    if (!db) return reply.status(501).send({ error: "DB not configured" });
+    const club = await requireRequestClub(req, reply, db);
+    if (!club) return;
+    db = reqDb(req) as any;
+    const { court_id, days } = parsed.data;
+    const own = await db.select({ id: courts.id }).from(courts).where(and(eq(courts.id, court_id), eq(courts.clubId, club.id))).limit(1);
+    if (!own[0]) return reply.status(400).send({ error: "timetable_foreign_court" });
+    for (const d of days) {
+      const bad = validateWindows(d.windows);
+      if (bad) return reply.status(400).send({ error: bad, dayOfWeek: d.day_of_week });
+    }
+    const force = (req.query as any)?.force === "true";
+    if (!force) {
+      for (const d of days) {
+        const conflicts = await orphanConflicts(db, club, court_id, d.day_of_week, d.windows);
+        if (conflicts.length) {
+          return reply.status(409).send({ error: "Timetable change would orphan live bookings", conflicts, dayOfWeek: d.day_of_week, courtId: court_id });
+        }
+      }
+    }
+    const stubs: any[] = [];
+    let winCount = 0;
+    for (const d of days) {
+      await writeDay(db, court_id, d.day_of_week, d.windows);
+      winCount += d.windows.length;
+      for (const s of stubHints(d.windows)) stubs.push({ day_of_week: d.day_of_week, ...s });
+    }
+    return reply.send({ updated_days: days.length, updated_windows: winCount, stubs_dropped: stubs });
   });
 
   // Copy one day's windows onto other weekdays (same court).

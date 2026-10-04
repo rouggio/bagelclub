@@ -87,6 +87,37 @@ describe("timetable windows (#24)", () => {
     expect(g.json().days[courtId].filter((w: any) => w.day_of_week === 4)).toHaveLength(1);
   });
 
+  it("whole-week PUT writes all days in one request", async () => {
+    const week = await app.inject({
+      method: "PUT", url: "/api/timetable/week", headers: H(),
+      payload: {
+        court_id: courtId,
+        days: [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+          day_of_week: dow,
+          windows: dow === 0 ? [] : [{ open_time: "09:00", close_time: "13:00", slot_duration_minutes: 60 }],
+        })),
+      },
+    });
+    expect(week.statusCode).toBe(200);
+    expect(week.json()).toMatchObject({ updated_days: 7 });
+    const g = await app.inject({ method: "GET", url: `/api/timetable?court_id=${courtId}`, headers: { "X-Club-Slug": "green-village" } });
+    const rows = g.json().days[courtId];
+    expect(rows.filter((w: any) => w.day_of_week === 2)).toHaveLength(1);
+    expect(rows.filter((w: any) => w.day_of_week === 0)).toHaveLength(0);
+    const bad = await app.inject({
+      method: "PUT", url: "/api/timetable/week", headers: H(),
+      payload: {
+        court_id: courtId,
+        days: [{ day_of_week: 1, windows: [
+          { open_time: "09:00", close_time: "13:00", slot_duration_minutes: 60 },
+          { open_time: "12:00", close_time: "18:00", slot_duration_minutes: 60 },
+        ] }],
+      },
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json()).toMatchObject({ error: "timetable_overlap", dayOfWeek: 1 });
+  });
+
   it("orphaning a live booking 409s unless forced", async () => {
     await putDay(1, [{ open_time: "08:00", close_time: "22:00", slot_duration_minutes: 60 }]);
     const bk = await app.inject({
