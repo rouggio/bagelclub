@@ -124,6 +124,7 @@ function app() {
     medcertsError: "" as string,
     adminLoading: false as boolean,
     adminError: "" as string,
+    advanceDaysMsg: "" as string,
     adminFilter: "pending_approval" as string,
     adminDateFilter: "all" as "all" | "today" | "week" | "month" | "custom",
     adminDateFrom: "" as string,
@@ -456,6 +457,13 @@ function app() {
       if (day > today) return false;
       const now = new Date().toLocaleTimeString("en-GB", { timeZone: tz, hour12: false }).slice(0, 5);
       return slot.start < now;
+    },
+    // Beyond the club booking horizon: slots render but are not clickable for
+    // non-admins (admins bypass the horizon like the other booking gates).
+    isBeyondHorizon(date?: string): boolean {
+      const max = this.maxBookableDate();
+      if (!max) return false;
+      return (date || this.selectedDate) > max;
     },
 
     courtTypes(): string[] {
@@ -1277,6 +1285,34 @@ function app() {
       if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
       (this.adminSettings as any).slot_time_format = v;
       if (this.clubInfo) (this.clubInfo as any).slot_time_format = v;
+    },
+    // Booking horizon: how many days ahead can be booked (default 21, 1–90).
+    maxAdvanceDays(): number {
+      const v = Number((this.clubInfo as any)?.max_advance_days ?? (this.adminSettings as any)?.max_advance_days);
+      return Number.isFinite(v) && v >= 1 ? Math.min(90, Math.floor(v)) : 21;
+    },
+    maxBookableDate(): string {
+      try {
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: this.clubTimezone || "Europe/Rome" });
+        const [y, m, d] = today.split("-").map(Number);
+        return new Date(Date.UTC(y, m - 1, d) + this.maxAdvanceDays() * 86400000).toISOString().slice(0, 10);
+      } catch { return ""; }
+    },
+    async saveAdvanceDays(v: any, el?: any) {
+      if (!this.adminSettings) return;
+      const n = Math.floor(Number(v));
+      if (!Number.isFinite(n) || n < 1 || n > 90) {
+        alert(this.t("admin.advanceDays.invalid"));
+        if (el) el.value = this.maxAdvanceDays();
+        return;
+      }
+      const token = storedToken();
+      const res = await apiFetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ max_advance_days: n }) });
+      if (!res.ok) { alert("Settings failed: " + await res.text()); return; }
+      (this.adminSettings as any).max_advance_days = n;
+      if (this.clubInfo) (this.clubInfo as any).max_advance_days = n;
+      this.advanceDaysMsg = this.t("admin.advanceDays.saved");
+      window.setTimeout(() => { this.advanceDaysMsg = ""; }, 2500);
     },
     // #33: cert status from the admin user row (safeUser medical_cert).
     certStatusOf(u: any): string {

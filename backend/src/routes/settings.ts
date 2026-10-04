@@ -9,7 +9,7 @@ const FALLBACK_INFO = { club_name: "Green Village", club_phone: "3923047417", cl
 const FALLBACK_SETTINGS = {
   default_slot_duration_minutes: 60,
   booking_hold_minutes: 30,
-  max_advance_days: 14,
+  max_advance_days: 21,
   min_cancel_hours: 2,
   auto_approve_bookings: false,
   club_name: "Green Village",
@@ -50,6 +50,7 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
         availability_public: (s as any)?.availabilityPublic ?? true,
         // Public boolean only (never the token): profile hides Telegram setup when the club has no bot.
         telegram_configured: !!s?.telegramBotToken,
+        max_advance_days: s?.maxAdvanceDays ?? 21,
       });
     } catch {
       return reply.send(FALLBACK_INFO);

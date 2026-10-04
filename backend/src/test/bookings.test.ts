@@ -40,6 +40,20 @@ describe("bookings (club-scoped)", () => {
     expect(r2.statusCode).toBe(409);
   });
 
+  it("enforces the club booking horizon (default 21 days)", async () => {
+    const h = authHeaders(member.token, "green-village");
+    const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const info = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info.json().max_advance_days).toBe(21);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { court_id: courtId, date: day(21), start_time: "10:00" } })).statusCode).toBe(201);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { court_id: courtId, date: day(22), start_time: "10:00" } })).statusCode).toBe(400);
+    const ah = authHeaders(admin.token, "green-village");
+    expect((await app.inject({ method: "PUT", url: "/api/settings", headers: ah, payload: { max_advance_days: 2 } })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { court_id: courtId, date: day(3), start_time: "11:00" } })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: h, payload: { court_id: courtId, date: day(2), start_time: "11:00" } })).statusCode).toBe(201);
+    const ah2 = authHeaders(admin.token, "green-village");
+    expect((await app.inject({ method: "POST", url: "/api/bookings", headers: ah2, payload: { court_id: courtId, date: day(22), start_time: "12:00" } })).statusCode).toBe(201);
+  });
   it("rejects a court from another club", async () => {
     const res = await app.inject({
       method: "POST", url: "/api/bookings", headers: authHeaders(member.token, "green-village"),

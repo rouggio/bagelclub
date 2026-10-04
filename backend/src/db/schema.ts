@@ -197,7 +197,7 @@ export const appSettings = pgTable("app_settings", {
     .references(() => clubs.id, { onDelete: "cascade" }),
   defaultSlotDurationMinutes: integer("default_slot_duration_minutes").notNull().default(60),
   bookingHoldMinutes: integer("booking_hold_minutes").notNull().default(30),
-  maxAdvanceDays: integer("max_advance_days").notNull().default(14),
+  maxAdvanceDays: integer("max_advance_days").notNull().default(21),
   minCancelHours: integer("min_cancel_hours").notNull().default(2),
   autoApproveBookings: boolean("auto_approve_bookings").notNull().default(false),
   clubName: varchar("club_name", { length: 100 }),

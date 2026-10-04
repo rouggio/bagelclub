@@ -47,6 +47,15 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       const nowTime = new Date().toLocaleTimeString("en-GB", { timeZone: tz, hour12: false }).slice(0, 5);
       if (start_time.slice(0, 5) < nowTime) return reply.status(400).send({ error: "Cannot book a time slot in the past" });
     }
+    // Booking horizon: clubs decide how many days ahead can be booked (default 21).
+    // Admins bypass it like the other booking gates (fees, medcert, participant list).
+    if (user.role !== "admin") {
+      const s = await getClubSettings(db, club.id);
+      const maxDays = (s as any)?.maxAdvanceDays ?? 21;
+      const [y, m, d] = todayStr.split("-").map(Number);
+      const maxDate = new Date(Date.UTC(y, m - 1, d) + maxDays * 86400000).toISOString().slice(0, 10);
+      if (date > maxDate) return reply.status(400).send({ error: "Booking too far in advance" });
+    }
     // Default players per court type if not provided: tennis 2 (single), padel 4 (double)
     const playersVal = players ?? (court.type === "padel" ? 4 : 2);
 
