@@ -407,7 +407,7 @@ function app() {
         if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
         if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
         if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
-        if (this.view === "profile" && this.user) this.loadProfile();
+        if (this.view === "profile" && this.user) { this.ensureCourts(); this.loadProfile(); }
       if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
       if (this.view === "courts") { await this.loadCourts(); await this.loadAvailability(); }
         if (this.view === "admin-courts" && this.user?.role === "admin") this.loadAdminCourts();
@@ -428,7 +428,7 @@ function app() {
       });
       if (this.view === "me" && this.user) { this.ensureCourts(); this.loadBookings(); }
       if (this.view === "profile" && this.impSession) { this.view = "home"; location.hash = "home"; }
-      if (this.view === "profile" && this.user) this.loadProfile();
+      if (this.view === "profile" && this.user) { this.ensureCourts(); this.loadProfile(); }
       if (this.view === "admin") { this.view = "admin-bookings"; location.hash = "admin-bookings"; }
       if (this.view === "admin-bookings" && this.isStaff()) { this.ensureCourts(); if (this.user?.role === "admin") await this.loadAdminSettings(); this.applyBookingFilterPreset(); this.loadAdminBookings(); }
       if (this.view === "courts") { await this.loadCourts(); await this.loadAvailability(); }
@@ -1214,6 +1214,21 @@ function app() {
       (this.adminSettings as any).availability_public = next;
       if (this.clubInfo) (this.clubInfo as any).availability_public = next;
       await this.loadAvailability(true);
+    },
+    // Profile relevance: the sport picker matters only with 2+ court types;
+    // Telegram setup only matters when the club configured a bot.
+    hasMultipleSports(): boolean {
+      try {
+        const types = new Set(
+          [...(this.courts || []), ...((this as any).adminCourts || [])]
+            .map((c: any) => c?.type).filter(Boolean)
+        );
+        return types.size > 1;
+      } catch { return true; }
+    },
+    clubHasTelegram(): boolean {
+      const v = (this.clubInfo as any)?.telegram_configured;
+      return v ?? true;
     },
     openSignup(): boolean {
       const v = (this.clubInfo as any)?.allow_open_signup ?? (this.adminSettings as any)?.allow_open_signup;

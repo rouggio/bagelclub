@@ -58,6 +58,17 @@ describe("club settings toggles", () => {
     expect(info.json().availability_public).toBe(false);
   });
 
+  it("club-info exposes telegram_configured without leaking the token", async () => {
+    const info1 = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info1.json().telegram_configured).toBe(false);
+    expect("telegram_bot_token" in info1.json()).toBe(false);
+    const put = await app.inject({ method: "PUT", url: "/api/settings", headers: H(), payload: { telegram_bot_token: "test-bot-token" } });
+    expect(put.statusCode).toBe(200);
+    const info2 = await app.inject({ method: "GET", url: "/api/club-info?slug=green-village", headers: { "X-Club-Slug": "green-village" } });
+    expect(info2.json().telegram_configured).toBe(true);
+    expect("telegram_bot_token" in info2.json()).toBe(false);
+  });
+
   it("closed signup 403s public registration, open allows it", async () => {
     const reg = (payload: any) => app.inject({
       method: "POST", url: "/api/auth/register", headers: { "X-Club-Slug": "green-village" }, payload,

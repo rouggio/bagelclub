@@ -692,14 +692,14 @@
    </select>
    <input x-model="profileForm.mobile_number" type="tel" inputmode="tel" :placeholder="t('profile.mobile')" class="flex-1 rounded-lg border px-3 py-2 text-sm" />
    </div>
-  <div class="rounded-lg border p-3 space-y-2 bg-zinc-50">
+     <div class="rounded-lg border p-3 space-y-2 bg-zinc-50" x-show="clubHasTelegram()">
   <div class="flex items-center justify-between text-sm"><span class="font-medium" x-text="t('telegram.title')"></span><span class="text-xs" :class="telegramLinked ? 'text-emerald-600' : 'text-zinc-500'" x-text="telegramLinked ? t('telegram.connected') : t('telegram.notConnected')"></span></div>
   <button x-show="!telegramLinked" @click="createTelegramLink()" :disabled="telegramLinkLoading" class="w-full rounded-lg bg-emerald-200 border border-emerald-300 text-emerald-900 py-2 text-xs font-medium" x-text="telegramLinkLoading ? t('telegram.linking') : t('telegram.connect')"></button>
   <button x-show="telegramLinked" @click="unlinkTelegram()" class="w-full rounded-lg border bg-white py-2 text-xs" x-text="t('telegram.disconnect')"></button>
   <p x-show="telegramLinkUrl" class="text-xs break-all"><a :href="telegramLinkUrl" target="_blank" class="underline text-emerald-700" x-text="telegramLinkUrl"></a></p>
   <p class="text-[11px] text-zinc-500" x-text="t('telegram.hint')"></p>
   </div>
-  <select x-model="profileForm.preferred_sport" class="w-full rounded-lg border px-3 py-2 text-sm">
+   <select x-model="profileForm.preferred_sport" x-show="hasMultipleSports()" class="w-full rounded-lg border px-3 py-2 text-sm">
  <option value="" x-text="t('profile.preferredSport.none')"></option>
  <option value="tennis">Tennis</option>
  <option value="padel">Padel</option>
@@ -730,7 +730,7 @@
   <span>🟢 WhatsApp <span class="text-xs text-zinc-500" x-text="notifyPrefs?.channels?.whatsapp?.connected ? notifyPrefs.channels.whatsapp.number : t('profile.waNotSet')"></span></span>
   <input type="checkbox" x-model="profileForm.notify_whatsapp" @change="saveProfile()" :disabled="!notifyPrefs?.channels?.whatsapp?.connected" />
   </div>
-  <div class="flex items-center justify-between text-sm">
+  <div class="flex items-center justify-between text-sm" x-show="clubHasTelegram()">
   <span>✈️ Telegram <span class="text-xs" :class="notifyPrefs?.channels?.telegram?.connected ? 'text-emerald-600' : 'text-zinc-500'" x-text="notifyPrefs?.channels?.telegram?.connected ? t('telegram.connected') : t('telegram.notConnected')"></span></span>
   <input type="checkbox" x-model="profileForm.notify_telegram" @change="saveProfile()" :disabled="!notifyPrefs?.channels?.telegram?.connected" />
   </div>
@@ -940,7 +940,7 @@
   <input :value="viewedUser?.mobile || ''" disabled class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.mobile')" />
   <input :value="viewedUser?.gender || ''" disabled class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.gender')" />
   <input :value="viewedUser?.birthdate || ''" disabled type="text" class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.birthdate')" />
-  <input :value="viewedUser?.preferred_sport || viewedUser?.preferredSport || ''" disabled class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.preferredSport')" />
+  <input :value="viewedUser?.preferred_sport || viewedUser?.preferredSport || ''" x-show="hasMultipleSports()" disabled class="w-full rounded-lg border px-3 py-2 text-sm bg-zinc-100" :placeholder="t('profile.preferredSport')" />
   <div class="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm bg-zinc-100">
   <img :src="viewedUser ? flagUrl(viewedUser.preferred_language || viewedUser.preferredLanguage || 'it') : ''" class="h-3 w-4 object-cover rounded-sm" :alt="viewedUser?.preferred_language" />
   <span x-text="viewedUser ? t('lang.'+(viewedUser.preferred_language || viewedUser.preferredLanguage || 'it')) : ''"></span>
